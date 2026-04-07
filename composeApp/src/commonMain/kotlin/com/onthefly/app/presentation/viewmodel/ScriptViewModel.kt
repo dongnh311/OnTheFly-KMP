@@ -15,7 +15,11 @@ import com.onthefly.app.domain.model.NativeAction
 import com.onthefly.app.domain.model.UIComponent
 import com.onthefly.app.domain.model.applyUpdates
 import com.onthefly.app.domain.usecase.LoadScriptUseCase
+import com.onthefly.app.engine.EngineError
+import com.onthefly.app.engine.ErrorConfig
+import com.onthefly.app.engine.NetworkSecurity
 import com.onthefly.app.engine.QuickJSEngine
+import com.onthefly.app.engine.ScriptVerifier
 import com.onthefly.app.engine.style.StyleRegistry
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
@@ -52,6 +56,8 @@ class ScriptViewModel(localStorage: ScriptStorage) : ViewModel() {
     private var _pendingGoBack = false
     private var isInitialized = false
     private var currentBundleName: String = ""
+    private var errorConfig = ErrorConfig()
+    private var loadRetryCount = 0
 
     fun loadAndRun(bundleName: String) {
         if (isInitialized) return
@@ -67,12 +73,21 @@ class ScriptViewModel(localStorage: ScriptStorage) : ViewModel() {
                 isInitialized = true
                 dispatchLifecycleEvent(EngineEvent.ON_CREATE_VIEW)
             } catch (e: Exception) {
-                _error.value = e.message
+                handleLoadError(e.message ?: "Unknown error")
             }
         }
     }
 
     private fun loadFromLocal(bundleName: String) {
+        // 0. Verify script signature if enabled
+        val verification = ScriptVerifier.verify(bundleName, localStorage)
+        if (!verification.success) {
+            val errMsg = "Script verification failed: ${verification.errors.joinToString("; ")}"
+            _error.value = errMsg
+            println("ScriptViewModel: $errMsg")
+            return
+        }
+
         // 1. Inject OnTheFly.shared API (Kotlin-backed shared store)
         engine.injectSharedAPI(SharedDataStore.toJson())
 
@@ -100,14 +115,22 @@ class ScriptViewModel(localStorage: ScriptStorage) : ViewModel() {
             engine.loadStyles()
         }
 
-        // 5. Load bundle-specific base.js (optional)
+        // 5. Load errorConfig from manifest
+        try {
+            val manifestJson = localStorage.readFile(bundleName, "manifest.json")
+            val manifest = com.onthefly.app.util.JsonParser.parseObject(manifestJson)
+            @Suppress("UNCHECKED_CAST")
+            errorConfig = ErrorConfig.fromMap(manifest["errorConfig"] as? Map<*, *>)
+        } catch (_: Exception) { }
+
+        // 6. Load bundle-specific base.js (optional)
         val bundleBase = repository.loadBundleBase(bundleName)
         if (bundleBase != null) {
             val r = engine.eval(bundleBase, "$bundleName/base.js")
             if (r.startsWith("Error:")) { _error.value = "base.js: $r"; return }
         }
 
-        // 6. Load main entry
+        // 7. Load main entry
         val bundle = loadScript(bundleName)
         val result = engine.eval(bundle.scriptContent, bundle.entry)
         engine.drainLogs()
@@ -145,24 +168,74 @@ class ScriptViewModel(localStorage: ScriptStorage) : ViewModel() {
         }
     }
 
+    private fun handleLoadError(message: String) {
+        if (loadRetryCount < errorConfig.maxRetries) {
+            loadRetryCount++
+            println("ScriptViewModel: Load error, retrying ($loadRetryCount/${errorConfig.maxRetries}): $message")
+            viewModelScope.launch {
+                delay(1000L * loadRetryCount)
+                try {
+                    engine.close()
+                    engine.init()
+                    loadFromLocal(currentBundleName)
+                    isInitialized = true
+                    dispatchLifecycleEvent(EngineEvent.ON_CREATE_VIEW)
+                } catch (e: Exception) {
+                    handleLoadError(e.message ?: "Unknown error")
+                }
+            }
+        } else {
+            _error.value = message
+            if (errorConfig.reportErrors) {
+                println("ScriptViewModel: SCRIPT_ERROR: $message")
+            }
+        }
+    }
+
     fun dispatchLifecycleEvent(event: String) {
         if (!isInitialized) return
-        try { engine.dispatchEvent(event); refreshUI() } catch (_: Exception) { }
+        try {
+            val err = engine.safeDispatchEvent(event)
+            if (err != null && errorConfig.reportErrors) {
+                println("ScriptViewModel: JS_ERROR in $event: $err")
+            }
+            refreshUI()
+        } catch (_: Exception) { }
     }
 
     fun sendDataToScript(eventName: String, jsonData: String) {
         if (!isInitialized) return
-        try { engine.dispatchEvent(eventName, jsonData); refreshUI() } catch (_: Exception) { }
+        try {
+            val err = engine.safeDispatchEvent(eventName, jsonData)
+            if (err != null && errorConfig.reportErrors) {
+                println("ScriptViewModel: JS_ERROR in $eventName: $err")
+            }
+            refreshUI()
+        } catch (_: Exception) { }
     }
 
     fun onComponentEvent(eventName: String, componentId: String, data: String? = null) {
         if (!isInitialized) return
-        try { engine.dispatchComponentEvent(eventName, componentId, data); refreshUI() } catch (_: Exception) { }
+        try {
+            val err = engine.safeDispatchComponentEvent(eventName, componentId, data)
+            if (err != null && errorConfig.reportErrors) {
+                println("ScriptViewModel: JS_ERROR in $eventName($componentId): $err")
+            }
+            refreshUI()
+        } catch (_: Exception) { }
     }
 
     fun onEvent(functionName: String) {
         if (!isInitialized) return
-        try { engine.callFunction(functionName); refreshUI() } catch (e: Exception) { _error.value = e.message }
+        try {
+            engine.callFunction(functionName)
+            refreshUI()
+        } catch (e: Exception) {
+            val error = EngineError(type = "js_error", message = e.message ?: "Unknown error")
+            engine.dispatchOnError(error)
+            if (errorConfig.reportErrors) println("ScriptViewModel: JS_ERROR in $functionName: ${e.message}")
+            refreshUI()
+        }
     }
 
     private fun refreshUI() {
@@ -199,23 +272,66 @@ class ScriptViewModel(localStorage: ScriptStorage) : ViewModel() {
                     if (key.isNotEmpty()) SharedDataStore.set(key, value)
                 }
                 NativeAction.SEND_REQUEST -> handleSendRequest(action.data)
+                NativeAction.CANCEL_REQUEST -> handleCancelRequest(action.data)
             }
         }
     }
 
     @Suppress("UNCHECKED_CAST")
     private fun handleSendRequest(data: Map<String, Any>) {
-        val requestId = data["id"] as? String ?: "req_${kotlinx.datetime.Clock.System.now().epochSeconds}"
+        val requestId = data["id"] as? String
+            ?: data["requestId"] as? String
+            ?: "req_${kotlinx.datetime.Clock.System.now().epochSeconds}"
         val url = data["url"] as? String ?: ""
         val method = data["method"] as? String ?: "GET"
         val headers = (data["headers"] as? Map<String, Any>)?.mapValues { it.value.toString() } ?: emptyMap()
         val body = data["body"] as? String
+        val timeout = (data["timeout"] as? Number)?.toLong() ?: 30000L
+        val retry = (data["retry"] as? Number)?.toInt() ?: 0
+        val retryDelay = (data["retryDelay"] as? Number)?.toLong() ?: 1000L
         if (url.isEmpty()) return
 
-        viewModelScope.launch {
-            val response = NetworkSource.execute(NetworkRequest(requestId, url, method, headers, body))
+        // Security check
+        val secCheck = NetworkSecurity.validate(url)
+        if (!secCheck.allowed) {
+            println("ScriptViewModel: Request blocked: ${secCheck.reason}")
+            val error = EngineError(
+                type = "network_error",
+                message = secCheck.reason ?: "Request blocked by security policy",
+                details = mapOf("url" to url, "requestId" to requestId)
+            )
+            engine.dispatchOnError(error)
+            refreshUI()
+            return
+        }
+
+        val job = viewModelScope.launch {
+            val response = NetworkSource.execute(
+                NetworkRequest(requestId, url, method, headers, body, timeout, retry, retryDelay)
+            )
+            NetworkSource.completeRequest(requestId)
+
+            if (response.isError) {
+                // Dispatch onError for network errors
+                val error = EngineError(
+                    type = if (response.status == -3) "timeout_error" else "network_error",
+                    message = response.error ?: "HTTP ${response.status}",
+                    code = response.status,
+                    details = mapOf("url" to url, "requestId" to requestId, "status" to response.status)
+                )
+                engine.dispatchOnError(error)
+                if (errorConfig.reportErrors) {
+                    println("ScriptViewModel: NETWORK_ERROR: ${response.error} (${response.status}) $url")
+                }
+            }
             sendDataToScript(EngineEvent.ON_DATA_RECEIVED, response.toJson())
         }
+        NetworkSource.trackRequest(requestId, job)
+    }
+
+    private fun handleCancelRequest(data: Map<String, Any>) {
+        val requestId = data["requestId"] as? String ?: return
+        NetworkSource.cancelRequest(requestId)
     }
 
     fun consumeGoBack(): Boolean {

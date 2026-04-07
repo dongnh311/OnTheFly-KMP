@@ -95,6 +95,53 @@ class QuickJSEngine : AutoCloseable {
         return eval(script, "<event:$eventName>")
     }
 
+    /**
+     * Safely dispatch an event with try-catch wrapping.
+     * On JS error: calls onError() if defined, returns the error.
+     */
+    fun safeDispatchEvent(eventName: String, data: String? = null): String? {
+        val result = dispatchEvent(eventName, data)
+        if (result.startsWith("Error:")) {
+            val error = EngineError(
+                type = "js_error",
+                message = result.removePrefix("Error: "),
+                details = mapOf("event" to eventName)
+            )
+            dispatchOnError(error)
+            return result
+        }
+        return null
+    }
+
+    fun safeDispatchComponentEvent(eventName: String, componentId: String, data: String? = null): String? {
+        val result = dispatchComponentEvent(eventName, componentId, data)
+        if (result.startsWith("Error:")) {
+            val error = EngineError(
+                type = "js_error",
+                message = result.removePrefix("Error: "),
+                details = mapOf("event" to eventName, "componentId" to componentId)
+            )
+            dispatchOnError(error)
+            return result
+        }
+        return null
+    }
+
+    /**
+     * Dispatch an error to the JS onError handler.
+     * Returns true if onError handled it, false if not defined.
+     */
+    fun dispatchOnError(error: EngineError): Boolean {
+        if (contextPtr == 0L) return false
+        val script = "typeof onError === 'function' && onError(${error.toJson()})"
+        return try {
+            val result = eval(script, "<error-handler>")
+            !result.startsWith("Error:")
+        } catch (_: Exception) {
+            false
+        }
+    }
+
     fun loadStyles() {
         check(contextPtr != 0L) { "Engine not initialized" }
         val stylesJson = bridge.getStyles(contextPtr)
