@@ -1,5 +1,7 @@
 package com.onthefly.app.data.source
 
+import com.onthefly.app.data.repository.ScriptRepositoryImpl
+
 class ScriptUpdateManager(
     private val localStorage: ScriptStorage
 ) {
@@ -17,25 +19,36 @@ class ScriptUpdateManager(
             if (lastGlobal == globalVersion) return false
 
             val bundles = manifest["bundles"] as? Map<*, *> ?: return false
-            val bundleInfo = bundles[bundleName] as? Map<*, *> ?: return false
 
-            val files = bundleInfo["files"] as? List<*> ?: return false
-            for (file in files) {
-                val fileName = file as? String ?: continue
-                val content = DevServerSource.fetchFile(bundleName, fileName)
-                if (content != null) {
-                    localStorage.writeFile(bundleName, fileName, content)
-                }
-            }
+            // Sync the requested bundle
+            syncBundle(bundles, bundleName)
 
-            val remoteVersion = bundleInfo["version"] as? String ?: ""
-            localStorage.setVersion(bundleName, remoteVersion)
+            // Also sync _libs and _base if present
+            syncBundle(bundles, ScriptRepositoryImpl.LIBS_DIR)
+            syncBundle(bundles, ScriptRepositoryImpl.BASE_DIR)
+
             localStorage.setVersion(KEY_GLOBAL, globalVersion)
-            println("ScriptUpdateManager: Updated $bundleName from dev server (v$remoteVersion)")
             true
         } catch (e: Exception) {
             println("ScriptUpdateManager: Failed to update $bundleName: ${e.message}")
             false
+        }
+    }
+
+    private suspend fun syncBundle(bundles: Map<*, *>, name: String) {
+        val bundleInfo = bundles[name] as? Map<*, *> ?: return
+        val files = bundleInfo["files"] as? List<*> ?: return
+        for (file in files) {
+            val fileName = file as? String ?: continue
+            val content = DevServerSource.fetchFile(name, fileName)
+            if (content != null) {
+                localStorage.writeFile(name, fileName, content)
+            }
+        }
+        val remoteVersion = bundleInfo["version"] as? String ?: ""
+        if (remoteVersion.isNotEmpty()) {
+            localStorage.setVersion(name, remoteVersion)
+            println("ScriptUpdateManager: Updated $name from dev server (v$remoteVersion)")
         }
     }
 

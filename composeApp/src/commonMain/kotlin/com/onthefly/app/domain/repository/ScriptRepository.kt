@@ -5,4 +5,13 @@ import com.onthefly.app.domain.model.ScriptBundle
 interface ScriptRepository {
     fun loadBundle(bundleName: String): ScriptBundle
     fun loadTheme(bundleName: String): String?
+
+    /** Load all JS files from _libs/ directory (singleton libraries). */
+    fun loadGlobalLibs(): List<Pair<String, String>>
+
+    /** Load all JS files from _base/ directory (shared utility functions). */
+    fun loadGlobalBase(): List<Pair<String, String>>
+
+    /** Load bundle-specific base.js if it exists. */
+    fun loadBundleBase(bundleName: String): String?
 }

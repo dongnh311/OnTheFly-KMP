@@ -9,6 +9,11 @@ class ScriptRepositoryImpl(
     private val localStorage: ScriptStorage
 ) : ScriptRepository {
 
+    companion object {
+        const val LIBS_DIR = "_libs"
+        const val BASE_DIR = "_base"
+    }
+
     override fun loadBundle(bundleName: String): ScriptBundle {
         val manifestJson = localStorage.readFile(bundleName, "manifest.json")
         val manifest = JsonParser.parseObject(manifestJson)
@@ -27,5 +32,28 @@ class ScriptRepositoryImpl(
         return try {
             localStorage.readFile(bundleName, "theme.js")
         } catch (_: Exception) { null }
+    }
+
+    override fun loadGlobalLibs(): List<Pair<String, String>> {
+        return loadJsFilesFromDir(LIBS_DIR)
+    }
+
+    override fun loadGlobalBase(): List<Pair<String, String>> {
+        return loadJsFilesFromDir(BASE_DIR)
+    }
+
+    override fun loadBundleBase(bundleName: String): String? {
+        return try {
+            localStorage.readFile(bundleName, "base.js")
+        } catch (_: Exception) { null }
+    }
+
+    private fun loadJsFilesFromDir(dirName: String): List<Pair<String, String>> {
+        val files = localStorage.listFiles(dirName)
+        return files.mapNotNull { fileName ->
+            try {
+                fileName to localStorage.readFile(dirName, fileName)
+            } catch (_: Exception) { null }
+        }
     }
 }

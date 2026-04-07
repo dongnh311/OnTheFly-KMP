@@ -56,6 +56,13 @@ actual class ScriptStorage(private val context: Context) {
     actual fun bundleExists(bundleName: String): Boolean =
         File(scriptsDir, "$bundleName/manifest.json").exists()
 
+    actual fun listFiles(dirName: String): List<String> {
+        val dir = File(scriptsDir, dirName)
+        if (!dir.exists() || !dir.isDirectory) return emptyList()
+        return dir.listFiles()?.filter { it.isFile && it.name.endsWith(".js") }
+            ?.map { it.name }?.sorted() ?: emptyList()
+    }
+
     actual fun getVersion(bundleName: String): String? =
         prefs.getString("version_$bundleName", null)
 

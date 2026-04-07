@@ -12,5 +12,6 @@ data class NativeAction(
         const val SHOW_TOAST = "showToast"
         const val GO_BACK = "goBack"
         const val NAVIGATE_DELAYED = "navigateDelayed"
+        const val SHARED_STORE = "sharedStore"
     }
 }

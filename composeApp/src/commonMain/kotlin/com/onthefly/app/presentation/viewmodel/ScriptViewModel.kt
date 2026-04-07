@@ -9,6 +9,7 @@ import com.onthefly.app.data.source.NetworkRequest
 import com.onthefly.app.data.source.NetworkSource
 import com.onthefly.app.data.source.ScriptStorage
 import com.onthefly.app.data.source.ScriptUpdateManager
+import com.onthefly.app.data.source.SharedDataStore
 import com.onthefly.app.domain.model.EngineEvent
 import com.onthefly.app.domain.model.NativeAction
 import com.onthefly.app.domain.model.UIComponent
@@ -72,6 +73,26 @@ class ScriptViewModel(localStorage: ScriptStorage) : ViewModel() {
     }
 
     private fun loadFromLocal(bundleName: String) {
+        // 1. Inject OnTheFly.shared API (Kotlin-backed shared store)
+        engine.injectSharedAPI(SharedDataStore.toJson())
+
+        // 2. Load global libraries (_libs/*.js) — singleton, shared state
+        val libs = repository.loadGlobalLibs()
+        for ((fileName, content) in libs) {
+            val r = engine.eval(content, "_libs/$fileName")
+            if (r.startsWith("Error:")) { _error.value = "lib $fileName: $r"; return }
+        }
+        if (libs.isNotEmpty()) println("QuickJSEngine: Loaded ${libs.size} lib(s)")
+
+        // 3. Load global base functions (_base/*.js) — utilities
+        val baseFns = repository.loadGlobalBase()
+        for ((fileName, content) in baseFns) {
+            val r = engine.eval(content, "_base/$fileName")
+            if (r.startsWith("Error:")) { _error.value = "base $fileName: $r"; return }
+        }
+        if (baseFns.isNotEmpty()) println("QuickJSEngine: Loaded ${baseFns.size} base file(s)")
+
+        // 4. Load theme
         val themeScript = repository.loadTheme(bundleName)
         if (themeScript != null) {
             StyleRegistry.clear()
@@ -79,6 +100,14 @@ class ScriptViewModel(localStorage: ScriptStorage) : ViewModel() {
             engine.loadStyles()
         }
 
+        // 5. Load bundle-specific base.js (optional)
+        val bundleBase = repository.loadBundleBase(bundleName)
+        if (bundleBase != null) {
+            val r = engine.eval(bundleBase, "$bundleName/base.js")
+            if (r.startsWith("Error:")) { _error.value = "base.js: $r"; return }
+        }
+
+        // 6. Load main entry
         val bundle = loadScript(bundleName)
         val result = engine.eval(bundle.scriptContent, bundle.entry)
         engine.drainLogs()
@@ -163,6 +192,11 @@ class ScriptViewModel(localStorage: ScriptStorage) : ViewModel() {
                     val screen = action.data["screen"] as? String ?: ""
                     val delayMs = (action.data["delayMs"] as? Number)?.toLong() ?: 2000L
                     viewModelScope.launch { delay(delayMs); _navChannel.trySend(NavigationEvent(screen = screen)) }
+                }
+                NativeAction.SHARED_STORE -> {
+                    val key = action.data["key"] as? String ?: ""
+                    val value = action.data["value"]
+                    if (key.isNotEmpty()) SharedDataStore.set(key, value)
                 }
                 NativeAction.SEND_REQUEST -> handleSendRequest(action.data)
             }

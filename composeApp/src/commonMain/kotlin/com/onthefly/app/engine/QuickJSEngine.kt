@@ -47,6 +47,32 @@ class QuickJSEngine : AutoCloseable {
         return bridge.eval(contextPtr, script, fileName)
     }
 
+    /**
+     * Inject the OnTheFly.shared API backed by a Kotlin-side store.
+     * Must be called after init() and before loading any user scripts.
+     */
+    fun injectSharedAPI(storeJson: String) {
+        val script = """
+(function() {
+    var _data = $storeJson;
+    OnTheFly.shared = {
+        get: function(key) { return _data[key]; },
+        set: function(key, value) {
+            _data[key] = value;
+            OnTheFly.sendToNative("sharedStore", { key: key, value: JSON.stringify(value) });
+        },
+        remove: function(key) {
+            delete _data[key];
+            OnTheFly.sendToNative("sharedStore", { key: key, value: null });
+        },
+        getAll: function() { return _data; },
+        keys: function() { return Object.keys(_data); }
+    };
+})();
+"""
+        eval(script, "<shared-api>")
+    }
+
     fun callFunction(name: String): String {
         return eval("typeof $name === 'function' && $name()")
     }

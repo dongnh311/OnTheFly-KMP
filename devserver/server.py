@@ -418,6 +418,17 @@ def validate_bundle(scripts_dir, bundle_name):
     results = []
     all_ok = True
 
+    # Special dirs (_libs, _base) don't require manifest.json
+    if bundle_name.startswith('_'):
+        for f in sorted(os.listdir(bundle_dir)):
+            if f.endswith('.js'):
+                ok, errors = validate_js(os.path.join(bundle_dir, f))
+                results.append((f, ok, errors))
+                if not ok: all_ok = False
+        if not results:
+            results.append(('(empty)', True, []))
+        return all_ok, results
+
     manifest_path = os.path.join(bundle_dir, 'manifest.json')
     if not os.path.isfile(manifest_path):
         return False, [('manifest.json', False, ['  Missing'])]
@@ -523,16 +534,32 @@ def build_version_response(scripts_dir):
             data = json.load(f)
     else:
         data = {'schemaVersion': 1, 'bundles': {}}
-        for b in os.listdir(scripts_dir):
-            bd = os.path.join(scripts_dir, b)
-            mp = os.path.join(bd, 'manifest.json')
-            if os.path.isdir(bd) and os.path.isfile(mp):
-                with open(mp, 'r') as mf:
-                    m = json.load(mf)
-                data['bundles'][b] = {
-                    'version': m.get('version', '1.0.0'),
-                    'files': sorted(os.listdir(bd))
+
+    # Scan all directories (bundles + _libs + _base)
+    for b in os.listdir(scripts_dir):
+        bd = os.path.join(scripts_dir, b)
+        if not os.path.isdir(bd):
+            continue
+        if b in data.get('bundles', {}):
+            continue  # already in version.json
+        # For regular bundles, require manifest.json
+        mp = os.path.join(bd, 'manifest.json')
+        if os.path.isfile(mp):
+            with open(mp, 'r') as mf:
+                m = json.load(mf)
+            data.setdefault('bundles', {})[b] = {
+                'version': m.get('version', '1.0.0'),
+                'files': sorted(os.listdir(bd))
+            }
+        elif b.startswith('_'):
+            # Special dirs (_libs, _base) don't need manifest
+            js_files = sorted(f for f in os.listdir(bd) if f.endswith('.js'))
+            if js_files:
+                data.setdefault('bundles', {})[b] = {
+                    'version': '1.0.0',
+                    'files': js_files
                 }
+
     # Inject per-bundle lastModified from watcher
     for b_name in list(data.get('bundles', {}).keys()):
         bv = get_bundle_version(b_name)

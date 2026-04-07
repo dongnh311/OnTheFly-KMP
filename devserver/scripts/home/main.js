@@ -1,27 +1,33 @@
 // ═══════════════════════════════════════════════════════════
 //  Home Screen — OnTheFly Demo
+//  Uses: AppState (_libs), utils (_base)
 // ═══════════════════════════════════════════════════════════
 
 var count = 0;
 var darkMode = false;
-var lifecycleLog = "Waiting...";
 var showConfirmDialog = false;
 
 // ─── Lifecycle ──────────────────────────────────────────────
 
 function onCreateView() {
-    lifecycleLog = "onCreateView";
-    OnTheFly.update("logText", { text: "Lifecycle: " + lifecycleLog });
+    // Track screen visit via shared library
+    AppState.trackVisit("home");
+    var visits = AppState.getVisitCount("home");
+    OnTheFly.update("logText", { text: "Home visits: " + visits + " | User: " + AppState.getUserName() });
+
+    // Restore dark mode from shared state
+    darkMode = AppState.isDarkMode();
+    OnTheFly.update("darkModeToggle", { checked: darkMode });
 }
 
 function onVisible() {
-    lifecycleLog = "onVisible";
-    OnTheFly.update("logText", { text: "Lifecycle: " + lifecycleLog });
+    var visits = AppState.getVisitCount("home");
+    OnTheFly.update("logText", { text: "Home visits: " + visits + " | User: " + AppState.getUserName() });
 }
 
 function onViewData(data) {
     if (data && data.returnFrom === "detail") {
-        OnTheFly.sendToNative("showToast", { message: data.message || "Returned!" });
+        toast(data.message || "Returned!");
     }
 }
 
@@ -29,12 +35,12 @@ function onViewData(data) {
 
 function increase() {
     count++;
-    OnTheFly.update("counter", { text: "" + count });
+    OnTheFly.update("counter", { text: formatNumber(count) });
 }
 
 function decrease() {
     count--;
-    OnTheFly.update("counter", { text: "" + count });
+    OnTheFly.update("counter", { text: formatNumber(count) });
 }
 
 // ─── Toggle ─────────────────────────────────────────────────
@@ -42,32 +48,28 @@ function decrease() {
 function onToggle(id, data) {
     if (id === "darkModeToggle") {
         darkMode = data.checked;
+        AppState.setDarkMode(darkMode);
         OnTheFly.update("darkModeToggle", { checked: darkMode });
-        OnTheFly.sendToNative("showToast", {
-            message: "Dark mode: " + (darkMode ? "ON" : "OFF")
-        });
+        toast("Dark mode: " + (darkMode ? "ON" : "OFF"));
     }
 }
 
-// ─── Navigation ─────────────────────────────────────────────
+// ─── Navigation (using base utils) ─────────────────────────
 
 function gotoDetail() {
-    OnTheFly.sendToNative("navigate", {
-        screen: "detail-app",
-        data: { stockCode: "SET", stockName: "SET Index", price: "1,423.56" }
-    });
+    navigate("detail-app", { stockCode: "SET", stockName: "SET Index", price: "1,423.56" });
 }
 
 function gotoApiDemo() {
-    OnTheFly.sendToNative("navigate", { screen: "api-demo" });
+    navigate("api-demo");
 }
 
 function gotoFullPopupDemo() {
-    OnTheFly.sendToNative("navigate", { screen: "popup-fullscreen" });
+    navigate("popup-fullscreen");
 }
 
 function gotoConfirmDemo() {
-    OnTheFly.sendToNative("navigate", { screen: "popup-confirm" });
+    navigate("popup-confirm");
 }
 
 // ─── Confirm Dialog ─────────────────────────────────────────
@@ -82,12 +84,27 @@ function onConfirmReset() {
     OnTheFly.update("confirmDialog", { visible: false });
     count = 0;
     OnTheFly.update("counter", { text: "0" });
-    OnTheFly.sendToNative("showToast", { message: "Counter reset!" });
+    toast("Counter reset!");
 }
 
 function onCancelDialog() {
     showConfirmDialog = false;
     OnTheFly.update("confirmDialog", { visible: false });
+}
+
+// ─── Login Demo ─────────────────────────────────────────────
+
+function toggleLogin() {
+    if (AppState.isLoggedIn()) {
+        AppState.logout();
+        toast("Logged out");
+    } else {
+        AppState.login("DongNH");
+        toast("Welcome, " + AppState.getUserName() + "!");
+    }
+    var visits = AppState.getVisitCount("home");
+    OnTheFly.update("logText", { text: "Home visits: " + visits + " | User: " + AppState.getUserName() });
+    OnTheFly.update("loginBtn", { text: AppState.isLoggedIn() ? "Logout" : "Login" });
 }
 
 // ─── UI ─────────────────────────────────────────────────────
@@ -105,7 +122,7 @@ function render() {
 
             // Counter
             { type: "Text", props: { text: "Counter", style: "subtitle" } },
-            { type: "Text", props: { id: "counter", text: "" + count, style: "counter" } },
+            { type: "Text", props: { id: "counter", text: formatNumber(count), style: "counter" } },
             {
                 type: "Row",
                 props: { style: "buttonRow" },
@@ -133,13 +150,21 @@ function render() {
 
             { type: "Spacer", props: { style: "sectionGap" } },
 
-            // Toggle
-            { type: "Toggle", props: { id: "darkModeToggle", label: "Dark Mode", checked: darkMode } },
+            // Shared State Demo
+            { type: "Text", props: { text: "Shared State", style: "subtitle" } },
+            {
+                type: "Row",
+                props: { style: "buttonRow" },
+                children: [
+                    { type: "Button", props: { id: "loginBtn", text: AppState.isLoggedIn() ? "Logout" : "Login", onClick: "toggleLogin", style: "outlineButton" } },
+                    { type: "Toggle", props: { id: "darkModeToggle", label: "Dark Mode", checked: darkMode } }
+                ]
+            },
 
             { type: "Spacer", props: { style: "smallGap" } },
 
-            // Lifecycle log
-            { type: "Text", props: { id: "logText", text: "Lifecycle: " + lifecycleLog, style: "caption" } },
+            // Status log
+            { type: "Text", props: { id: "logText", text: "Loading...", style: "caption" } },
 
             // Confirm Dialog
             {
