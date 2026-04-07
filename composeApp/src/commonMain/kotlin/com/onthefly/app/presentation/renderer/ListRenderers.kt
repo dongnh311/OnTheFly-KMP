@@ -1,5 +1,7 @@
 package com.onthefly.app.presentation.renderer
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -11,17 +13,22 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.onthefly.app.domain.model.EngineEvent
 import com.onthefly.app.domain.model.UIComponent
+import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -65,20 +72,22 @@ fun RenderLazyColumn(
         }
     }
 
+    val stagger = parseStaggerConfig(c.props["itemAnimation"])
+
     var mod = modifier
         .applyWidth(c.props["width"] ?: "fill")
         .applyHeight(c.props["height"] ?: "fill")
 
-    val listContent: @Composable () -> Unit = {
-        LazyColumn(
-            modifier = mod,
-            state = listState,
-            contentPadding = PaddingValues(padding.dp),
-            verticalArrangement = if (spacing > 0) Arrangement.spacedBy(spacing.dp) else Arrangement.Top
-        ) {
-            items(items, key = { it.props["id"]?.toString() ?: it.hashCode() }) { item ->
+    val itemContent: @Composable (Int, UIComponent) -> Unit = { index, item ->
+        if (stagger != null) {
+            StaggeredItem(
+                index = index,
+                stagger = stagger
+            ) {
                 DynamicRenderer(item, onEvent, onComponentEvent)
             }
+        } else {
+            DynamicRenderer(item, onEvent, onComponentEvent)
         }
     }
 
@@ -93,13 +102,22 @@ fun RenderLazyColumn(
                 contentPadding = PaddingValues(padding.dp),
                 verticalArrangement = if (spacing > 0) Arrangement.spacedBy(spacing.dp) else Arrangement.Top
             ) {
-                items(items, key = { it.props["id"]?.toString() ?: it.hashCode() }) { item ->
-                    DynamicRenderer(item, onEvent, onComponentEvent)
+                itemsIndexed(items, key = { _, item -> item.props["id"]?.toString() ?: item.hashCode() }) { index, item ->
+                    itemContent(index, item)
                 }
             }
         }
     } else {
-        listContent()
+        LazyColumn(
+            modifier = mod,
+            state = listState,
+            contentPadding = PaddingValues(padding.dp),
+            verticalArrangement = if (spacing > 0) Arrangement.spacedBy(spacing.dp) else Arrangement.Top
+        ) {
+            itemsIndexed(items, key = { _, item -> item.props["id"]?.toString() ?: item.hashCode() }) { index, item ->
+                itemContent(index, item)
+            }
+        }
     }
 }
 
@@ -169,6 +187,23 @@ fun RenderGrid(
         items(items, key = { it.props["id"]?.toString() ?: it.hashCode() }) { item ->
             DynamicRenderer(item, onEvent, onComponentEvent)
         }
+    }
+}
+
+@Composable
+fun StaggeredItem(index: Int, stagger: StaggerConfig, content: @Composable () -> Unit) {
+    var visible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        delay(stagger.staggerDelay.toLong() * index)
+        visible = true
+    }
+    val enter = AnimationConfig(
+        type = stagger.type,
+        duration = stagger.duration
+    ).toEnterTransition()
+
+    AnimatedVisibility(visible = visible, enter = enter, exit = fadeIn()) {
+        content()
     }
 }
 

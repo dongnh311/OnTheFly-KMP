@@ -302,6 +302,13 @@ class QuickJSEngine : AutoCloseable {
             _watchers = {};
         }
     };
+
+    // ═══ Animated Update ═══
+    // Delegates to OnTheFly.update() — animation is handled by Compose
+    OnTheFly.animatedUpdate = function(id, props, animConfig) {
+        // animConfig is informational (duration, easing) — Compose handles transitions
+        OnTheFly.update(id, props);
+    };
 })();
 """
         eval(script, "<state-api>")
