@@ -49,6 +49,13 @@ fun DynamicRenderer(
             "LazyRow" -> RenderLazyRow(component, onEvent, onComponentEvent, modifier)
             "Grid" -> RenderGrid(component, onEvent, onComponentEvent, modifier)
 
+            // Navigation
+            "TopAppBar" -> RenderTopAppBar(component, onEvent, onComponentEvent, modifier)
+            "BottomNavBar" -> RenderBottomNavBar(component, onComponentEvent, modifier)
+            "TabBar" -> RenderTabBar(component, onComponentEvent, modifier)
+            "TabContent" -> RenderTabContent(component, onEvent, onComponentEvent, modifier)
+            "Drawer" -> RenderDrawer(component, onEvent, onComponentEvent, modifier)
+
             // Feedback / Overlay
             "FullScreenPopup" -> RenderFullScreenPopup(component, onEvent, onComponentEvent)
             "ConfirmDialog" -> RenderConfirmDialog(component, onEvent)
