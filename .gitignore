@@ -12,3 +12,25 @@ xcuserdata/
 Pods/
 *.moved-aside
 DerivedData/
+
+# Kotlin
+.kotlin/
+
+# Claude Code
+.claude/
+
+# Native build artifacts
+native/build/
+native/ios/build/
+
+# Android assets (auto-copied from devserver/scripts by Gradle)
+composeApp/src/androidMain/assets/scripts/
+
+# macOS
+*.dylib
+*.o
+*.a
+
+# Dev server
+devserver/__pycache__/
+devserver/*.pyc

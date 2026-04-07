@@ -1,6 +1,0 @@
-{
-  "name": "Detail Screen",
-  "version": "1.0.0",
-  "entry": "main.js",
-  "description": "Detail view demonstrating navigation and data passing"
-}
