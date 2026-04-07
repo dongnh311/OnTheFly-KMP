@@ -24,6 +24,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.onthefly.app.data.source.ScriptStorage
 import com.onthefly.app.domain.model.EngineEvent
+import com.onthefly.app.platform.PlatformActions
 import com.onthefly.app.presentation.navigation.ViewDataStore
 import com.onthefly.app.presentation.renderer.DynamicRenderer
 import com.onthefly.app.presentation.viewmodel.ScriptViewModel
@@ -32,11 +33,12 @@ import com.onthefly.app.presentation.viewmodel.ScriptViewModel
 fun ScriptScreen(
     bundleName: String,
     navController: NavController,
-    localStorage: ScriptStorage
+    localStorage: ScriptStorage,
+    platformActions: PlatformActions? = null
 ) {
     val viewModel: ScriptViewModel = viewModel(
         key = bundleName,
-        factory = ScriptViewModelFactory(localStorage)
+        factory = ScriptViewModelFactory(localStorage, platformActions)
     )
 
     val uiTree = viewModel.uiTree.value

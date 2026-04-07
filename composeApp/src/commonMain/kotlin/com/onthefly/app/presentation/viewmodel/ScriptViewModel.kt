@@ -20,6 +20,7 @@ import com.onthefly.app.engine.ErrorConfig
 import com.onthefly.app.engine.NetworkSecurity
 import com.onthefly.app.engine.QuickJSEngine
 import com.onthefly.app.engine.ScriptVerifier
+import com.onthefly.app.platform.PlatformActions
 import com.onthefly.app.engine.style.StyleRegistry
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
@@ -31,7 +32,10 @@ data class NavigationEvent(
     val data: Map<String, Any> = emptyMap()
 )
 
-class ScriptViewModel(localStorage: ScriptStorage) : ViewModel() {
+class ScriptViewModel(
+    localStorage: ScriptStorage,
+    private val platformActions: PlatformActions? = null
+) : ViewModel() {
 
     private val repository = ScriptRepositoryImpl(localStorage)
     private val loadScript = LoadScriptUseCase(repository)
@@ -279,6 +283,27 @@ class ScriptViewModel(localStorage: ScriptStorage) : ViewModel() {
                 NativeAction.SET_STORAGE -> handleSetStorage(action.data)
                 NativeAction.GET_STORAGE -> handleGetStorage(action.data)
                 NativeAction.REMOVE_STORAGE -> handleRemoveStorage(action.data)
+                // Platform actions
+                NativeAction.OPEN_URL -> platformActions?.openUrl(action.data["url"] as? String ?: "")
+                NativeAction.COPY_TO_CLIPBOARD -> platformActions?.copyToClipboard(action.data["text"] as? String ?: "")
+                NativeAction.READ_CLIPBOARD -> {
+                    val text = platformActions?.readClipboard()
+                    sendDataToScript(EngineEvent.ON_DATA_RECEIVED, "{\"type\":\"clipboard\",\"text\":${if (text != null) "\"$text\"" else "null"}}")
+                }
+                NativeAction.SHARE -> platformActions?.share(
+                    title = action.data["title"] as? String,
+                    text = action.data["text"] as? String,
+                    url = action.data["url"] as? String
+                )
+                NativeAction.GET_DEVICE_INFO -> {
+                    val info = platformActions?.getDeviceInfo() ?: emptyMap()
+                    val json = com.onthefly.app.util.JsonParser.toJsonString(info)
+                    sendDataToScript(EngineEvent.ON_DATA_RECEIVED, json)
+                }
+                NativeAction.VIBRATE -> platformActions?.vibrate(
+                    type = action.data["type"] as? String,
+                    durationMs = (action.data["duration"] as? Number)?.toInt()
+                )
             }
         }
     }

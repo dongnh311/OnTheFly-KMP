@@ -37,7 +37,14 @@ data class NativeAction(
         // Platform
         const val OPEN_URL = "openUrl"
         const val COPY_TO_CLIPBOARD = "copyToClipboard"
+        const val READ_CLIPBOARD = "readClipboard"
         const val SHARE = "share"
+        const val GET_DEVICE_INFO = "getDeviceInfo"
+        const val VIBRATE = "vibrate"
+        const val SET_STATUS_BAR = "setStatusBar"
+        const val SET_SCREEN_BRIGHTNESS = "setScreenBrightness"
+        const val KEEP_SCREEN_ON = "keepScreenOn"
+        const val SET_ORIENTATION = "setOrientation"
 
         // Logging
         const val LOG = "log"

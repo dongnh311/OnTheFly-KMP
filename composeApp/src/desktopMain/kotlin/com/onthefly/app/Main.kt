@@ -8,10 +8,12 @@ import androidx.compose.ui.window.WindowPosition
 import androidx.compose.ui.window.WindowState
 import androidx.compose.ui.window.application
 import com.onthefly.app.data.source.ScriptStorage
+import com.onthefly.app.platform.PlatformActions
 
 fun main() = application {
     val localStorage = ScriptStorage()
     localStorage.ensureInitialized()
+    val platformActions = PlatformActions()
 
     Window(
         onCloseRequest = ::exitApplication,
@@ -21,6 +23,6 @@ fun main() = application {
             size = DpSize(420.dp, 800.dp)
         )
     ) {
-        App(localStorage)
+        App(localStorage, platformActions)
     }
 }
