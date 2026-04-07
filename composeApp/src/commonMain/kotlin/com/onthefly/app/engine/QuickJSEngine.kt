@@ -363,6 +363,56 @@ class QuickJSEngine : AutoCloseable {
         eval(script, "<bundle-info>")
     }
 
+    /**
+     * Inject OnTheFly.debug.* APIs.
+     * Debug actions are sent to native via sendToNative("__debug", ...).
+     */
+    fun injectDebugAPI() {
+        val script = """
+(function() {
+    var _debugEnabled = true;
+    OnTheFly.debug = {
+        setEnabled: function(enabled) {
+            _debugEnabled = enabled;
+            OnTheFly.sendToNative("__debug", { action: "setEnabled", value: enabled });
+        },
+        showConsole: function(enabled) {
+            if (!_debugEnabled) return;
+            OnTheFly.sendToNative("__debug", { action: "showConsole", value: enabled });
+        },
+        clearConsole: function() {
+            OnTheFly.sendToNative("__debug", { action: "clearConsole" });
+        },
+        enableInspector: function(enabled) {
+            if (!_debugEnabled) return;
+            OnTheFly.sendToNative("__debug", { action: "showInspector", value: enabled });
+        },
+        enableNetworkLog: function(enabled) {
+            if (!_debugEnabled) return;
+            OnTheFly.sendToNative("__debug", { action: "showNetworkLog", value: enabled });
+        },
+        showPerformanceOverlay: function(enabled) {
+            if (!_debugEnabled) return;
+            OnTheFly.sendToNative("__debug", { action: "showPerformanceOverlay", value: enabled });
+        },
+        showStateInspector: function(enabled) {
+            if (!_debugEnabled) return;
+            OnTheFly.sendToNative("__debug", { action: "showStateInspector", value: enabled });
+        },
+        config: function(opts) {
+            if (opts.console !== undefined) OnTheFly.debug.showConsole(opts.console);
+            if (opts.inspector !== undefined) OnTheFly.debug.enableInspector(opts.inspector);
+            if (opts.networkLog !== undefined) OnTheFly.debug.enableNetworkLog(opts.networkLog);
+            if (opts.performanceOverlay !== undefined) OnTheFly.debug.showPerformanceOverlay(opts.performanceOverlay);
+            if (opts.stateInspector !== undefined) OnTheFly.debug.showStateInspector(opts.stateInspector);
+            if (opts.verboseLogging !== undefined) OnTheFly.sendToNative("__debug", { action: "verboseLogging", value: opts.verboseLogging });
+        }
+    };
+})();
+"""
+        eval(script, "<debug-api>")
+    }
+
     fun callFunction(name: String): String {
         return eval("typeof $name === 'function' && $name()")
     }

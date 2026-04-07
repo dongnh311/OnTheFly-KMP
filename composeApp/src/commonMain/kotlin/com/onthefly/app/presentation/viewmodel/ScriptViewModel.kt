@@ -15,6 +15,7 @@ import com.onthefly.app.domain.model.NativeAction
 import com.onthefly.app.domain.model.UIComponent
 import com.onthefly.app.domain.model.applyUpdates
 import com.onthefly.app.domain.usecase.LoadScriptUseCase
+import com.onthefly.app.engine.DebugConfig
 import com.onthefly.app.engine.EngineError
 import com.onthefly.app.engine.ErrorConfig
 import com.onthefly.app.engine.NetworkSecurity
@@ -98,6 +99,9 @@ class ScriptViewModel(
 
         // 1b. Inject reactive state management (state/setState/computed/store)
         engine.injectStateAPI()
+
+        // 1c. Inject debug API
+        engine.injectDebugAPI()
 
         // 2. Load global libraries (_libs/*.js) — singleton, shared state
         val libs = repository.loadGlobalLibs()
@@ -319,7 +323,23 @@ class ScriptViewModel(
                     type = action.data["type"] as? String,
                     durationMs = (action.data["duration"] as? Number)?.toInt()
                 )
+                "__debug" -> handleDebugAction(action.data)
             }
+        }
+    }
+
+    private fun handleDebugAction(data: Map<String, Any>) {
+        val debugAction = data["action"] as? String ?: return
+        val value = data["value"] as? Boolean ?: false
+        when (debugAction) {
+            "setEnabled" -> DebugConfig.enabled.value = value
+            "showConsole" -> DebugConfig.showConsole.value = value
+            "showInspector" -> DebugConfig.showInspector.value = value
+            "showNetworkLog" -> DebugConfig.showNetworkLog.value = value
+            "showPerformanceOverlay" -> DebugConfig.showPerformanceOverlay.value = value
+            "showStateInspector" -> DebugConfig.showStateInspector.value = value
+            "verboseLogging" -> DebugConfig.verboseLogging.value = value
+            "clearConsole" -> { /* clear log buffer */ }
         }
     }
 
