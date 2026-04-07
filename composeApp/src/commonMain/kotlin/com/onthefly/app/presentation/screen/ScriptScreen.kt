@@ -74,12 +74,19 @@ fun ScriptScreen(
                 )
                 uiTree != null -> {
                     val goBack = {
+                        println("ScriptScreen ($bundleName): Executing goBack! Popping back stack.")
                         ViewDataStore.popRoute()
                         navController.popBackStack()
                     }
                     DynamicRenderer(
                         component = uiTree,
-                        onEvent = { viewModel.onEvent(it); if (viewModel.consumeGoBack()) goBack() },
+                        onEvent = { 
+                            println("ScriptScreen ($bundleName): onEvent($it)")
+                            viewModel.onEvent(it)
+                            val shouldGoBack = viewModel.consumeGoBack()
+                            println("ScriptScreen ($bundleName): consumeGoBack returned $shouldGoBack")
+                            if (shouldGoBack) goBack()
+                        },
                         onComponentEvent = { event ->
                             viewModel.onComponentEvent(event.eventName, event.componentId, event.data)
                             if (viewModel.consumeGoBack()) goBack()

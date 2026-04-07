@@ -29,7 +29,10 @@ object DevServerSource {
         return try {
             val response = client.get("$baseUrl/version")
             if (response.status.isSuccess()) JsonParser.parseObject(response.bodyAsText()) else null
-        } catch (_: Exception) { null }
+        } catch (e: Exception) {
+            println("DEVSERVER ERROR: ${e.message}")
+            null
+        }
     }
 
     suspend fun hasChanges(): Boolean {

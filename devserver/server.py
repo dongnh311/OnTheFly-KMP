@@ -16,6 +16,7 @@ import shutil
 import argparse
 import threading
 import time
+import subprocess
 from pathlib import Path
 
 try:
@@ -95,14 +96,15 @@ class DeviceInfo:
     @staticmethod
     def _detect_platform(ip, ua):
         ua_lower = (ua or '').lower()
-        if 'darwin' in ua_lower:
+        if 'darwin' in ua_lower or 'ios' in ua_lower:
             return 'iOS'
         if 'ktor' in ua_lower or 'okhttp' in ua_lower:
-            # Ktor client on Android emulator comes from 10.0.2.x / 10.0.3.x
+            # Android Emulator usually proxies network bounds through 127.0.0.1 to the host.
+            # Without explicit headers, OkHttp from 127.0.0.1 could be Desktop or Android Emulator.
             if ip.startswith('10.0.2.') or ip.startswith('10.0.3.'):
                 return 'Android (emu)'
             if ip in ('127.0.0.1', '::1', 'localhost'):
-                return 'Desktop/iOS'
+                return 'Android/Desktop'
             return 'Android'
         if ip in ('127.0.0.1', '::1', 'localhost'):
             return 'Local'
@@ -667,6 +669,10 @@ def interactive_loop(scripts_dir):
     """Run in background thread. Reads commands from stdin."""
     HELP = """
   \033[1mCommands:\033[0m
+    ra, run android        Launch Android Emulator build
+    ri, run ios            Launch iOS Simulator build
+    rd, run desktop        Launch Desktop app
+    ka, kill               Kill all emulators and processes
     s, status              Server status + connected devices
     c, clients             List connected devices
     v, validate [bundle]   Validate JS syntax
@@ -706,6 +712,33 @@ def interactive_loop(scripts_dir):
 
         elif cmd in ('c', 'clients', 'devices'):
             cmd_clients()
+
+        elif cmd in ('ra', 'run') and (arg == 'android' or cmd == 'ra'):
+            print('  🚀 Launching on Android Emulator...')
+            subprocess.Popen(['./gradlew', ':composeApp:installDebug'], cwd='..').wait()
+            subprocess.Popen(['adb', 'shell', 'monkey', '-p', 'com.onthefly.app', '-c', 'android.intent.category.LAUNCHER', '1'])
+            
+        elif cmd in ('ri', 'run') and (arg == 'ios' or cmd == 'ri'):
+            print('  🍎 Launching on iOS Simulator...')
+            subprocess.Popen(['xcrun', 'simctl', 'boot', 'iPhone 15'], stderr=subprocess.DEVNULL)
+            subprocess.Popen(['xcodebuild', '-project', 'iosApp/iosApp.xcodeproj', '-scheme', 'iosApp', '-configuration', 'Debug', '-destination', 'platform=iOS Simulator,name=iPhone 15', '-sdk', 'iphonesimulator', f'SYMROOT={os.path.abspath("../build/ios_build")}'], cwd='..').wait()
+            subprocess.Popen(['xcrun', 'simctl', 'install', 'booted', '../build/ios_build/Debug-iphonesimulator/iosApp.app'])
+            subprocess.Popen(['xcrun', 'simctl', 'launch', 'booted', 'com.onthefly.app'])
+
+        elif cmd in ('rd', 'run') and (arg == 'desktop' or cmd == 'rd'):
+            print('  💻 Launching Desktop App...')
+            subprocess.Popen(['./gradlew', ':composeApp:run'], cwd='..')
+
+        elif cmd in ('ka', 'kill'):
+            print('  🛑 Stopping emulators and processes...')
+            subprocess.Popen(['adb', 'devices'], stdout=subprocess.PIPE).communicate() # warm up adb
+            os.system('''
+                adb devices | grep '^emulator' | cut -f1 | while read line; do adb -s $line emu kill; done 2>/dev/null
+                xcrun simctl shutdown all 2>/dev/null
+                pkill -f "composeApp" 2>/dev/null
+                pkill -f "qemu-system" 2>/dev/null
+            ''')
+            print('  ✓ Done!')
 
         elif cmd in ('v', 'validate'):
             cmd_validate(scripts_dir, arg)
