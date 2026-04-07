@@ -27,24 +27,36 @@ actual class ScriptStorage {
         val scriptsPath = "$resourcePath/scripts"
         if (!fileManager.fileExistsAtPath(scriptsPath)) return
 
-        val bundles = fileManager.contentsOfDirectoryAtPath(scriptsPath, null) as? List<String> ?: return
-        for (bundleName in bundles) {
-            val srcDir = "$scriptsPath/$bundleName"
-            val dstDir = "$scriptsDir/$bundleName"
-            fileManager.createDirectoryAtPath(dstDir, true, null, null)
-
-            val files = fileManager.contentsOfDirectoryAtPath(srcDir, null) as? List<String> ?: continue
-            for (fileName in files) {
-                val src = "$srcDir/$fileName"
-                val dst = "$dstDir/$fileName"
-                fileManager.copyItemAtPath(src, dst, null)
+        val entries = fileManager.contentsOfDirectoryAtPath(scriptsPath, null) as? List<String> ?: return
+        for (entryName in entries) {
+            val srcDir = "$scriptsPath/$entryName"
+            if (entryName == "screens") {
+                // Flatten: screens/home → home
+                val screenEntries = fileManager.contentsOfDirectoryAtPath(srcDir, null) as? List<String> ?: continue
+                for (screenName in screenEntries) {
+                    copyBundleFiles("$srcDir/$screenName", screenName)
+                }
+            } else {
+                copyBundleFiles(srcDir, entryName)
             }
-            try {
-                val manifest = JsonParser.parseObject(readFile(bundleName, "manifest.json"))
-                val version = manifest["version"] as? String ?: ""
-                if (version.isNotEmpty()) setVersion(bundleName, version)
-            } catch (_: Exception) { }
         }
+    }
+
+    private fun copyBundleFiles(srcDir: String, bundleName: String) {
+        val dstDir = "$scriptsDir/$bundleName"
+        fileManager.createDirectoryAtPath(dstDir, true, null, null)
+
+        val files = fileManager.contentsOfDirectoryAtPath(srcDir, null) as? List<String> ?: return
+        for (fileName in files) {
+            val src = "$srcDir/$fileName"
+            val dst = "$dstDir/$fileName"
+            fileManager.copyItemAtPath(src, dst, null)
+        }
+        try {
+            val manifest = JsonParser.parseObject(readFile(bundleName, "manifest.json"))
+            val version = manifest["version"] as? String ?: ""
+            if (version.isNotEmpty()) setVersion(bundleName, version)
+        } catch (_: Exception) { }
     }
 
     actual fun readFile(bundleName: String, fileName: String): String {

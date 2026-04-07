@@ -126,11 +126,28 @@ android {
     sourceSets["main"].assets.srcDirs("src/androidMain/assets")
 }
 
-// Copy scripts from devserver to Android assets
-val copyScriptsToAssets by tasks.registering(Copy::class) {
-    from(rootProject.file("devserver/scripts"))
-    into(layout.projectDirectory.dir("src/androidMain/assets/scripts"))
-    exclude("*.pyc", "__pycache__")
+// Copy scripts from devserver to Android assets (flatten screens/ into root)
+val copyScriptsToAssets by tasks.registering {
+    doLast {
+        val assetsDir = layout.projectDirectory.dir("src/androidMain/assets/scripts").asFile
+        val scriptsDir = rootProject.file("devserver/scripts")
+
+        // Copy special dirs (_base, _libs) and version.json
+        listOf("_base", "_libs").forEach { dir ->
+            val src = File(scriptsDir, dir)
+            if (src.exists()) src.copyRecursively(File(assetsDir, dir), overwrite = true)
+        }
+        val versionJson = File(scriptsDir, "version.json")
+        if (versionJson.exists()) versionJson.copyTo(File(assetsDir, "version.json"), overwrite = true)
+
+        // Copy screen bundles (flatten: screens/home → home)
+        val screensDir = File(scriptsDir, "screens")
+        if (screensDir.exists()) {
+            screensDir.listFiles()?.filter { it.isDirectory }?.forEach { bundle ->
+                bundle.copyRecursively(File(assetsDir, bundle.name), overwrite = true)
+            }
+        }
+    }
 }
 
 tasks.named("preBuild") {

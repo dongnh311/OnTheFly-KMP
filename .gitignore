@@ -34,3 +34,4 @@ composeApp/src/androidMain/assets/scripts/
 # Dev server
 devserver/__pycache__/
 devserver/*.pyc
+/devserver/.venv/

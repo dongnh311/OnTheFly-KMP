@@ -28,8 +28,39 @@ except ImportError:
 
 DEFAULT_PORT = 8080
 SCRIPT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'scripts')
+SCREENS_DIR = os.path.join(SCRIPT_DIR, 'screens')
 ASSETS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                           '..', 'composeApp', 'src', 'androidMain', 'assets', 'scripts')
+
+
+def resolve_bundle_dir(scripts_dir, bundle_name):
+    """Resolve a bundle name to its directory on disk.
+    Special dirs (_base, _libs) live at root; screen bundles live under screens/.
+    """
+    if bundle_name.startswith('_'):
+        return os.path.join(scripts_dir, bundle_name)
+    screens = os.path.join(scripts_dir, 'screens')
+    candidate = os.path.join(screens, bundle_name)
+    if os.path.isdir(candidate):
+        return candidate
+    # Fallback to root (for version.json etc.)
+    return os.path.join(scripts_dir, bundle_name)
+
+
+def list_all_bundles(scripts_dir):
+    """List all bundle names: special dirs (_*) from root + screens from screens/."""
+    bundles = []
+    # Special dirs at root
+    for d in sorted(os.listdir(scripts_dir)):
+        if d.startswith('_') and os.path.isdir(os.path.join(scripts_dir, d)):
+            bundles.append(d)
+    # Screen bundles
+    screens = os.path.join(scripts_dir, 'screens')
+    if os.path.isdir(screens):
+        for d in sorted(os.listdir(screens)):
+            if os.path.isdir(os.path.join(screens, d)):
+                bundles.append(d)
+    return bundles
 
 # ═══════════════════════════════════════════════════════════
 #  Version Tracking
@@ -267,10 +298,17 @@ class ScriptChangeHandler(FileSystemEventHandler):
 
         rel = os.path.relpath(src, self.scripts_dir)
         parts = rel.split(os.sep)
-        bundle = parts[0] if len(parts) > 1 else None
-        filename = parts[-1]
+        # Resolve bundle name: screens/home/main.js → bundle="home", _libs/utils.js → bundle="_libs"
+        if parts[0] == 'screens' and len(parts) >= 3:
+            bundle = parts[1]
+            filename = parts[-1]
+        elif len(parts) >= 2:
+            bundle = parts[0]
+            filename = parts[-1]
+        else:
+            return
 
-        if not bundle or not os.path.isdir(os.path.join(self.scripts_dir, bundle)):
+        if not os.path.isdir(resolve_bundle_dir(self.scripts_dir, bundle)):
             return
 
         # ── Validate before pushing ──────────────────────
@@ -416,7 +454,7 @@ def validate_js(file_path):
 
 
 def validate_bundle(scripts_dir, bundle_name):
-    bundle_dir = os.path.join(scripts_dir, bundle_name)
+    bundle_dir = resolve_bundle_dir(scripts_dir, bundle_name)
     results = []
     all_ok = True
 
@@ -458,8 +496,7 @@ def validate_bundle(scripts_dir, bundle_name):
 
 
 def cmd_validate(scripts_dir, bundle_filter=None):
-    bundles = sorted([d for d in os.listdir(scripts_dir)
-                      if os.path.isdir(os.path.join(scripts_dir, d))])
+    bundles = list_all_bundles(scripts_dir)
     if bundle_filter:
         bundles = [b for b in bundles if b == bundle_filter]
         if not bundles:
@@ -493,8 +530,7 @@ def cmd_validate(scripts_dir, bundle_filter=None):
 
 def cmd_deploy(scripts_dir, bundle_filter=None):
     assets_dir = os.path.abspath(ASSETS_DIR)
-    bundles = sorted([d for d in os.listdir(scripts_dir)
-                      if os.path.isdir(os.path.join(scripts_dir, d))])
+    bundles = list_all_bundles(scripts_dir)
     if bundle_filter:
         bundles = [b for b in bundles if b == bundle_filter]
         if not bundles:
@@ -515,8 +551,8 @@ def cmd_deploy(scripts_dir, bundle_filter=None):
 
     print('')
     for b in bundles:
-        src = os.path.join(scripts_dir, b)
-        dst = os.path.join(assets_dir, b)
+        src = resolve_bundle_dir(scripts_dir, b)
+        dst = os.path.join(assets_dir, b)  # flatten: screens/home → assets/home
         if os.path.exists(dst): shutil.rmtree(dst)
         shutil.copytree(src, dst)
         n = len(os.listdir(dst))
@@ -537,14 +573,13 @@ def build_version_response(scripts_dir):
     else:
         data = {'schemaVersion': 1, 'bundles': {}}
 
-    # Scan all directories (bundles + _libs + _base)
-    for b in os.listdir(scripts_dir):
-        bd = os.path.join(scripts_dir, b)
-        if not os.path.isdir(bd):
-            continue
+    # Scan all bundles (special dirs + screens)
+    for b in list_all_bundles(scripts_dir):
         if b in data.get('bundles', {}):
             continue  # already in version.json
-        # For regular bundles, require manifest.json
+        bd = resolve_bundle_dir(scripts_dir, b)
+        if not os.path.isdir(bd):
+            continue
         mp = os.path.join(bd, 'manifest.json')
         if os.path.isfile(mp):
             with open(mp, 'r') as mf:
@@ -587,9 +622,14 @@ class DevHandler(http.server.BaseHTTPRequestHandler):
             rel = self.path[len('/scripts/'):]
             parts = rel.split('/')
             if len(parts) >= 2:
-                track_script_fetch(client_ip, parts[0])
+                bundle_name = parts[0]
+                file_name = '/'.join(parts[1:])
+                track_script_fetch(client_ip, bundle_name)
+                # Resolve through screens/ or root
+                fp = os.path.join(resolve_bundle_dir(self.scripts_dir, bundle_name), file_name)
+            else:
+                fp = os.path.join(self.scripts_dir, rel)
 
-            fp = os.path.join(self.scripts_dir, rel)
             if os.path.isfile(fp):
                 with open(fp, 'r', encoding='utf-8') as f:
                     ct = 'application/json' if fp.endswith('.json') else 'application/javascript'
@@ -619,8 +659,7 @@ class DevHandler(http.server.BaseHTTPRequestHandler):
             return
 
         if self.path == '/':
-            bs = sorted([d for d in os.listdir(self.scripts_dir)
-                         if os.path.isdir(os.path.join(self.scripts_dir, d))])
+            bs = list_all_bundles(self.scripts_dir)
             alive = get_connected_devices()
             self._json({
                 'server': 'OnTheFly Dev Server',
@@ -747,14 +786,15 @@ def interactive_loop(scripts_dir):
             cmd_deploy(scripts_dir, arg)
 
         elif cmd in ('l', 'list', 'ls'):
-            bundles = sorted([d for d in os.listdir(scripts_dir)
-                              if os.path.isdir(os.path.join(scripts_dir, d))])
+            bundles = list_all_bundles(scripts_dir)
             print('')
             for b in bundles:
-                files = os.listdir(os.path.join(scripts_dir, b))
+                bd = resolve_bundle_dir(scripts_dir, b)
+                files = os.listdir(bd) if os.path.isdir(bd) else []
                 bv = get_bundle_version(b)
                 mod = f'  (modified)' if bv else ''
-                print(f'  {b}/ ({len(files)} files){mod}')
+                prefix = '  _/' if b.startswith('_') else '  screens/'
+                print(f'{prefix}{b}/ ({len(files)} files){mod}')
             print('')
 
         elif cmd in ('r', 'reload'):
@@ -772,8 +812,7 @@ def interactive_loop(scripts_dir):
 
 def cmd_status(scripts_dir):
     """Show server status overview."""
-    bundles = sorted([d for d in os.listdir(scripts_dir)
-                      if os.path.isdir(os.path.join(scripts_dir, d))])
+    bundles = list_all_bundles(scripts_dir)
     alive = get_connected_devices()
     all_devs = get_all_devices()
 
@@ -860,8 +899,7 @@ def main():
     DevHandler.scripts_dir = scripts_dir
     bump_version()
 
-    bundles = sorted([d for d in os.listdir(scripts_dir)
-                      if os.path.isdir(os.path.join(scripts_dir, d))])
+    bundles = list_all_bundles(scripts_dir)
 
     print('')
     print('  \033[1mOnTheFly Dev Server\033[0m')

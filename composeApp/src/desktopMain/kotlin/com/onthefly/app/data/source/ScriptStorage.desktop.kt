@@ -29,17 +29,16 @@ actual class ScriptStorage {
         val devScriptsDir = candidates.firstOrNull { it.exists() && it.isDirectory }
         if (devScriptsDir != null) {
             println("ScriptStorage: Copying scripts from ${devScriptsDir.absolutePath}")
-            devScriptsDir.listFiles()?.filter { it.isDirectory }?.forEach { bundleDir ->
-                val dstDir = File(scriptsDir, bundleDir.name)
-                dstDir.mkdirs()
-                bundleDir.listFiles()?.filter { it.isFile }?.forEach { file ->
-                    file.copyTo(File(dstDir, file.name), overwrite = true)
+            // Copy special dirs (_base, _libs) from root
+            devScriptsDir.listFiles()?.filter { it.isDirectory && it.name.startsWith("_") }?.forEach { bundleDir ->
+                copyBundleDir(bundleDir)
+            }
+            // Copy screen bundles from screens/ subdirectory (flattened)
+            val screensDir = File(devScriptsDir, "screens")
+            if (screensDir.exists() && screensDir.isDirectory) {
+                screensDir.listFiles()?.filter { it.isDirectory }?.forEach { bundleDir ->
+                    copyBundleDir(bundleDir)
                 }
-                try {
-                    val manifest = JsonParser.parseObject(readFile(bundleDir.name, "manifest.json"))
-                    val version = manifest["version"] as? String ?: ""
-                    if (version.isNotEmpty()) setVersion(bundleDir.name, version)
-                } catch (_: Exception) { }
             }
             // Also copy version.json
             val versionFile = File(devScriptsDir, "version.json")
@@ -52,6 +51,19 @@ actual class ScriptStorage {
             println("ScriptStorage: WARNING - devserver/scripts not found in any search path")
             candidates.forEach { println("  Tried: ${it.absolutePath} (exists=${it.exists()})") }
         }
+    }
+
+    private fun copyBundleDir(bundleDir: File) {
+        val dstDir = File(scriptsDir, bundleDir.name)
+        dstDir.mkdirs()
+        bundleDir.listFiles()?.filter { it.isFile }?.forEach { file ->
+            file.copyTo(File(dstDir, file.name), overwrite = true)
+        }
+        try {
+            val manifest = JsonParser.parseObject(readFile(bundleDir.name, "manifest.json"))
+            val version = manifest["version"] as? String ?: ""
+            if (version.isNotEmpty()) setVersion(bundleDir.name, version)
+        } catch (_: Exception) { }
     }
 
     actual fun readFile(bundleName: String, fileName: String): String {

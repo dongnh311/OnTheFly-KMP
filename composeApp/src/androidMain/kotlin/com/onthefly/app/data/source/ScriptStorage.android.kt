@@ -18,26 +18,38 @@ actual class ScriptStorage(private val context: Context) {
     private fun copyAssetsToLocal() {
         val assetManager = context.assets
         try {
-            val bundles = assetManager.list("scripts") ?: return
-            for (bundle in bundles) {
-                val bundleDir = File(scriptsDir, bundle)
-                bundleDir.mkdirs()
-                val files = assetManager.list("scripts/$bundle") ?: continue
-                for (fileName in files) {
-                    val subItems = assetManager.list("scripts/$bundle/$fileName")
-                    if (subItems != null && subItems.isNotEmpty()) continue
-                    try {
-                        assetManager.open("scripts/$bundle/$fileName").use { input ->
-                            File(bundleDir, fileName).outputStream().use { output -> input.copyTo(output) }
-                        }
-                    } catch (_: Exception) { }
+            val entries = assetManager.list("scripts") ?: return
+            for (entry in entries) {
+                if (entry == "screens") {
+                    // Flatten: screens/home → home
+                    val screens = assetManager.list("scripts/screens") ?: continue
+                    for (screen in screens) {
+                        copyAssetBundle(assetManager, "scripts/screens/$screen", screen)
+                    }
+                } else {
+                    copyAssetBundle(assetManager, "scripts/$entry", entry)
                 }
-                try {
-                    val manifest = JsonParser.parseObject(readFile(bundle, "manifest.json"))
-                    val version = manifest["version"] as? String ?: ""
-                    if (version.isNotEmpty()) setVersion(bundle, version)
-                } catch (_: Exception) { }
             }
+        } catch (_: Exception) { }
+    }
+
+    private fun copyAssetBundle(assetManager: android.content.res.AssetManager, assetPath: String, bundleName: String) {
+        val bundleDir = File(scriptsDir, bundleName)
+        bundleDir.mkdirs()
+        val files = assetManager.list(assetPath) ?: return
+        for (fileName in files) {
+            val subItems = assetManager.list("$assetPath/$fileName")
+            if (subItems != null && subItems.isNotEmpty()) continue
+            try {
+                assetManager.open("$assetPath/$fileName").use { input ->
+                    File(bundleDir, fileName).outputStream().use { output -> input.copyTo(output) }
+                }
+            } catch (_: Exception) { }
+        }
+        try {
+            val manifest = JsonParser.parseObject(readFile(bundleName, "manifest.json"))
+            val version = manifest["version"] as? String ?: ""
+            if (version.isNotEmpty()) setVersion(bundleName, version)
         } catch (_: Exception) { }
     }
 
