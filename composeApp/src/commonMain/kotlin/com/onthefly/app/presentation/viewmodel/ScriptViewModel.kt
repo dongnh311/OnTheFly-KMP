@@ -91,6 +91,9 @@ class ScriptViewModel(localStorage: ScriptStorage) : ViewModel() {
         // 1. Inject OnTheFly.shared API (Kotlin-backed shared store)
         engine.injectSharedAPI(SharedDataStore.toJson())
 
+        // 1b. Inject reactive state management (state/setState/computed/store)
+        engine.injectStateAPI()
+
         // 2. Load global libraries (_libs/*.js) — singleton, shared state
         val libs = repository.loadGlobalLibs()
         for ((fileName, content) in libs) {
@@ -273,6 +276,9 @@ class ScriptViewModel(localStorage: ScriptStorage) : ViewModel() {
                 }
                 NativeAction.SEND_REQUEST -> handleSendRequest(action.data)
                 NativeAction.CANCEL_REQUEST -> handleCancelRequest(action.data)
+                NativeAction.SET_STORAGE -> handleSetStorage(action.data)
+                NativeAction.GET_STORAGE -> handleGetStorage(action.data)
+                NativeAction.REMOVE_STORAGE -> handleRemoveStorage(action.data)
             }
         }
     }
@@ -332,6 +338,24 @@ class ScriptViewModel(localStorage: ScriptStorage) : ViewModel() {
     private fun handleCancelRequest(data: Map<String, Any>) {
         val requestId = data["requestId"] as? String ?: return
         NetworkSource.cancelRequest(requestId)
+    }
+
+    private fun handleSetStorage(data: Map<String, Any>) {
+        val key = data["key"] as? String ?: return
+        val value = data["value"]?.toString() ?: return
+        localStorage.setKV(key, value)
+    }
+
+    private fun handleGetStorage(data: Map<String, Any>) {
+        val key = data["key"] as? String ?: return
+        val value = localStorage.getKV(key)
+        val json = "{\"type\":\"storage\",\"key\":\"$key\",\"value\":${if (value != null) "\"$value\"" else "null"}}"
+        sendDataToScript(EngineEvent.ON_DATA_RECEIVED, json)
+    }
+
+    private fun handleRemoveStorage(data: Map<String, Any>) {
+        val key = data["key"] as? String ?: return
+        localStorage.removeKV(key)
     }
 
     fun consumeGoBack(): Boolean {

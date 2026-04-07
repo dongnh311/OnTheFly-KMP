@@ -100,4 +100,8 @@ actual class ScriptStorage {
         prefs.clear()
         ensureInitialized()
     }
+
+    actual fun getKV(key: String): String? = prefs.get("kv_$key", null)
+    actual fun setKV(key: String, value: String) { prefs.put("kv_$key", value) }
+    actual fun removeKV(key: String) { prefs.remove("kv_$key") }
 }

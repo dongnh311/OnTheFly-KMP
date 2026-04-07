@@ -93,4 +93,8 @@ actual class ScriptStorage {
         defaults.removeObjectForKey("scripts_initialized")
         ensureInitialized()
     }
+
+    actual fun getKV(key: String): String? = defaults.stringForKey("kv_$key")
+    actual fun setKV(key: String, value: String) { defaults.setObject(value, "kv_$key") }
+    actual fun removeKV(key: String) { defaults.removeObjectForKey("kv_$key") }
 }

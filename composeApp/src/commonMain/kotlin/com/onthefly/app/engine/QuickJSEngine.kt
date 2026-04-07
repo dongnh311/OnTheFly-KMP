@@ -73,6 +73,240 @@ class QuickJSEngine : AutoCloseable {
         eval(script, "<shared-api>")
     }
 
+    /**
+     * Inject the reactive state management API.
+     * Provides: OnTheFly.state(), getState(), setState(), computed(), store.*
+     * Must be called after init() and before loading user scripts.
+     */
+    fun injectStateAPI() {
+        val script = """
+(function() {
+    // ═══ Local State (per screen) ═══
+    var _state = {};
+    var _bindings = {};      // { stateKey: [{ id, prop, template }] }
+    var _computedFns = {};   // { key: fn }
+    var _computedCache = {}; // { key: value }
+    var _computedDeps = {};  // { key: [depKeys] }
+
+    // Declare a reactive state variable
+    OnTheFly.state = function(key, initialValue) {
+        if (_state[key] === undefined) {
+            _state[key] = initialValue;
+        }
+        return _state[key];
+    };
+
+    // Get current state value
+    OnTheFly.getState = function(key) {
+        return _state[key];
+    };
+
+    // Set state → auto-update bound components
+    OnTheFly.setState = function(key, value) {
+        _state[key] = value;
+        _flushBindings(key);
+        _recomputeAll();
+    };
+
+    // Declare a computed value
+    OnTheFly.computed = function(key, fn) {
+        _computedFns[key] = fn;
+        try {
+            _computedCache[key] = fn();
+        } catch(e) {
+            _computedCache[key] = undefined;
+        }
+    };
+
+    function _getComputed(key) {
+        if (_computedFns[key]) {
+            try { return _computedFns[key](); } catch(e) { return _computedCache[key]; }
+        }
+        return _computedCache[key];
+    }
+
+    function _recomputeAll() {
+        for (var k in _computedFns) {
+            var oldVal = _computedCache[k];
+            try {
+                var newVal = _computedFns[k]();
+                if (JSON.stringify(newVal) !== JSON.stringify(oldVal)) {
+                    _computedCache[k] = newVal;
+                    _flushComputedBindings(k);
+                }
+            } catch(e) {}
+        }
+    }
+
+    // ═══ Binding resolution ═══
+
+    // Resolve ${'$'}state.xxx and ${'$'}computed.xxx in a string
+    function _resolveBindings(template) {
+        if (typeof template !== 'string') return template;
+        // Full match: "${'$'}state.key" → return raw value (could be object/array)
+        var fullStateMatch = template.match(/^\${'$'}state\.([a-zA-Z0-9_.]+)$/);
+        if (fullStateMatch) {
+            return _deepGet(_state, fullStateMatch[1]);
+        }
+        var fullComputedMatch = template.match(/^\${'$'}computed\.([a-zA-Z0-9_.]+)$/);
+        if (fullComputedMatch) {
+            return _getComputed(fullComputedMatch[1]);
+        }
+        // Partial match: "Hello ${'$'}state.name" → string interpolation
+        return template.replace(/\${'$'}state\.([a-zA-Z0-9_.]+)/g, function(_, path) {
+            var val = _deepGet(_state, path);
+            return val !== undefined ? String(val) : '';
+        }).replace(/\${'$'}computed\.([a-zA-Z0-9_.]+)/g, function(_, key) {
+            var val = _getComputed(key);
+            return val !== undefined ? String(val) : '';
+        });
+    }
+
+    function _deepGet(obj, path) {
+        var parts = path.split('.');
+        var cur = obj;
+        for (var i = 0; i < parts.length; i++) {
+            if (cur === undefined || cur === null) return undefined;
+            cur = cur[parts[i]];
+        }
+        return cur;
+    }
+
+    // Track binding: which component props use ${'$'}state.xxx
+    function _trackBindings(node) {
+        if (!node || !node.props) return;
+        var id = node.props.id;
+        if (id) {
+            for (var prop in node.props) {
+                var val = node.props[prop];
+                if (typeof val === 'string' && val.indexOf('${'$'}state.') >= 0) {
+                    var matches = val.match(/\${'$'}state\.([a-zA-Z0-9_]+)/g);
+                    if (matches) {
+                        for (var m = 0; m < matches.length; m++) {
+                            var stateKey = matches[m].replace('${'$'}state.', '').split('.')[0];
+                            if (!_bindings[stateKey]) _bindings[stateKey] = [];
+                            _bindings[stateKey].push({ id: id, prop: prop, template: val });
+                        }
+                    }
+                }
+                if (typeof val === 'string' && val.indexOf('${'$'}computed.') >= 0) {
+                    var cmatches = val.match(/\${'$'}computed\.([a-zA-Z0-9_]+)/g);
+                    if (cmatches) {
+                        for (var cm = 0; cm < cmatches.length; cm++) {
+                            var compKey = '_computed_' + cmatches[cm].replace('${'$'}computed.', '');
+                            if (!_bindings[compKey]) _bindings[compKey] = [];
+                            _bindings[compKey].push({ id: id, prop: prop, template: val });
+                        }
+                    }
+                }
+            }
+        }
+        if (node.children) {
+            for (var c = 0; c < node.children.length; c++) {
+                _trackBindings(node.children[c]);
+            }
+        }
+    }
+
+    // Flush updates for a state key
+    function _flushBindings(stateKey) {
+        var binds = _bindings[stateKey];
+        if (!binds) return;
+        var updates = {};
+        for (var i = 0; i < binds.length; i++) {
+            var b = binds[i];
+            if (!updates[b.id]) updates[b.id] = {};
+            updates[b.id][b.prop] = _resolveBindings(b.template);
+        }
+        for (var id in updates) {
+            OnTheFly.update(id, updates[id]);
+        }
+    }
+
+    function _flushComputedBindings(computedKey) {
+        var binds = _bindings['_computed_' + computedKey];
+        if (!binds) return;
+        var updates = {};
+        for (var i = 0; i < binds.length; i++) {
+            var b = binds[i];
+            if (!updates[b.id]) updates[b.id] = {};
+            updates[b.id][b.prop] = _resolveBindings(b.template);
+        }
+        for (var id in updates) {
+            OnTheFly.update(id, updates[id]);
+        }
+    }
+
+    // ═══ Override setUI to resolve bindings and track them ═══
+    var _origSetUI = OnTheFly.setUI;
+    OnTheFly.setUI = function(tree) {
+        _bindings = {};
+        _trackBindings(tree);
+        var resolved = _resolveTree(tree);
+        _origSetUI(resolved);
+    };
+
+    function _resolveTree(node) {
+        if (!node) return node;
+        var resolved = { type: node.type };
+        if (node.props) {
+            var rp = {};
+            for (var k in node.props) {
+                rp[k] = _resolveBindings(node.props[k]);
+            }
+            resolved.props = rp;
+        }
+        if (node.children) {
+            resolved.children = [];
+            for (var i = 0; i < node.children.length; i++) {
+                resolved.children.push(_resolveTree(node.children[i]));
+            }
+        }
+        if (node.child) {
+            resolved.child = _resolveTree(node.child);
+        }
+        return resolved;
+    }
+
+    // ═══ Global Store (cross-screen, in-memory) ═══
+    // Extends existing OnTheFly.shared with watch() capability
+    var _watchers = {};
+
+    OnTheFly.store = {
+        get: function(key) {
+            return OnTheFly.shared ? OnTheFly.shared.get(key) : undefined;
+        },
+        set: function(key, value) {
+            if (OnTheFly.shared) OnTheFly.shared.set(key, value);
+            var fns = _watchers[key];
+            if (fns) {
+                for (var i = 0; i < fns.length; i++) {
+                    try { fns[i](value); } catch(e) {}
+                }
+            }
+        },
+        watch: function(key, callback) {
+            if (!_watchers[key]) _watchers[key] = [];
+            _watchers[key].push(callback);
+        },
+        remove: function(key) {
+            if (OnTheFly.shared) OnTheFly.shared.remove(key);
+        },
+        clear: function() {
+            if (OnTheFly.shared) {
+                var keys = OnTheFly.shared.keys();
+                for (var i = 0; i < keys.length; i++) {
+                    OnTheFly.shared.remove(keys[i]);
+                }
+            }
+            _watchers = {};
+        }
+    };
+})();
+"""
+        eval(script, "<state-api>")
+    }
+
     fun callFunction(name: String): String {
         return eval("typeof $name === 'function' && $name()")
     }

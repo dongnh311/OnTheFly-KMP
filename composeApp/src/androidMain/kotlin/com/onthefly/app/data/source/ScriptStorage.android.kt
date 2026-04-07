@@ -87,4 +87,8 @@ actual class ScriptStorage(private val context: Context) {
         prefs.edit().clear().apply()
         ensureInitialized()
     }
+
+    actual fun getKV(key: String): String? = prefs.getString("kv_$key", null)
+    actual fun setKV(key: String, value: String) { prefs.edit().putString("kv_$key", value).apply() }
+    actual fun removeKV(key: String) { prefs.edit().remove("kv_$key").apply() }
 }
