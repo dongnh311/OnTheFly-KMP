@@ -303,6 +303,14 @@ class QuickJSEngine : AutoCloseable {
         }
     };
 
+    // ═══ Theme ═══
+    OnTheFly.setTheme = function(theme) {
+        OnTheFly.sendToNative("__setTheme", { theme: theme });
+    };
+    OnTheFly.getTheme = function() {
+        return OnTheFly.sendToNative("__getTheme", {}) || "light";
+    };
+
     // ═══ Animated Update ═══
     OnTheFly.animatedUpdate = function(id, props, animConfig) {
         OnTheFly.update(id, props);

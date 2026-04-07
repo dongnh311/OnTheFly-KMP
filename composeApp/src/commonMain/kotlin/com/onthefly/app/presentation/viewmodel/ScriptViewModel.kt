@@ -324,6 +324,10 @@ class ScriptViewModel(
                     durationMs = (action.data["duration"] as? Number)?.toInt()
                 )
                 "__debug" -> handleDebugAction(action.data)
+                "__setTheme" -> {
+                    val theme = action.data["theme"] as? String ?: "light"
+                    StyleRegistry.setTheme(theme)
+                }
             }
         }
     }

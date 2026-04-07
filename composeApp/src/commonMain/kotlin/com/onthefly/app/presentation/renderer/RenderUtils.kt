@@ -13,6 +13,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.onthefly.app.domain.model.UIComponent
 import com.onthefly.app.engine.style.ComponentStyle
@@ -114,6 +118,42 @@ fun resolveVerticalAlignment(value: String?): Alignment.Vertical = when (value) 
     "center" -> Alignment.CenterVertically
     "end", "bottom" -> Alignment.Bottom
     else -> Alignment.Top
+}
+
+/**
+ * Apply accessibility semantics from component props.
+ */
+fun Modifier.applyAccessibility(c: UIComponent): Modifier {
+    val desc = c.propString("contentDescription")
+    val hint = c.propString("accessibilityHint")
+    val roleStr = c.propString("accessibilityRole")
+    val important = c.propBool("importantForAccessibility", true)
+
+    if (desc == null && roleStr == null && hint == null) return this
+    if (!important) return this
+
+    return this.semantics {
+        if (desc != null) contentDescription = desc
+        if (roleStr != null) {
+            role = when (roleStr) {
+                "button" -> Role.Button
+                "checkbox" -> Role.Checkbox
+                "switch" -> Role.Switch
+                "image" -> Role.Image
+                "tab" -> Role.Tab
+                else -> Role.Button
+            }
+        }
+    }
+}
+
+/**
+ * Enforce minimum 48x48dp touch target for clickable components.
+ */
+fun Modifier.applyMinTouchTarget(isClickable: Boolean): Modifier {
+    return if (isClickable) {
+        this.then(Modifier.defaultMinSize(minWidth = 48.dp, minHeight = 48.dp))
+    } else this
 }
 
 fun resolveContentAlignment(value: String?): Alignment = when (value) {
