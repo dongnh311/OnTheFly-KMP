@@ -89,5 +89,13 @@ private fun RenderComponent(
         "Avatar" -> RenderAvatar(component, onEvent, onComponentEvent, modifier)
         "ProgressBar" -> RenderProgressBar(component, modifier)
         "Chip" -> RenderChip(component, onEvent, onComponentEvent, modifier)
+
+        // Advanced
+        "RichText" -> RenderRichText(component, onEvent, onComponentEvent, modifier)
+        "Slider" -> RenderSlider(component, onComponentEvent, modifier)
+        "SwipeToAction" -> RenderSwipeToAction(component, onEvent, onComponentEvent, modifier)
+        "WebView" -> RenderWebView(component, modifier)
+        "MapView" -> RenderMapView(component, modifier)
+        "VideoPlayer" -> RenderVideoPlayer(component, modifier)
     }
 }
