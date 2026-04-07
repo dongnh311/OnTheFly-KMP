@@ -1,11 +1,11 @@
 # OnTheFly KMP
 
-**Dynamic UI Engine** cho Android, iOS và Desktop — render native Compose widgets từ JavaScript scripts tại runtime thông qua **QuickJS** engine.
+**Dynamic UI Engine** for Android, iOS and Desktop — renders native Compose widgets from JavaScript scripts at runtime via the **QuickJS** engine.
 
-Zero WebView, zero HTML — toàn bộ UI là native Jetpack Compose / Compose Multiplatform được điều khiển bởi JavaScript.
+Zero WebView, zero HTML — all UI is native Jetpack Compose / Compose Multiplatform driven entirely by JavaScript.
 
 ```
-JavaScript định nghĩa UI → QuickJS thực thi (C) → UIComponent tree (Kotlin) → Compose render native → User interaction gửi ngược về JS
+JavaScript defines UI → QuickJS executes (C) → UIComponent tree (Kotlin) → Compose renders native → User interactions flow back to JS
 ```
 
 ## Screenshots
@@ -15,11 +15,11 @@ JavaScript định nghĩa UI → QuickJS thực thi (C) → UIComponent tree (Ko
 | <img src="screenshots/android_home.png" width="300"/> | <img src="screenshots/ios_home.png" width="300"/> |
 | Pixel 8 Pro (API 34) | iPhone 16 Pro (iOS 18) |
 
-> QuickJS engine render "On The Fly" home screen - cùng JS bundle, native UI trên cả 2 platform.
+> Same JS bundle, native UI on both platforms — powered by QuickJS engine.
 
 ## Tech Stack
 
-| Thành phần | Công nghệ | Version |
+| Component | Technology | Version |
 |---|---|---|
 | Language | Kotlin Multiplatform | 2.1.10 |
 | UI | Compose Multiplatform | 1.7.3 |
@@ -31,7 +31,7 @@ JavaScript định nghĩa UI → QuickJS thực thi (C) → UIComponent tree (Ko
 | Android Min SDK | 24 (Android 7.0) | Target: 36 |
 | iOS Min | 16.0 | - |
 
-## Cấu trúc dự án
+## Project Structure
 
 ```
 OnTheFly_KMP/
@@ -64,7 +64,7 @@ OnTheFly_KMP/
 │   │   └── AndroidManifest.xml
 │   │
 │   ├── iosMain/                        ← iOS-specific
-│   │   ├── kotlin/.../engine/          QuickJSBridge actual (cinterop → C trực tiếp)
+│   │   ├── kotlin/.../engine/          QuickJSBridge actual (cinterop → direct C calls)
 │   │   ├── kotlin/.../data/source/     ScriptStorage actual (NSFileManager + NSUserDefaults)
 │   │   └── kotlin/.../                 MainViewController
 │   │
@@ -78,7 +78,7 @@ OnTheFly_KMP/
 │   ├── ios/
 │   │   ├── onthefly_bridge.h           C API header
 │   │   ├── onthefly_bridge.c           C bridge implementation (no JNI)
-│   │   ├── build_ios.sh                Build static libs cho iOS targets
+│   │   ├── build_ios.sh                Build static libs for iOS targets
 │   │   └── build/                      Compiled .a files per target
 │   ├── bridge_desktop.cpp              Desktop JNI bridge
 │   └── CMakeLists.txt                  Desktop CMake config
@@ -87,7 +87,7 @@ OnTheFly_KMP/
 │   ├── iosApp.xcodeproj/
 │   └── iosApp/
 │       ├── iOSApp.swift
-│       ├── ContentView.swift           SwiftUI wrapper cho ComposeUIViewController
+│       ├── ContentView.swift           SwiftUI wrapper for ComposeUIViewController
 │       └── Info.plist
 │
 ├── devserver/                          ← Dev tools & JS bundles
@@ -109,7 +109,7 @@ OnTheFly_KMP/
 └── gradle.properties
 ```
 
-## Kiến trúc
+## Architecture
 
 ### Clean Architecture + MVVM
 
@@ -143,35 +143,35 @@ OnTheFly_KMP/
 
 ### QuickJS Bridge per Platform
 
-| Platform | Bridge mechanism | Native lib |
+| Platform | Bridge Mechanism | Native Library |
 |---|---|---|
 | Android | JNI (`System.loadLibrary`) | `libonthefly-engine.so` (NDK/CMake) |
-| iOS | Kotlin/Native cinterop (C trực tiếp) | `libonthefly_ios.a` (static) |
+| iOS | Kotlin/Native cinterop (direct C calls) | `libonthefly_ios.a` (static) |
 | Desktop | JNI (`System.loadLibrary`) | `libonthefly-engine.dylib/dll/so` |
 
-### Luồng hoạt động
+### How It Works
 
 ```
-1. App khởi động → ScriptStorage.ensureInitialized() (copy bundled scripts)
-2. Navigate to "script/{bundleName}"
+1. App launches → ScriptStorage.ensureInitialized() (copies bundled scripts)
+2. Navigates to "script/{bundleName}"
 3. ScriptViewModel.loadAndRun(bundleName):
    a. Check dev server for updates (optional)
    b. Load theme.js → StyleRegistry
    c. Load main.js → QuickJSEngine.eval()
    d. Get UI tree → UIComponent → DynamicRenderer renders Compose widgets
 4. User interaction → Component event → JS handler → update/action
-5. Hot reload: poll dev server every 2s → detect changes → reload
+5. Hot reload: polls dev server every 2s → detects changes → reloads
 ```
 
-## Hệ thống Event 2 chiều
+## Bidirectional Event System
 
 ### Native → JS (EngineEvent)
 
-| Event | Khi nào |
+| Event | When |
 |---|---|
 | `onCreateView` | Screen loaded |
-| `onResume` / `onPause` | Lifecycle |
-| `onVisible` / `onInvisible` | Screen visibility |
+| `onResume` / `onPause` | Lifecycle changes |
+| `onVisible` / `onInvisible` | Screen visibility changes |
 | `onDestroy` | Screen destroyed |
 | `onDataReceived` | API response received |
 | `onViewData` | Data from previous screen |
@@ -180,32 +180,32 @@ OnTheFly_KMP/
 
 ### JS → Native (NativeAction)
 
-| Action | Chức năng |
+| Action | Description |
 |---|---|
-| `navigate` | Chuyển screen + data |
-| `sendRequest` | HTTP API call (Ktor) |
-| `showToast` | Hiện toast/snackbar |
+| `navigate` | Navigate to screen with data |
+| `sendRequest` | HTTP API call via Ktor |
+| `showToast` | Display toast/snackbar |
 | `goBack` | Back navigation |
-| `navigateDelayed` | Navigate sau delay |
+| `navigateDelayed` | Navigate after a delay |
 
 ## Native UI Components
 
-DynamicRenderer hỗ trợ render các component sau từ JS:
+Components rendered by DynamicRenderer from JS definitions:
 
-| Component | Mô tả |
+| Component | Description |
 |---|---|
-| `Column` | Vertical layout, hỗ trợ padding/spacing/alignment/background |
+| `Column` | Vertical layout with padding/spacing/alignment/background |
 | `Row` | Horizontal layout |
-| `Text` | Text display với style (fontSize, fontWeight, color) |
-| `Button` | Click handler, styled background/shape |
+| `Text` | Styled text display (fontSize, fontWeight, color) |
+| `Button` | Click handler with styled background/shape |
 | `Spacer` | Fixed height spacer |
-| `Toggle` | Switch on/off với label |
+| `Toggle` | Switch on/off with label |
 | `FullScreenPopup` | Animated overlay (fade + slide) |
-| `ConfirmDialog` | AlertDialog (title, message, confirm/cancel) |
+| `ConfirmDialog` | AlertDialog with title, message, confirm/cancel |
 
 ## Script Bundle Format
 
-Mỗi "màn hình" là một bundle gồm 3 files:
+Each "screen" is a bundle consisting of 3 files:
 
 ```
 bundle-name/
@@ -227,7 +227,7 @@ OnTheFly.setUI({
   ]
 });
 
-// Targeted update (chỉ update component theo ID, không re-render toàn bộ)
+// Targeted update (only updates component by ID, no full re-render)
 OnTheFly.update("counter", { text: "42" });
 
 // Register styles
@@ -262,35 +262,35 @@ function onViewData(data) { /* data from previous screen */ }
 - Android SDK (API 36)
 - Android NDK 27.0.12077973
 - CMake 3.22.1
-- Xcode 15+ (cho iOS)
+- Xcode 15+ (for iOS)
 
 ### Android
 
 ```bash
 ./gradlew :composeApp:assembleDebug
-# Hoặc mở bằng Android Studio và chạy
+# Or open in Android Studio and run
 ```
 
 ### Desktop
 
 ```bash
-# Cần compile native lib trước (1 lần):
+# Compile native library first (one-time):
 cd native && mkdir -p build && cd build
 cmake .. && make
-# Copy libonthefly-engine.dylib vào nơi app có thể tìm thấy
+# The app searches native/build/ automatically
 
-# Chạy app:
+# Run:
 ./gradlew :composeApp:run
 ```
 
 ### iOS
 
 ```bash
-# Build QuickJS static libraries (1 lần):
+# Build QuickJS static libraries (one-time):
 cd native/ios && ./build_ios.sh
 
-# Mở iosApp/iosApp.xcodeproj bằng Xcode và chạy
-# Hoặc:
+# Open iosApp/iosApp.xcodeproj in Xcode and run
+# Or:
 ./gradlew :composeApp:linkDebugFrameworkIosSimulatorArm64
 ```
 
@@ -299,15 +299,15 @@ cd native/ios && ./build_ios.sh
 ```bash
 cd devserver
 python server.py
-# Server chạy tại port 8080
-# App tự động poll mỗi 2 giây
-# Sửa JS → save → app reload trong ~2s
-# Badge "DEV" hiện ở góc trên-phải khi connected
+# Server runs on port 8080
+# App polls automatically every 2 seconds
+# Edit JS → save → app reloads in ~2s
+# "DEV" badge appears in top-right when connected
 ```
 
 ### Dev Server Commands
 
-| Command | Chức năng |
+| Command | Description |
 |---|---|
 | `v [bundle]` | Validate JS syntax |
 | `d [bundle]` | Deploy scripts to Android assets |
@@ -317,18 +317,18 @@ python server.py
 
 ## Bundled Demo Scripts
 
-| Bundle | Chức năng |
+| Bundle | Description |
 |---|---|
 | `home` | Landing screen |
 | `demo-app` | Navigation, counter, toggle, popup, dialog |
-| `detail-app` | Data passing giữa screens |
-| `api-demo` | HTTP GET/POST tới JSONPlaceholder |
+| `detail-app` | Data passing between screens |
+| `api-demo` | HTTP GET/POST to JSONPlaceholder |
 | `popup-fullscreen` | Full-screen overlay patterns |
 | `popup-confirm` | Confirm dialog demo |
 
 ## expect/actual Pattern
 
-Các thành phần platform-specific sử dụng Kotlin Multiplatform `expect/actual`:
+Platform-specific components use Kotlin Multiplatform `expect/actual`:
 
 | expect (commonMain) | actual Android | actual iOS | actual Desktop |
 |---|---|---|---|
@@ -339,4 +339,4 @@ Các thành phần platform-specific sử dụng Kotlin Multiplatform `expect/ac
 
 ## Migrated From
 
-Dự án này được migrate từ [OnTheFly-Android](../OnTheFly-Android) (single-platform Android) sang Kotlin Multiplatform, giữ nguyên 100% logic và JS bundles, thêm hỗ trợ iOS và Desktop.
+This project was migrated from [OnTheFly-Android](https://github.com/dongnh311/OnTheFly-Android) (single-platform Android) to Kotlin Multiplatform, retaining 100% of the logic and JS bundles while adding iOS and Desktop support.
