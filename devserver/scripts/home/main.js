@@ -72,6 +72,10 @@ function gotoConfirmDemo() {
     navigate("popup-confirm");
 }
 
+function gotoComponentsDemo() {
+    navigate("components-demo");
+}
+
 // ─── Confirm Dialog ─────────────────────────────────────────
 
 function openConfirmDialog() {
@@ -139,6 +143,7 @@ function render() {
             { type: "Text", props: { text: "Navigation", style: "subtitle" } },
             { type: "Button", props: { text: "Detail Screen (Data Passing) →", onClick: "gotoDetail", style: "primaryButton" } },
             { type: "Button", props: { text: "API Demo (HTTP Requests) →", onClick: "gotoApiDemo", style: "primaryButton" } },
+            { type: "Button", props: { text: "Components Demo (Phase 1) →", onClick: "gotoComponentsDemo", style: "primaryButton" } },
             {
                 type: "Row",
                 props: { style: "buttonRow" },

@@ -14,15 +14,29 @@ object StyleRegistry {
                 styles[key] = ComponentStyle(
                     fontSize = (styleMap["fontSize"] as? Number)?.toInt(),
                     fontWeight = styleMap["fontWeight"] as? String,
+                    fontStyle = styleMap["fontStyle"] as? String,
                     color = styleMap["color"] as? String,
-                    backgroundColor = styleMap["backgroundColor"] as? String,
-                    padding = (styleMap["padding"] as? Number)?.toInt(),
-                    cornerRadius = (styleMap["cornerRadius"] as? Number)?.toInt(),
+                    textColor = styleMap["textColor"] as? String,
                     textAlign = styleMap["textAlign"] as? String,
-                    width = styleMap["width"] as? String,
-                    height = (styleMap["height"] as? Number)?.toInt(),
+                    textDecoration = styleMap["textDecoration"] as? String,
+                    lineHeight = (styleMap["lineHeight"] as? Number)?.toFloat(),
+                    letterSpacing = (styleMap["letterSpacing"] as? Number)?.toFloat(),
+                    background = styleMap["background"] as? String,
+                    backgroundColor = styleMap["backgroundColor"] as? String,
+                    borderRadius = (styleMap["borderRadius"] as? Number)?.toInt(),
+                    cornerRadius = (styleMap["cornerRadius"] as? Number)?.toInt(),
+                    borderWidth = (styleMap["borderWidth"] as? Number)?.toInt(),
+                    borderColor = styleMap["borderColor"] as? String,
+                    elevation = (styleMap["elevation"] as? Number)?.toInt(),
+                    padding = (styleMap["padding"] as? Number)?.toInt(),
+                    paddingHorizontal = (styleMap["paddingHorizontal"] as? Number)?.toInt(),
+                    paddingVertical = (styleMap["paddingVertical"] as? Number)?.toInt(),
                     spacing = (styleMap["spacing"] as? Number)?.toInt(),
-                    alignment = styleMap["alignment"] as? String
+                    alignment = styleMap["alignment"] as? String,
+                    crossAlignment = styleMap["crossAlignment"] as? String,
+                    width = styleMap["width"]?.toString(),
+                    height = (styleMap["height"] as? Number)?.toInt(),
+                    opacity = (styleMap["opacity"] as? Number)?.toFloat()
                 )
             }
             println("StyleRegistry: Registered ${styles.size} styles: ${styles.keys}")
