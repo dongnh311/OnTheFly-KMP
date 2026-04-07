@@ -77,6 +77,7 @@ kotlin {
             implementation(compose.desktop.currentOs)
             implementation(libs.androidx.lifecycle.viewmodel.compose)
             implementation(libs.ktor.client.okhttp)
+            implementation("org.jetbrains.kotlinx:kotlinx-coroutines-swing:1.8.1")
         }
     }
 }
@@ -139,10 +140,15 @@ compose.desktop {
     application {
         mainClass = "com.onthefly.app.MainKt"
 
+        jvmArgs += listOf(
+            "-Donthefly.native.dir=${rootProject.projectDir}/native/build"
+        )
+
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
             packageName = "OnTheFly"
             packageVersion = "1.0.0"
+            appResourcesRootDir.set(project.layout.projectDirectory.dir("resources"))
         }
     }
 }

@@ -13,20 +13,29 @@ actual class ScriptStorage {
     }
 
     actual fun ensureInitialized() {
-        if (prefs.getBoolean("scripts_initialized", false)) return
+        // Always check if scripts actually exist, not just the flag
+        if (prefs.getBoolean("scripts_initialized", false) && scriptsDir.exists() && scriptsDir.listFiles()?.isNotEmpty() == true) {
+            return
+        }
         copyResourcesToLocal()
         prefs.putBoolean("scripts_initialized", true)
     }
 
     private fun copyResourcesToLocal() {
-        // On desktop, scripts are loaded from compose resources or a local directory
-        // For dev, copy from the project's devserver/scripts directory if available
-        val devScriptsDir = File("devserver/scripts")
-        if (devScriptsDir.exists()) {
+        // Search multiple possible locations for devserver/scripts
+        val candidates = listOf(
+            File("devserver/scripts"),
+            File(System.getProperty("user.dir"), "devserver/scripts"),
+            File(System.getProperty("user.dir"), "../devserver/scripts"),
+        )
+
+        val devScriptsDir = candidates.firstOrNull { it.exists() && it.isDirectory }
+        if (devScriptsDir != null) {
+            println("ScriptStorage: Copying scripts from ${devScriptsDir.absolutePath}")
             devScriptsDir.listFiles()?.filter { it.isDirectory }?.forEach { bundleDir ->
                 val dstDir = File(scriptsDir, bundleDir.name)
                 dstDir.mkdirs()
-                bundleDir.listFiles()?.forEach { file ->
+                bundleDir.listFiles()?.filter { it.isFile }?.forEach { file ->
                     file.copyTo(File(dstDir, file.name), overwrite = true)
                 }
                 try {
@@ -35,6 +44,16 @@ actual class ScriptStorage {
                     if (version.isNotEmpty()) setVersion(bundleDir.name, version)
                 } catch (_: Exception) { }
             }
+            // Also copy version.json
+            val versionFile = File(devScriptsDir, "version.json")
+            if (versionFile.exists()) {
+                scriptsDir.mkdirs()
+                versionFile.copyTo(File(scriptsDir, "version.json"), overwrite = true)
+            }
+            println("ScriptStorage: Copied ${scriptsDir.listFiles()?.size ?: 0} bundles")
+        } else {
+            println("ScriptStorage: WARNING - devserver/scripts not found in any search path")
+            candidates.forEach { println("  Tried: ${it.absolutePath} (exists=${it.exists()})") }
         }
     }
 

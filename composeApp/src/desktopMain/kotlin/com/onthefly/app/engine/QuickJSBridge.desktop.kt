@@ -4,22 +4,34 @@ actual class QuickJSBridge actual constructor() {
 
     companion object {
         init {
-            try {
+            val os = System.getProperty("os.name").lowercase()
+            val libName = when {
+                os.contains("mac") -> "libonthefly-engine.dylib"
+                os.contains("win") -> "onthefly-engine.dll"
+                else -> "libonthefly-engine.so"
+            }
+
+            val searchPaths = listOfNotNull(
+                System.getProperty("compose.application.resources.dir"),
+                System.getProperty("onthefly.native.dir"),
+                // Look relative to working directory
+                "native/build",
+                "../native/build",
+            )
+
+            var loaded = false
+            for (dir in searchPaths) {
+                val file = java.io.File(dir, libName)
+                if (file.exists()) {
+                    System.load(file.absolutePath)
+                    loaded = true
+                    break
+                }
+            }
+
+            if (!loaded) {
+                // Last resort: try java.library.path
                 System.loadLibrary("onthefly-engine")
-            } catch (e: UnsatisfiedLinkError) {
-                // Try loading from resources path
-                val os = System.getProperty("os.name").lowercase()
-                val libName = when {
-                    os.contains("mac") -> "libonthefly-engine.dylib"
-                    os.contains("win") -> "onthefly-engine.dll"
-                    else -> "libonthefly-engine.so"
-                }
-                val libDir = System.getProperty("compose.application.resources.dir")
-                if (libDir != null) {
-                    System.load("$libDir/$libName")
-                } else {
-                    throw e
-                }
             }
         }
     }

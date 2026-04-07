@@ -8,6 +8,15 @@ Zero WebView, zero HTML — toàn bộ UI là native Jetpack Compose / Compose M
 JavaScript định nghĩa UI → QuickJS thực thi (C) → UIComponent tree (Kotlin) → Compose render native → User interaction gửi ngược về JS
 ```
 
+## Screenshots
+
+| Android | iOS |
+|:---:|:---:|
+| <img src="screenshots/android_home.png" width="300"/> | <img src="screenshots/ios_home.png" width="300"/> |
+| Pixel 8 Pro (API 34) | iPhone 16 Pro (iOS 18) |
+
+> QuickJS engine render "On The Fly" home screen - cùng JS bundle, native UI trên cả 2 platform.
+
 ## Tech Stack
 
 | Thành phần | Công nghệ | Version |

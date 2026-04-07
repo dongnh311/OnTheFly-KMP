@@ -7,6 +7,7 @@ import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.NativePtr
 import kotlinx.cinterop.interpretCPointer
 import kotlinx.cinterop.toKString
+import platform.posix.free
 import quickjs.*
 
 @OptIn(ExperimentalForeignApi::class)
@@ -27,7 +28,7 @@ actual class QuickJSBridge actual constructor() {
         val ctx = longToPtr(contextPtr) ?: return "Error: null context"
         val result: CPointer<ByteVar> = otf_eval(ctx, script, fileName) ?: return "Error: null result"
         val str = result.toKString()
-        otf_free_string(str)
+        free(result)
         return str
     }
 
@@ -57,7 +58,7 @@ actual class QuickJSBridge actual constructor() {
         val ctx = longToPtr(contextPtr) ?: return null
         val result: CPointer<ByteVar> = call(ctx) ?: return null
         val str = result.toKString()
-        otf_free_string(str)
+        free(result)
         return str
     }
 }
