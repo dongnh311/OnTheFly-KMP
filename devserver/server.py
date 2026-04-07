@@ -33,11 +33,14 @@ ASSETS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                           '..', 'composeApp', 'src', 'androidMain', 'assets', 'scripts')
 
 
+SPECIAL_DIRS = {'_base', '_libs', 'languages'}
+
+
 def resolve_bundle_dir(scripts_dir, bundle_name):
     """Resolve a bundle name to its directory on disk.
-    Special dirs (_base, _libs) live at root; screen bundles live under screens/.
+    Special dirs (_base, _libs, languages) live at root; screen bundles live under screens/.
     """
-    if bundle_name.startswith('_'):
+    if bundle_name.startswith('_') or bundle_name in SPECIAL_DIRS:
         return os.path.join(scripts_dir, bundle_name)
     screens = os.path.join(scripts_dir, 'screens')
     candidate = os.path.join(screens, bundle_name)
@@ -48,11 +51,12 @@ def resolve_bundle_dir(scripts_dir, bundle_name):
 
 
 def list_all_bundles(scripts_dir):
-    """List all bundle names: special dirs (_*) from root + screens from screens/."""
+    """List all bundle names: special dirs from root + screens from screens/."""
     bundles = []
     # Special dirs at root
     for d in sorted(os.listdir(scripts_dir)):
-        if d.startswith('_') and os.path.isdir(os.path.join(scripts_dir, d)):
+        dp = os.path.join(scripts_dir, d)
+        if os.path.isdir(dp) and (d.startswith('_') or d in SPECIAL_DIRS):
             bundles.append(d)
     # Screen bundles
     screens = os.path.join(scripts_dir, 'screens')
@@ -458,8 +462,8 @@ def validate_bundle(scripts_dir, bundle_name):
     results = []
     all_ok = True
 
-    # Special dirs (_libs, _base) don't require manifest.json
-    if bundle_name.startswith('_'):
+    # Special dirs (_libs, _base, languages) don't require manifest.json
+    if bundle_name.startswith('_') or bundle_name in SPECIAL_DIRS:
         for f in sorted(os.listdir(bundle_dir)):
             if f.endswith('.js'):
                 ok, errors = validate_js(os.path.join(bundle_dir, f))
@@ -588,13 +592,13 @@ def build_version_response(scripts_dir):
                 'version': m.get('version', '1.0.0'),
                 'files': sorted(os.listdir(bd))
             }
-        elif b.startswith('_'):
-            # Special dirs (_libs, _base) don't need manifest
-            js_files = sorted(f for f in os.listdir(bd) if f.endswith('.js'))
-            if js_files:
+        elif b.startswith('_') or b in SPECIAL_DIRS:
+            # Special dirs (_libs, _base, languages) don't need manifest
+            data_files = sorted(f for f in os.listdir(bd) if f.endswith('.js') or f.endswith('.json'))
+            if data_files:
                 data.setdefault('bundles', {})[b] = {
                     'version': '1.0.0',
-                    'files': js_files
+                    'files': data_files
                 }
 
     # Inject per-bundle lastModified from watcher

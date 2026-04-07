@@ -140,7 +140,7 @@ class QuickJSEngine : AutoCloseable {
 
     // ═══ Binding resolution ═══
 
-    // Resolve ${'$'}state.xxx and ${'$'}computed.xxx in a string
+    // Resolve ${'$'}state.xxx, ${'$'}computed.xxx, and ${'$'}lang.xxx in a string
     function _resolveBindings(template) {
         if (typeof template !== 'string') return template;
         // Full match: "${'$'}state.key" → return raw value (could be object/array)
@@ -152,13 +152,20 @@ class QuickJSEngine : AutoCloseable {
         if (fullComputedMatch) {
             return _getComputed(fullComputedMatch[1]);
         }
-        // Partial match: "Hello ${'$'}state.name" → string interpolation
+        // Full match: "${'$'}lang.key" → return translated string
+        var fullLangMatch = template.match(/^\${'$'}lang\.([a-zA-Z0-9_]+)$/);
+        if (fullLangMatch && OnTheFly.t) {
+            return OnTheFly.t(fullLangMatch[1]);
+        }
+        // Partial match: string interpolation
         return template.replace(/\${'$'}state\.([a-zA-Z0-9_.]+)/g, function(_, path) {
             var val = _deepGet(_state, path);
             return val !== undefined ? String(val) : '';
         }).replace(/\${'$'}computed\.([a-zA-Z0-9_.]+)/g, function(_, key) {
             var val = _getComputed(key);
             return val !== undefined ? String(val) : '';
+        }).replace(/\${'$'}lang\.([a-zA-Z0-9_]+)/g, function(_, key) {
+            return OnTheFly.t ? OnTheFly.t(key) : key;
         });
     }
 
@@ -352,6 +359,57 @@ class QuickJSEngine : AutoCloseable {
 })();
 """
         eval(script, "<state-api>")
+    }
+
+    /**
+     * Inject the i18n (multi-language) API.
+     * @param languages Map of locale → JSON string, e.g. {"en": "{...}", "vi": "{...}"}
+     * @param defaultLocale Initial locale to use
+     */
+    fun injectI18nAPI(languages: Map<String, String>, defaultLocale: String = "en") {
+        val langEntries = languages.entries.joinToString(",\n") { (locale, json) ->
+            "\"$locale\": $json"
+        }
+        val script = """
+(function() {
+    var _langs = {$langEntries};
+    var _currentLocale = "$defaultLocale";
+    var _fallbackLocale = "en";
+
+    OnTheFly.i18n = {
+        setLocale: function(locale) {
+            if (_langs[locale]) {
+                _currentLocale = locale;
+                OnTheFly.sendToNative("setStorage", { key: "__locale", value: locale });
+            } else {
+                OnTheFly.log.w("Locale not found: " + locale);
+            }
+        },
+        getLocale: function() { return _currentLocale; },
+        getAvailableLocales: function() { return Object.keys(_langs); },
+        t: function(key, params) {
+            var text = (_langs[_currentLocale] && _langs[_currentLocale][key])
+                    || (_langs[_fallbackLocale] && _langs[_fallbackLocale][key])
+                    || key;
+            if (params) {
+                for (var p in params) {
+                    text = text.replace(new RegExp("\\{" + p + "\\}", "g"), String(params[p]));
+                }
+            }
+            return text;
+        },
+        addLocale: function(locale, translations) {
+            _langs[locale] = translations;
+        }
+    };
+
+    // Shorthand
+    OnTheFly.t = OnTheFly.i18n.t;
+    OnTheFly.setLocale = OnTheFly.i18n.setLocale;
+    OnTheFly.getLocale = OnTheFly.i18n.getLocale;
+})();
+"""
+        eval(script, "<i18n-api>")
     }
 
     /**

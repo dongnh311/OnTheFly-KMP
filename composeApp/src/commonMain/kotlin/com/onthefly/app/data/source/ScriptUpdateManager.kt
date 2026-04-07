@@ -23,9 +23,10 @@ class ScriptUpdateManager(
             // Sync the requested bundle
             syncBundle(bundles, bundleName)
 
-            // Also sync _libs and _base if present
+            // Also sync _libs, _base, and languages if present
             syncBundle(bundles, ScriptRepositoryImpl.LIBS_DIR)
             syncBundle(bundles, ScriptRepositoryImpl.BASE_DIR)
+            syncBundle(bundles, ScriptRepositoryImpl.LANGUAGES_DIR)
 
             localStorage.setVersion(KEY_GLOBAL, globalVersion)
             true

@@ -14,4 +14,7 @@ interface ScriptRepository {
 
     /** Load bundle-specific base.js if it exists. */
     fun loadBundleBase(bundleName: String): String?
+
+    /** Load all language JSON files from languages/ directory. Returns [(locale, jsonContent)]. */
+    fun loadLanguages(): List<Pair<String, String>>
 }

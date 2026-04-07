@@ -12,6 +12,7 @@ class ScriptRepositoryImpl(
     companion object {
         const val LIBS_DIR = "_libs"
         const val BASE_DIR = "_base"
+        const val LANGUAGES_DIR = "languages"
     }
 
     override fun loadBundle(bundleName: String): ScriptBundle {
@@ -46,6 +47,18 @@ class ScriptRepositoryImpl(
         return try {
             localStorage.readFile(bundleName, "base.js")
         } catch (_: Exception) { null }
+    }
+
+    override fun loadLanguages(): List<Pair<String, String>> {
+        return try {
+            val files = localStorage.listFiles(LANGUAGES_DIR)
+            files.filter { it.endsWith(".json") }.mapNotNull { fileName ->
+                try {
+                    val locale = fileName.removeSuffix(".json")
+                    locale to localStorage.readFile(LANGUAGES_DIR, fileName)
+                } catch (_: Exception) { null }
+            }
+        } catch (_: Exception) { emptyList() }
     }
 
     private fun loadJsFilesFromDir(dirName: String): List<Pair<String, String>> {

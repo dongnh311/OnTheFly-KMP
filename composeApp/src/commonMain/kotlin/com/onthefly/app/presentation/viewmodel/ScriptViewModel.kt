@@ -103,6 +103,15 @@ class ScriptViewModel(
         // 1c. Inject debug API
         engine.injectDebugAPI()
 
+        // 1d. Inject i18n (multi-language) API
+        val languages = repository.loadLanguages()
+        if (languages.isNotEmpty()) {
+            val langMap = languages.associate { (locale, json) -> locale to json }
+            val savedLocale = localStorage.getKV("__locale") ?: "en"
+            engine.injectI18nAPI(langMap, savedLocale)
+            println("ScriptViewModel: Loaded ${langMap.size} language(s): ${langMap.keys}")
+        }
+
         // 2. Load global libraries (_libs/*.js) — singleton, shared state
         val libs = repository.loadGlobalLibs()
         for ((fileName, content) in libs) {

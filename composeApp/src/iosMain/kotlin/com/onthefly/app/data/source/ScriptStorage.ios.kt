@@ -78,7 +78,7 @@ actual class ScriptStorage {
         val path = "$scriptsDir/$dirName"
         val contents = fileManager.contentsOfDirectoryAtPath(path, null) as? List<String>
             ?: return emptyList()
-        return contents.filter { it.endsWith(".js") }.sorted()
+        return contents.filter { it.endsWith(".js") || it.endsWith(".json") }.sorted()
     }
 
     actual fun getVersion(bundleName: String): String? =

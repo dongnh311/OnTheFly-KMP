@@ -84,7 +84,7 @@ actual class ScriptStorage {
     actual fun listFiles(dirName: String): List<String> {
         val dir = File(scriptsDir, dirName)
         if (!dir.exists() || !dir.isDirectory) return emptyList()
-        return dir.listFiles()?.filter { it.isFile && it.name.endsWith(".js") }
+        return dir.listFiles()?.filter { it.isFile && (it.name.endsWith(".js") || it.name.endsWith(".json")) }
             ?.map { it.name }?.sorted() ?: emptyList()
     }
 

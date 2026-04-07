@@ -132,8 +132,8 @@ val copyScriptsToAssets by tasks.registering {
         val assetsDir = layout.projectDirectory.dir("src/androidMain/assets/scripts").asFile
         val scriptsDir = rootProject.file("devserver/scripts")
 
-        // Copy special dirs (_base, _libs) and version.json
-        listOf("_base", "_libs").forEach { dir ->
+        // Copy special dirs (_base, _libs, languages) and version.json
+        listOf("_base", "_libs", "languages").forEach { dir ->
             val src = File(scriptsDir, dir)
             if (src.exists()) src.copyRecursively(File(assetsDir, dir), overwrite = true)
         }
