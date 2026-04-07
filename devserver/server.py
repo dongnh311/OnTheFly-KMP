@@ -1,0 +1,469 @@
+#!/usr/bin/env python3
+"""
+OnTheFly Dev Server
+
+Usage:
+    python server.py                     Start dev server (with file watcher)
+    python server.py validate [bundle]   Validate JS syntax
+    python server.py deploy [bundle]     Copy scripts → Android assets
+"""
+
+import http.server
+import json
+import os
+import sys
+import shutil
+import argparse
+import threading
+import time
+from pathlib import Path
+
+try:
+    from watchdog.observers import Observer
+    from watchdog.events import FileSystemEventHandler
+    HAS_WATCHDOG = True
+except ImportError:
+    HAS_WATCHDOG = False
+
+DEFAULT_PORT = 8080
+SCRIPT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'scripts')
+ASSETS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                          '..', 'app', 'src', 'main', 'assets', 'scripts')
+
+# Global version counter — bumped on every file change
+g_version = '0'
+g_version_lock = threading.Lock()
+
+
+def bump_version():
+    global g_version
+    with g_version_lock:
+        g_version = str(int(time.time()))
+
+
+def get_version():
+    with g_version_lock:
+        return g_version
+
+
+# ═══════════════════════════════════════════════════════════
+#  File Watcher (watchdog)
+# ═══════════════════════════════════════════════════════════
+
+class ScriptChangeHandler(FileSystemEventHandler):
+    def __init__(self):
+        self.last_event = 0
+
+    def on_any_event(self, event):
+        if event.is_directory:
+            return
+        # Debounce: ignore events within 500ms
+        now = time.time()
+        if now - self.last_event < 0.5:
+            return
+        self.last_event = now
+
+        rel = os.path.relpath(event.src_path, SCRIPT_DIR)
+        parts = rel.split(os.sep)
+        bundle = parts[0] if len(parts) > 1 else '?'
+        filename = parts[-1]
+
+        bump_version()
+        print(f'  \033[33m↻\033[0m File changed: \033[1m{bundle}/{filename}\033[0m → version {get_version()}')
+
+
+def start_watcher(scripts_dir):
+    if not HAS_WATCHDOG:
+        print('  ⚠ watchdog not installed — using polling fallback')
+        print('  Install: pip install watchdog')
+        # Fallback: bump version from mtime
+        def poll_loop():
+            last_mtime = 0
+            while True:
+                max_mtime = 0
+                for root, dirs, files in os.walk(scripts_dir):
+                    for f in files:
+                        fp = os.path.join(root, f)
+                        max_mtime = max(max_mtime, os.path.getmtime(fp))
+                if max_mtime > last_mtime and last_mtime > 0:
+                    bump_version()
+                last_mtime = max_mtime
+                time.sleep(1)
+        t = threading.Thread(target=poll_loop, daemon=True)
+        t.start()
+        return
+
+    handler = ScriptChangeHandler()
+    observer = Observer()
+    observer.schedule(handler, scripts_dir, recursive=True)
+    observer.daemon = True
+    observer.start()
+    print('  \033[32m✓\033[0m File watcher active (watchdog)')
+
+
+# ═══════════════════════════════════════════════════════════
+#  JS Validator
+# ═══════════════════════════════════════════════════════════
+
+def validate_js(file_path):
+    errors = []
+    with open(file_path, 'r', encoding='utf-8') as f:
+        content = f.read()
+
+    open_braces = 0
+    open_brackets = 0
+    open_parens = 0
+    in_string = None
+    in_block_comment = False
+
+    for line_num, line in enumerate(content.split('\n'), 1):
+        i = 0
+        while i < len(line):
+            c = line[i]
+            prev = line[i - 1] if i > 0 else ''
+
+            if in_block_comment:
+                if c == '/' and prev == '*':
+                    in_block_comment = False
+                i += 1
+                continue
+
+            if in_string:
+                if c == in_string and prev != '\\':
+                    in_string = None
+                i += 1
+                continue
+
+            if c == '/' and i + 1 < len(line) and line[i + 1] == '*':
+                in_block_comment = True
+                i += 2
+                continue
+
+            if c == '/' and i + 1 < len(line) and line[i + 1] == '/':
+                break
+
+            if c in ('"', "'", '`'):
+                in_string = c
+                i += 1
+                continue
+
+            if c == '{': open_braces += 1
+            elif c == '}': open_braces -= 1
+            elif c == '[': open_brackets += 1
+            elif c == ']': open_brackets -= 1
+            elif c == '(': open_parens += 1
+            elif c == ')': open_parens -= 1
+
+            for name, val in [('braces', open_braces), ('brackets', open_brackets), ('parens', open_parens)]:
+                if val < 0:
+                    errors.append(f'  Line {line_num}: unexpected closing {name}')
+                    if name == 'braces': open_braces = 0
+                    elif name == 'brackets': open_brackets = 0
+                    else: open_parens = 0
+
+            i += 1
+
+    if open_braces != 0: errors.append(f'  Unmatched braces: {open_braces} unclosed')
+    if open_brackets != 0: errors.append(f'  Unmatched brackets: {open_brackets} unclosed')
+    if open_parens != 0: errors.append(f'  Unmatched parens: {open_parens} unclosed')
+    if in_block_comment: errors.append(f'  Unterminated block comment')
+
+    return len(errors) == 0, errors
+
+
+def validate_bundle(scripts_dir, bundle_name):
+    bundle_dir = os.path.join(scripts_dir, bundle_name)
+    results = []
+    all_ok = True
+
+    manifest_path = os.path.join(bundle_dir, 'manifest.json')
+    if not os.path.isfile(manifest_path):
+        return False, [('manifest.json', False, ['  Missing'])]
+
+    try:
+        with open(manifest_path, 'r') as f:
+            manifest = json.load(f)
+        missing = [k for k in ('name', 'version', 'entry') if k not in manifest]
+        if missing:
+            results.append(('manifest.json', False, [f'  Missing fields: {", ".join(missing)}']))
+            all_ok = False
+        else:
+            results.append(('manifest.json', True, []))
+    except json.JSONDecodeError as e:
+        results.append(('manifest.json', False, [f'  Invalid JSON: {e}']))
+        all_ok = False
+
+    for f in sorted(os.listdir(bundle_dir)):
+        if f.endswith('.js'):
+            ok, errors = validate_js(os.path.join(bundle_dir, f))
+            results.append((f, ok, errors))
+            if not ok: all_ok = False
+
+    return all_ok, results
+
+
+def cmd_validate(scripts_dir, bundle_filter=None):
+    bundles = sorted([d for d in os.listdir(scripts_dir)
+                      if os.path.isdir(os.path.join(scripts_dir, d))])
+    if bundle_filter:
+        bundles = [b for b in bundles if b == bundle_filter]
+        if not bundles:
+            print(f'  Bundle not found: {bundle_filter}')
+            return False
+
+    print('')
+    all_ok = True
+    for bundle in bundles:
+        ok, results = validate_bundle(scripts_dir, bundle)
+        s = '\033[32m✓\033[0m' if ok else '\033[31m✗\033[0m'
+        print(f'  {s} {bundle}/')
+        for fn, fok, errs in results:
+            fs = '\033[32m✓\033[0m' if fok else '\033[31m✗\033[0m'
+            print(f'    {fs} {fn}')
+            for e in errs: print(f'      {e}')
+        if not ok: all_ok = False
+
+    print('')
+    if all_ok:
+        print(f'  \033[32mAll {len(bundles)} bundle(s) valid ✓\033[0m')
+    else:
+        print(f'  \033[31mValidation FAILED ✗\033[0m')
+    print('')
+    return all_ok
+
+
+# ═══════════════════════════════════════════════════════════
+#  Deploy
+# ═══════════════════════════════════════════════════════════
+
+def cmd_deploy(scripts_dir, bundle_filter=None):
+    assets_dir = os.path.abspath(ASSETS_DIR)
+    bundles = sorted([d for d in os.listdir(scripts_dir)
+                      if os.path.isdir(os.path.join(scripts_dir, d))])
+    if bundle_filter:
+        bundles = [b for b in bundles if b == bundle_filter]
+        if not bundles:
+            print(f'  Bundle not found: {bundle_filter}')
+            return
+
+    # Validate first
+    for b in bundles:
+        ok, _ = validate_bundle(scripts_dir, b)
+        if not ok:
+            print(f'  \033[31m✗\033[0m {b}/ failed validation. Run: python server.py validate')
+            return
+
+    os.makedirs(assets_dir, exist_ok=True)
+    version_src = os.path.join(scripts_dir, 'version.json')
+    if os.path.isfile(version_src):
+        shutil.copy2(version_src, os.path.join(assets_dir, 'version.json'))
+
+    print('')
+    for b in bundles:
+        src = os.path.join(scripts_dir, b)
+        dst = os.path.join(assets_dir, b)
+        if os.path.exists(dst): shutil.rmtree(dst)
+        shutil.copytree(src, dst)
+        n = len(os.listdir(dst))
+        print(f'  \033[32m✓\033[0m {b}/ ({n} files)')
+
+    print(f'\n  Deployed {len(bundles)} bundle(s) → {assets_dir}\n')
+
+
+# ═══════════════════════════════════════════════════════════
+#  HTTP Server
+# ═══════════════════════════════════════════════════════════
+
+def build_version_response(scripts_dir):
+    version_file = os.path.join(scripts_dir, 'version.json')
+    if os.path.isfile(version_file):
+        with open(version_file, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+    else:
+        data = {'schemaVersion': 1, 'bundles': {}}
+        for b in os.listdir(scripts_dir):
+            bd = os.path.join(scripts_dir, b)
+            mp = os.path.join(bd, 'manifest.json')
+            if os.path.isdir(bd) and os.path.isfile(mp):
+                with open(mp, 'r') as mf:
+                    m = json.load(mf)
+                data['bundles'][b] = {
+                    'version': m.get('version', '1.0.0'),
+                    'files': sorted(os.listdir(bd))
+                }
+    data['globalVersion'] = get_version()
+    return data
+
+
+class DevHandler(http.server.BaseHTTPRequestHandler):
+    scripts_dir = SCRIPT_DIR
+
+    def do_GET(self):
+        if self.path == '/version':
+            self._json(build_version_response(self.scripts_dir))
+            return
+        if self.path.startswith('/scripts/'):
+            rel = self.path[len('/scripts/'):]
+            fp = os.path.join(self.scripts_dir, rel)
+            if os.path.isfile(fp):
+                with open(fp, 'r', encoding='utf-8') as f:
+                    ct = 'application/json' if fp.endswith('.json') else 'application/javascript'
+                    self._text(f.read(), ct)
+            else:
+                self._err(404)
+            return
+        if self.path == '/':
+            bs = sorted([d for d in os.listdir(self.scripts_dir)
+                         if os.path.isdir(os.path.join(self.scripts_dir, d))])
+            self._json({'server': 'OnTheFly Dev Server', 'bundles': bs, 'version': get_version()})
+            return
+        self._err(404)
+
+    def _json(self, data):
+        b = json.dumps(data, indent=2).encode()
+        self.send_response(200)
+        self.send_header('Content-Type', 'application/json')
+        self.send_header('Cache-Control', 'no-cache')
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.end_headers()
+        self.wfile.write(b)
+
+    def _text(self, text, ct='text/plain'):
+        b = text.encode()
+        self.send_response(200)
+        self.send_header('Content-Type', ct)
+        self.send_header('Cache-Control', 'no-cache')
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.end_headers()
+        self.wfile.write(b)
+
+    def _err(self, code):
+        self.send_response(code)
+        self.end_headers()
+
+    def log_message(self, format, *args):
+        p = args[0] if args else ''
+        if '/version' in str(p): return
+        super().log_message(format, *args)
+
+
+# ═══════════════════════════════════════════════════════════
+#  Interactive Terminal
+# ═══════════════════════════════════════════════════════════
+
+def interactive_loop(scripts_dir):
+    """Run in background thread. Reads commands from stdin."""
+    HELP = """
+  \033[1mCommands:\033[0m
+    v, validate [bundle]   Validate JS syntax
+    d, deploy [bundle]     Copy scripts → Android assets
+    l, list                List bundles
+    r, reload              Bump version (force app reload)
+    h, help                Show this help
+    q, quit                Stop server
+"""
+    print(HELP)
+    print('  Type a command or just edit JS files.\n')
+
+    while True:
+        try:
+            line = input('  \033[36monthefly>\033[0m ').strip()
+        except (EOFError, KeyboardInterrupt):
+            print('\nServer stopped.')
+            os._exit(0)
+
+        if not line:
+            continue
+
+        parts = line.split()
+        cmd = parts[0].lower()
+        arg = parts[1] if len(parts) > 1 else None
+
+        if cmd in ('q', 'quit', 'exit'):
+            print('  Server stopped.')
+            os._exit(0)
+
+        elif cmd in ('h', 'help', '?'):
+            print(HELP)
+
+        elif cmd in ('v', 'validate'):
+            cmd_validate(scripts_dir, arg)
+
+        elif cmd in ('d', 'deploy'):
+            cmd_deploy(scripts_dir, arg)
+
+        elif cmd in ('l', 'list', 'ls'):
+            bundles = sorted([d for d in os.listdir(scripts_dir)
+                              if os.path.isdir(os.path.join(scripts_dir, d))])
+            print('')
+            for b in bundles:
+                files = os.listdir(os.path.join(scripts_dir, b))
+                print(f'  {b}/ ({len(files)} files)')
+            print('')
+
+        elif cmd in ('r', 'reload'):
+            bump_version()
+            print(f'  \033[33m↻\033[0m Forced reload → version {get_version()}')
+
+        else:
+            print(f'  Unknown command: {cmd}. Type "help".')
+
+
+# ═══════════════════════════════════════════════════════════
+#  Main
+# ═══════════════════════════════════════════════════════════
+
+def main():
+    parser = argparse.ArgumentParser(description='OnTheFly Dev Server')
+    parser.add_argument('command', nargs='?', default='serve',
+                        choices=['serve', 'validate', 'deploy'],
+                        help='serve (default), validate, deploy')
+    parser.add_argument('bundle', nargs='?', default=None)
+    parser.add_argument('--port', type=int, default=DEFAULT_PORT)
+    parser.add_argument('--dir', type=str, default=SCRIPT_DIR)
+    args = parser.parse_args()
+
+    scripts_dir = os.path.abspath(args.dir)
+    if not os.path.isdir(scripts_dir):
+        print(f'Error: {scripts_dir} not found')
+        sys.exit(1)
+
+    if args.command == 'validate':
+        ok = cmd_validate(scripts_dir, args.bundle)
+        sys.exit(0 if ok else 1)
+    elif args.command == 'deploy':
+        cmd_deploy(scripts_dir, args.bundle)
+        sys.exit(0)
+
+    # ─── Serve mode ──────────────────────────────────────
+    DevHandler.scripts_dir = scripts_dir
+    bump_version()
+
+    bundles = sorted([d for d in os.listdir(scripts_dir)
+                      if os.path.isdir(os.path.join(scripts_dir, d))])
+
+    print('')
+    print('  \033[1mOnTheFly Dev Server\033[0m')
+    print('  ───────────────────────────────────────')
+    print(f'  Port:      {args.port}')
+    print(f'  Scripts:   {scripts_dir}')
+    print(f'  Bundles:   {", ".join(bundles)}')
+    print(f'  Emulator:  http://10.0.2.2:{args.port}')
+    print('  ───────────────────────────────────────')
+
+    # Start file watcher
+    start_watcher(scripts_dir)
+
+    # Start HTTP server in background
+    server = http.server.HTTPServer(('0.0.0.0', args.port), DevHandler)
+    server_thread = threading.Thread(target=server.serve_forever, daemon=True)
+    server_thread.start()
+    print(f'  \033[32m✓\033[0m HTTP server on port {args.port}')
+    print('  ───────────────────────────────────────')
+
+    # Interactive terminal
+    interactive_loop(scripts_dir)
+
+
+if __name__ == '__main__':
+    main()

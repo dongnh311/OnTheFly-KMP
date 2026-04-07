@@ -1,0 +1,77 @@
+package com.onthefly.app.data.source
+
+import com.onthefly.app.util.JsonParser
+import kotlinx.cinterop.BetaInteropApi
+import kotlinx.cinterop.ExperimentalForeignApi
+import platform.Foundation.*
+
+@OptIn(ExperimentalForeignApi::class, BetaInteropApi::class)
+actual class ScriptStorage {
+
+    private val fileManager = NSFileManager.defaultManager
+    private val scriptsDir: String get() {
+        val docs = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, true).first() as String
+        return "$docs/scripts"
+    }
+    private val defaults = NSUserDefaults.standardUserDefaults
+
+    actual fun ensureInitialized() {
+        if (defaults.boolForKey("scripts_initialized")) return
+        copyBundleToLocal()
+        defaults.setBool(true, "scripts_initialized")
+    }
+
+    private fun copyBundleToLocal() {
+        val bundle = NSBundle.mainBundle
+        val resourcePath = bundle.resourcePath ?: return
+        val scriptsPath = "$resourcePath/scripts"
+        if (!fileManager.fileExistsAtPath(scriptsPath)) return
+
+        val bundles = fileManager.contentsOfDirectoryAtPath(scriptsPath, null) as? List<String> ?: return
+        for (bundleName in bundles) {
+            val srcDir = "$scriptsPath/$bundleName"
+            val dstDir = "$scriptsDir/$bundleName"
+            fileManager.createDirectoryAtPath(dstDir, true, null, null)
+
+            val files = fileManager.contentsOfDirectoryAtPath(srcDir, null) as? List<String> ?: continue
+            for (fileName in files) {
+                val src = "$srcDir/$fileName"
+                val dst = "$dstDir/$fileName"
+                fileManager.copyItemAtPath(src, dst, null)
+            }
+            try {
+                val manifest = JsonParser.parseObject(readFile(bundleName, "manifest.json"))
+                val version = manifest["version"] as? String ?: ""
+                if (version.isNotEmpty()) setVersion(bundleName, version)
+            } catch (_: Exception) { }
+        }
+    }
+
+    actual fun readFile(bundleName: String, fileName: String): String {
+        val path = "$scriptsDir/$bundleName/$fileName"
+        return NSString.stringWithContentsOfFile(path, NSUTF8StringEncoding, null)
+            ?: throw IllegalStateException("Script not found: $path")
+    }
+
+    actual fun writeFile(bundleName: String, fileName: String, content: String) {
+        val dir = "$scriptsDir/$bundleName"
+        fileManager.createDirectoryAtPath(dir, true, null, null)
+        (content as NSString).writeToFile("$dir/$fileName", true, NSUTF8StringEncoding, null)
+    }
+
+    actual fun bundleExists(bundleName: String): Boolean =
+        fileManager.fileExistsAtPath("$scriptsDir/$bundleName/manifest.json")
+
+    actual fun getVersion(bundleName: String): String? =
+        defaults.stringForKey("version_$bundleName")
+
+    actual fun setVersion(bundleName: String, version: String) {
+        defaults.setObject(version, "version_$bundleName")
+    }
+
+    actual fun reset() {
+        fileManager.removeItemAtPath(scriptsDir, null)
+        defaults.removeObjectForKey("scripts_initialized")
+        ensureInitialized()
+    }
+}

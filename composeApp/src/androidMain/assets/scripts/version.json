@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "globalVersion": "2026.04.07.2",
+  "bundles": {
+    "home":             { "version": "1.0.0", "files": ["manifest.json", "main.js", "theme.js"] },
+    "demo-app":         { "version": "1.0.0", "files": ["manifest.json", "main.js", "theme.js"] },
+    "detail-app":       { "version": "1.0.0", "files": ["manifest.json", "main.js", "theme.js"] },
+    "api-demo":         { "version": "1.0.0", "files": ["manifest.json", "main.js", "theme.js"] },
+    "popup-fullscreen": { "version": "1.0.0", "files": ["manifest.json", "main.js", "theme.js"] },
+    "popup-confirm":    { "version": "1.0.0", "files": ["manifest.json", "main.js", "theme.js"] }
+  }
+}

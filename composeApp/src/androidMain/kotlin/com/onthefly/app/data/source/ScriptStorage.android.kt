@@ -1,0 +1,71 @@
+package com.onthefly.app.data.source
+
+import android.content.Context
+import com.onthefly.app.util.JsonParser
+import java.io.File
+
+actual class ScriptStorage(private val context: Context) {
+
+    private val scriptsDir: File get() = File(context.filesDir, "scripts")
+    private val prefs by lazy { context.getSharedPreferences("onthefly_scripts", Context.MODE_PRIVATE) }
+
+    actual fun ensureInitialized() {
+        if (prefs.getBoolean("scripts_initialized", false)) return
+        copyAssetsToLocal()
+        prefs.edit().putBoolean("scripts_initialized", true).apply()
+    }
+
+    private fun copyAssetsToLocal() {
+        val assetManager = context.assets
+        try {
+            val bundles = assetManager.list("scripts") ?: return
+            for (bundle in bundles) {
+                val bundleDir = File(scriptsDir, bundle)
+                bundleDir.mkdirs()
+                val files = assetManager.list("scripts/$bundle") ?: continue
+                for (fileName in files) {
+                    val subItems = assetManager.list("scripts/$bundle/$fileName")
+                    if (subItems != null && subItems.isNotEmpty()) continue
+                    try {
+                        assetManager.open("scripts/$bundle/$fileName").use { input ->
+                            File(bundleDir, fileName).outputStream().use { output -> input.copyTo(output) }
+                        }
+                    } catch (_: Exception) { }
+                }
+                try {
+                    val manifest = JsonParser.parseObject(readFile(bundle, "manifest.json"))
+                    val version = manifest["version"] as? String ?: ""
+                    if (version.isNotEmpty()) setVersion(bundle, version)
+                } catch (_: Exception) { }
+            }
+        } catch (_: Exception) { }
+    }
+
+    actual fun readFile(bundleName: String, fileName: String): String {
+        val file = File(scriptsDir, "$bundleName/$fileName")
+        if (!file.exists()) throw IllegalStateException("Script not found: ${file.absolutePath}")
+        return file.readText()
+    }
+
+    actual fun writeFile(bundleName: String, fileName: String, content: String) {
+        val bundleDir = File(scriptsDir, bundleName)
+        bundleDir.mkdirs()
+        File(bundleDir, fileName).writeText(content)
+    }
+
+    actual fun bundleExists(bundleName: String): Boolean =
+        File(scriptsDir, "$bundleName/manifest.json").exists()
+
+    actual fun getVersion(bundleName: String): String? =
+        prefs.getString("version_$bundleName", null)
+
+    actual fun setVersion(bundleName: String, version: String) {
+        prefs.edit().putString("version_$bundleName", version).apply()
+    }
+
+    actual fun reset() {
+        scriptsDir.deleteRecursively()
+        prefs.edit().clear().apply()
+        ensureInitialized()
+    }
+}

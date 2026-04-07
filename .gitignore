@@ -1,0 +1,14 @@
+*.iml
+.gradle
+build/
+.idea
+.DS_Store
+captures
+.externalNativeBuild
+.cxx
+local.properties
+xcuserdata/
+*.xcworkspace
+Pods/
+*.moved-aside
+DerivedData/

@@ -1,0 +1,2 @@
+headers = onthefly_bridge.h
+headerFilter = onthefly_bridge.h

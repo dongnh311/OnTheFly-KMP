@@ -1,0 +1,6 @@
+{
+  "name": "OnTheFly Demo",
+  "version": "1.0.0",
+  "entry": "main.js",
+  "description": "Demo app showing dynamic UI rendering via QuickJS"
+}
