@@ -74,10 +74,8 @@ fun ScriptScreen(
                 )
                 uiTree != null -> {
                     val goBack = {
-                        val prevRoute = ViewDataStore.popRoute()
-                        if (prevRoute != null) {
-                            navController.navigate(prevRoute) { popUpTo(navController.graph.id) { inclusive = true } }
-                        }
+                        ViewDataStore.popRoute()
+                        navController.popBackStack()
                     }
                     DynamicRenderer(
                         component = uiTree,

@@ -16,9 +16,9 @@ actual class ScriptStorage {
     private val defaults = NSUserDefaults.standardUserDefaults
 
     actual fun ensureInitialized() {
-        if (defaults.boolForKey("scripts_initialized")) return
+        // Always re-copy from bundle to ensure latest bundled scripts are used.
+        // Dev server updates (if running) will override these in loadAndRun().
         copyBundleToLocal()
-        defaults.setBool(true, "scripts_initialized")
     }
 
     private fun copyBundleToLocal() {

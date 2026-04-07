@@ -10,9 +10,9 @@ actual class ScriptStorage(private val context: Context) {
     private val prefs by lazy { context.getSharedPreferences("onthefly_scripts", Context.MODE_PRIVATE) }
 
     actual fun ensureInitialized() {
-        if (prefs.getBoolean("scripts_initialized", false)) return
+        // Always re-copy from assets to ensure latest bundled scripts are used.
+        // Dev server updates (if running) will override these in loadAndRun().
         copyAssetsToLocal()
-        prefs.edit().putBoolean("scripts_initialized", true).apply()
     }
 
     private fun copyAssetsToLocal() {

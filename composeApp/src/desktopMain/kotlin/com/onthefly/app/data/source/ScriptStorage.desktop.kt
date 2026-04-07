@@ -13,12 +13,9 @@ actual class ScriptStorage {
     }
 
     actual fun ensureInitialized() {
-        // Always check if scripts actually exist, not just the flag
-        if (prefs.getBoolean("scripts_initialized", false) && scriptsDir.exists() && scriptsDir.listFiles()?.isNotEmpty() == true) {
-            return
-        }
+        // Always re-copy from source to ensure latest scripts are used.
+        // Dev server updates (if running) will override these in loadAndRun().
         copyResourcesToLocal()
-        prefs.putBoolean("scripts_initialized", true)
     }
 
     private fun copyResourcesToLocal() {
