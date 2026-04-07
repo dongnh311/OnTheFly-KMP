@@ -59,6 +59,16 @@ fun DynamicRenderer(
             // Feedback / Overlay
             "FullScreenPopup" -> RenderFullScreenPopup(component, onEvent, onComponentEvent)
             "ConfirmDialog" -> RenderConfirmDialog(component, onEvent)
+            "BottomSheet" -> RenderBottomSheet(component, onEvent, onComponentEvent, modifier)
+            "Snackbar" -> RenderSnackbar(component, onEvent, onComponentEvent, modifier)
+            "LoadingOverlay" -> RenderLoadingOverlay(component, modifier)
+            "Tooltip" -> RenderTooltip(component, onEvent, onComponentEvent, modifier)
+
+            // Display extras
+            "Badge" -> RenderBadge(component, modifier)
+            "Avatar" -> RenderAvatar(component, onEvent, onComponentEvent, modifier)
+            "ProgressBar" -> RenderProgressBar(component, modifier)
+            "Chip" -> RenderChip(component, onEvent, onComponentEvent, modifier)
         }
     }
 }
