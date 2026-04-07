@@ -304,14 +304,63 @@ class QuickJSEngine : AutoCloseable {
     };
 
     // ═══ Animated Update ═══
-    // Delegates to OnTheFly.update() — animation is handled by Compose
     OnTheFly.animatedUpdate = function(id, props, animConfig) {
-        // animConfig is informational (duration, easing) — Compose handles transitions
         OnTheFly.update(id, props);
     };
+
+    // ═══ Custom Component Registration ═══
+    var _customComponents = {};
+
+    OnTheFly.registerComponent = function(name, builderFn) {
+        _customComponents[name] = builderFn;
+    };
+
+    // Override setUI to resolve custom components
+    var _prevSetUI = OnTheFly.setUI;
+    OnTheFly.setUI = function(tree) {
+        var resolved = _resolveCustomComponents(tree);
+        _prevSetUI(resolved);
+    };
+
+    function _resolveCustomComponents(node) {
+        if (!node || !node.type) return node;
+        var builder = _customComponents[node.type];
+        if (builder) {
+            var expanded = builder(node.props || {});
+            return _resolveCustomComponents(expanded);
+        }
+        var result = { type: node.type, props: node.props };
+        if (node.children) {
+            result.children = [];
+            for (var i = 0; i < node.children.length; i++) {
+                result.children.push(_resolveCustomComponents(node.children[i]));
+            }
+        }
+        if (node.child) {
+            result.child = _resolveCustomComponents(node.child);
+        }
+        return result;
+    }
 })();
 """
         eval(script, "<state-api>")
+    }
+
+    /**
+     * Inject bundle info and engine version APIs.
+     */
+    fun injectBundleInfo(bundleName: String, bundleVersion: String) {
+        val script = """
+(function() {
+    OnTheFly.getBundleInfo = function() {
+        return { name: "$bundleName", version: "$bundleVersion" };
+    };
+    OnTheFly.getEngineVersion = function() {
+        return "${VersionManager.ENGINE_VERSION}";
+    };
+})();
+"""
+        eval(script, "<bundle-info>")
     }
 
     fun callFunction(name: String): String {

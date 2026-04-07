@@ -20,6 +20,7 @@ import com.onthefly.app.engine.ErrorConfig
 import com.onthefly.app.engine.NetworkSecurity
 import com.onthefly.app.engine.QuickJSEngine
 import com.onthefly.app.engine.ScriptVerifier
+import com.onthefly.app.engine.VersionManager
 import com.onthefly.app.platform.PlatformActions
 import com.onthefly.app.engine.style.StyleRegistry
 import kotlinx.coroutines.channels.Channel
@@ -122,13 +123,27 @@ class ScriptViewModel(
             engine.loadStyles()
         }
 
-        // 5. Load errorConfig from manifest
+        // 5. Load manifest config (errorConfig, version compatibility)
+        var bundleVersion = "1.0.0"
         try {
             val manifestJson = localStorage.readFile(bundleName, "manifest.json")
             val manifest = com.onthefly.app.util.JsonParser.parseObject(manifestJson)
             @Suppress("UNCHECKED_CAST")
             errorConfig = ErrorConfig.fromMap(manifest["errorConfig"] as? Map<*, *>)
+            bundleVersion = manifest["version"] as? String ?: "1.0.0"
+            // Version compatibility check
+            val versionCheck = VersionManager.checkCompatibility(
+                minEngineVersion = manifest["minEngineVersion"] as? String,
+                maxEngineVersion = manifest["maxEngineVersion"] as? String
+            )
+            if (!versionCheck.compatible) {
+                _error.value = versionCheck.reason
+                return
+            }
         } catch (_: Exception) { }
+
+        // 5b. Inject bundle info APIs
+        engine.injectBundleInfo(bundleName, bundleVersion)
 
         // 6. Load bundle-specific base.js (optional)
         val bundleBase = repository.loadBundleBase(bundleName)
