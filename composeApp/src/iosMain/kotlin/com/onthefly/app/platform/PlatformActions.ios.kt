@@ -83,4 +83,22 @@ actual class PlatformActions {
         // iOS doesn't have native toast — log for now
         println("Toast: $message")
     }
+
+    actual fun setStatusBarColor(color: String, darkIcons: Boolean) {
+        // iOS status bar style is controlled via Info.plist or UIViewController
+        println("PlatformActions.ios: setStatusBarColor($color, darkIcons=$darkIcons)")
+    }
+
+    actual fun setScreenBrightness(level: Float) {
+        UIScreen.mainScreen.brightness = level.toDouble().coerceIn(0.0, 1.0)
+    }
+
+    actual fun keepScreenOn(enabled: Boolean) {
+        UIApplication.sharedApplication.idleTimerDisabled = enabled
+    }
+
+    actual fun setOrientation(orientation: String) {
+        // iOS orientation control requires UIViewController — log for now
+        println("PlatformActions.ios: setOrientation($orientation)")
+    }
 }

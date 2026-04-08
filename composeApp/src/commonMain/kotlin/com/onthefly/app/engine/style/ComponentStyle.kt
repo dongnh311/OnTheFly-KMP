@@ -88,12 +88,12 @@ fun parseFontWeight(weight: String?): FontWeight = when (weight) {
     else -> FontWeight.Normal
 }
 
-fun parseTextAlign(align: String?): TextAlign? = when (align) {
+fun parseTextAlign(align: String?): TextAlign = when (align) {
     "center" -> TextAlign.Center
     "end", "right" -> TextAlign.End
     "start", "left" -> TextAlign.Start
     "justify" -> TextAlign.Justify
-    else -> null
+    else -> TextAlign.Unspecified
 }
 
 fun parseTextDecoration(decoration: String?): TextDecoration? = when (decoration) {

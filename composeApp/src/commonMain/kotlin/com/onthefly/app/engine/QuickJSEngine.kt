@@ -479,6 +479,136 @@ class QuickJSEngine : AutoCloseable {
         eval(script, "<debug-api>")
     }
 
+    /**
+     * Inject WebSocket JS API for realtime communication.
+     * Provides: OnTheFly.connectWS(), sendWS(), closeWS(), getWSState()
+     */
+    fun injectWebSocketAPI() {
+        val script = """
+(function() {
+    var _wsStates = {};
+
+    OnTheFly.connectWS = function(url, options) {
+        options = options || {};
+        var id = options.id || "default";
+        _wsStates[id] = "connecting";
+        OnTheFly.sendToNative("connectWebSocket", {
+            id: id,
+            url: url,
+            headers: options.headers || {},
+            autoReconnect: options.autoReconnect !== false,
+            maxReconnectAttempts: options.maxReconnectAttempts || 5,
+            reconnectDelay: options.reconnectDelay || 1000,
+            pingInterval: options.pingInterval || 30000
+        });
+    };
+
+    OnTheFly.sendWS = function(message, id) {
+        id = id || "default";
+        OnTheFly.sendToNative("sendWebSocket", { id: id, message: message });
+    };
+
+    OnTheFly.closeWS = function(id) {
+        id = id || "default";
+        _wsStates[id] = "disconnecting";
+        OnTheFly.sendToNative("closeWebSocket", { id: id });
+    };
+
+    OnTheFly.getWSState = function(id) {
+        return _wsStates[id || "default"] || "disconnected";
+    };
+
+    OnTheFly._updateWSState = function(id, state) {
+        _wsStates[id] = state;
+    };
+})();
+"""
+        eval(script, "<websocket-api>")
+    }
+
+    /**
+     * Inject form validation API (pure JS).
+     * Provides: OnTheFly.validate(), OnTheFly.validateForm()
+     */
+    fun injectValidationAPI() {
+        val script = """
+(function() {
+    OnTheFly.validate = function(value, rules) {
+        var errors = [];
+        for (var i = 0; i < rules.length; i++) {
+            var rule = rules[i];
+            switch(rule.type) {
+                case "required":
+                    if (!value || (typeof value === "string" && value.trim() === "")) {
+                        errors.push(rule.message || "This field is required");
+                    }
+                    break;
+                case "email":
+                    if (value && !/^[^\s@]+@[^\s@]+\.[^\s@]+${'$'}/.test(value)) {
+                        errors.push(rule.message || "Invalid email address");
+                    }
+                    break;
+                case "minLength":
+                    if (value && value.length < rule.value) {
+                        errors.push(rule.message || "Minimum " + rule.value + " characters");
+                    }
+                    break;
+                case "maxLength":
+                    if (value && value.length > rule.value) {
+                        errors.push(rule.message || "Maximum " + rule.value + " characters");
+                    }
+                    break;
+                case "pattern":
+                    if (value && !new RegExp(rule.value).test(value)) {
+                        errors.push(rule.message || "Invalid format");
+                    }
+                    break;
+                case "min":
+                    if (Number(value) < rule.value) {
+                        errors.push(rule.message || "Minimum value is " + rule.value);
+                    }
+                    break;
+                case "max":
+                    if (Number(value) > rule.value) {
+                        errors.push(rule.message || "Maximum value is " + rule.value);
+                    }
+                    break;
+                case "match":
+                    if (value !== OnTheFly.getState(rule.value)) {
+                        errors.push(rule.message || "Values do not match");
+                    }
+                    break;
+                case "custom":
+                    if (rule.fn && !rule.fn(value)) {
+                        errors.push(rule.message || "Validation failed");
+                    }
+                    break;
+            }
+        }
+        return { valid: errors.length === 0, errors: errors };
+    };
+
+    OnTheFly.validateForm = function(formRules) {
+        var results = {};
+        var allValid = true;
+        for (var field in formRules) {
+            var r = OnTheFly.validate(formRules[field].value, formRules[field].rules);
+            results[field] = r;
+            if (!r.valid) {
+                allValid = false;
+                OnTheFly.update(field, { error: r.errors[0] });
+            } else {
+                OnTheFly.update(field, { error: "" });
+            }
+        }
+        results._valid = allValid;
+        return results;
+    };
+})();
+"""
+        eval(script, "<validation-api>")
+    }
+
     fun callFunction(name: String): String {
         return eval("typeof $name === 'function' && $name()")
     }

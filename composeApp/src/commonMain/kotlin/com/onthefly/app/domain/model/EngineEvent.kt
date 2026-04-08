@@ -17,6 +17,11 @@ object EngineEvent {
     const val ON_REALTIME_DATA = "onRealtimeData"
     const val ON_VIEW_DATA = "onViewData"
 
+    // WebSocket (Native -> JS)
+    const val ON_WS_CONNECTED = "onWSConnected"
+    const val ON_WS_DISCONNECTED = "onWSDisconnected"
+    const val ON_WS_ERROR = "onWSError"
+
     // Component (Compose -> JS)
     const val ON_CLICK = "onClick"
     const val ON_LONG_PRESS = "onLongPress"

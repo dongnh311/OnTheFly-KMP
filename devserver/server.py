@@ -26,6 +26,62 @@ try:
 except ImportError:
     HAS_WATCHDOG = False
 
+try:
+    import asyncio
+    import websockets
+    HAS_WEBSOCKETS = True
+except ImportError:
+    HAS_WEBSOCKETS = False
+
+# ═══════════════════════════════════════════════════════════
+#  WebSocket Push (replaces polling for live-reload)
+# ═══════════════════════════════════════════════════════════
+
+WS_PORT = 8081
+ws_clients = set()
+_ws_loop = None
+
+
+def start_ws_server():
+    """Start WebSocket server in a background thread for push-based reload."""
+    if not HAS_WEBSOCKETS:
+        return
+
+    global _ws_loop
+
+    async def ws_handler(websocket, path=None):
+        ws_clients.add(websocket)
+        try:
+            await websocket.wait_closed()
+        finally:
+            ws_clients.discard(websocket)
+
+    async def run_server():
+        async with websockets.serve(ws_handler, '0.0.0.0', WS_PORT):
+            await asyncio.Future()  # run forever
+
+    def thread_target():
+        global _ws_loop
+        _ws_loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(_ws_loop)
+        _ws_loop.run_until_complete(run_server())
+
+    t = threading.Thread(target=thread_target, daemon=True)
+    t.start()
+    print(f'  \033[32m✓\033[0m WebSocket push on port {WS_PORT}')
+
+
+def notify_ws_clients():
+    """Broadcast reload notification to all connected WebSocket clients."""
+    if not HAS_WEBSOCKETS or not ws_clients or _ws_loop is None:
+        return
+    message = json.dumps({'type': 'reload', 'version': get_version()})
+    for ws in list(ws_clients):
+        try:
+            asyncio.run_coroutine_threadsafe(ws.send(message), _ws_loop)
+        except Exception:
+            ws_clients.discard(ws)
+
 DEFAULT_PORT = 8080
 SCRIPT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'scripts')
 SCREENS_DIR = os.path.join(SCRIPT_DIR, 'screens')
@@ -84,6 +140,7 @@ def bump_version():
     global g_version
     with g_version_lock:
         g_version = str(int(time.time()))
+    notify_ws_clients()
 
 
 def bump_bundle_version(bundle_name):
@@ -920,6 +977,9 @@ def main():
 
     # Start device disconnect monitor
     start_device_monitor()
+
+    # Start WebSocket push server
+    start_ws_server()
 
     # Start HTTP server in background
     server = http.server.HTTPServer(('0.0.0.0', args.port), DevHandler)

@@ -46,6 +46,11 @@ data class NativeAction(
         const val KEEP_SCREEN_ON = "keepScreenOn"
         const val SET_ORIENTATION = "setOrientation"
 
+        // WebSocket
+        const val CONNECT_WS = "connectWebSocket"
+        const val SEND_WS = "sendWebSocket"
+        const val CLOSE_WS = "closeWebSocket"
+
         // Logging
         const val LOG = "log"
     }

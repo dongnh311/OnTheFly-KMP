@@ -8,8 +8,13 @@ import com.onthefly.app.data.repository.ScriptRepositoryImpl
 import com.onthefly.app.data.source.NetworkRequest
 import com.onthefly.app.data.source.NetworkSource
 import com.onthefly.app.data.source.ScriptStorage
+import com.onthefly.app.data.source.DevServerSource
 import com.onthefly.app.data.source.ScriptUpdateManager
 import com.onthefly.app.data.source.SharedDataStore
+import com.onthefly.app.data.source.WebSocketCallback
+import com.onthefly.app.data.source.WebSocketOptions
+import com.onthefly.app.data.source.WebSocketSource
+import com.onthefly.app.data.source.createHttpClient
 import com.onthefly.app.domain.model.EngineEvent
 import com.onthefly.app.domain.model.NativeAction
 import com.onthefly.app.domain.model.UIComponent
@@ -31,11 +36,35 @@ import kotlinx.coroutines.launch
 
 data class NavigationEvent(
     val screen: String,
-    val data: Map<String, Any> = emptyMap()
+    val data: Map<String, Any> = emptyMap(),
+    val replace: Boolean = false,
+    val clearStack: Boolean = false
 )
 
+data class SnackbarEvent(
+    val message: String,
+    val actionText: String? = null,
+    val duration: Long = 3000L
+)
+
+data class PopupEvent(
+    val title: String,
+    val message: String,
+    val confirmText: String = "OK",
+    val cancelText: String? = "Cancel",
+    val onConfirmCallback: String? = null,
+    val onCancelCallback: String? = null
+)
+
+sealed class UIControlEvent {
+    data object HideKeyboard : UIControlEvent()
+    data class SetFocus(val componentId: String) : UIControlEvent()
+    data class ScrollTo(val componentId: String) : UIControlEvent()
+    data class ScrollToItem(val listId: String, val index: Int) : UIControlEvent()
+}
+
 class ScriptViewModel(
-    localStorage: ScriptStorage,
+    private val localStorage: ScriptStorage,
     private val platformActions: PlatformActions? = null
 ) : ViewModel() {
 
@@ -43,6 +72,31 @@ class ScriptViewModel(
     private val loadScript = LoadScriptUseCase(repository)
     private val updateManager = ScriptUpdateManager(localStorage)
     private val engine = QuickJSEngine()
+
+    private val webSocketSource by lazy {
+        WebSocketSource(
+            client = createHttpClient(),
+            callback = object : WebSocketCallback {
+                override fun onConnected(id: String) {
+                    engine.eval("OnTheFly._updateWSState('$id', 'connected')", "<ws>")
+                    sendDataToScript(EngineEvent.ON_WS_CONNECTED, """{"id":"$id"}""")
+                }
+                override fun onMessage(id: String, message: String) {
+                    val escaped = message.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "\\r")
+                    sendDataToScript(EngineEvent.ON_REALTIME_DATA, """{"id":"$id","message":"$escaped","type":"text"}""")
+                }
+                override fun onDisconnected(id: String, code: Int, reason: String) {
+                    engine.eval("OnTheFly._updateWSState('$id', 'disconnected')", "<ws>")
+                    sendDataToScript(EngineEvent.ON_WS_DISCONNECTED, """{"id":"$id","code":$code,"reason":"$reason"}""")
+                }
+                override fun onError(id: String, error: String) {
+                    val escaped = error.replace("\\", "\\\\").replace("\"", "\\\"")
+                    sendDataToScript(EngineEvent.ON_WS_ERROR, """{"id":"$id","error":"$escaped"}""")
+                }
+            },
+            scope = viewModelScope
+        )
+    }
 
     private val _uiTree = mutableStateOf<UIComponent?>(null)
     val uiTree: State<UIComponent?> = _uiTree
@@ -58,6 +112,15 @@ class ScriptViewModel(
 
     private val _navChannel = Channel<NavigationEvent>(Channel.BUFFERED)
     val navFlow = _navChannel.receiveAsFlow()
+
+    private val _snackbarChannel = Channel<SnackbarEvent>(Channel.BUFFERED)
+    val snackbarFlow = _snackbarChannel.receiveAsFlow()
+
+    private val _popupState = mutableStateOf<PopupEvent?>(null)
+    val popupState: State<PopupEvent?> = _popupState
+
+    private val _uiControlChannel = Channel<UIControlEvent>(Channel.BUFFERED)
+    val uiControlFlow = _uiControlChannel.receiveAsFlow()
 
     private var _pendingGoBack = false
     private var isInitialized = false
@@ -158,6 +221,12 @@ class ScriptViewModel(
         // 5b. Inject bundle info APIs
         engine.injectBundleInfo(bundleName, bundleVersion)
 
+        // 5c. Inject WebSocket API
+        engine.injectWebSocketAPI()
+
+        // 5d. Inject form validation API
+        engine.injectValidationAPI()
+
         // 6. Load bundle-specific base.js (optional)
         val bundleBase = repository.loadBundleBase(bundleName)
         if (bundleBase != null) {
@@ -189,10 +258,19 @@ class ScriptViewModel(
     }
 
     fun startAutoReload() {
+        // Try WebSocket push first
+        DevServerSource.startWsListener(viewModelScope) {
+            viewModelScope.launch {
+                updateManager.updateFromDevServer(currentBundleName)
+                reload()
+            }
+        }
+
+        // Fallback polling (runs when WS is unavailable)
         viewModelScope.launch {
             while (true) {
                 delay(2000)
-                if (!isInitialized) continue
+                if (!isInitialized || DevServerSource.useWebSocket) continue
                 try {
                     if (updateManager.devServerHasChanges()) {
                         updateManager.updateFromDevServer(currentBundleName)
@@ -332,6 +410,102 @@ class ScriptViewModel(
                     type = action.data["type"] as? String,
                     durationMs = (action.data["duration"] as? Number)?.toInt()
                 )
+                // Navigation (replace/clear)
+                NativeAction.NAVIGATE_REPLACE -> {
+                    val screen = action.data["screen"] as? String ?: ""
+                    val navData = (action.data["data"] as? Map<String, Any>) ?: emptyMap()
+                    _navChannel.trySend(NavigationEvent(screen = screen, data = navData, replace = true))
+                }
+                NativeAction.NAVIGATE_CLEAR_STACK -> {
+                    val screen = action.data["screen"] as? String ?: ""
+                    val navData = (action.data["data"] as? Map<String, Any>) ?: emptyMap()
+                    _navChannel.trySend(NavigationEvent(screen = screen, data = navData, clearStack = true))
+                }
+                // UI actions
+                NativeAction.SHOW_SNACKBAR -> {
+                    val message = action.data["message"] as? String ?: ""
+                    val actionText = action.data["actionText"] as? String
+                    val duration = (action.data["duration"] as? Number)?.toLong() ?: 3000L
+                    _snackbarChannel.trySend(SnackbarEvent(message, actionText, duration))
+                }
+                NativeAction.SHOW_POPUP -> {
+                    _popupState.value = PopupEvent(
+                        title = action.data["title"] as? String ?: "Alert",
+                        message = action.data["message"] as? String ?: "",
+                        confirmText = action.data["confirmText"] as? String ?: "OK",
+                        cancelText = action.data["cancelText"] as? String,
+                        onConfirmCallback = action.data["onConfirm"] as? String,
+                        onCancelCallback = action.data["onCancel"] as? String
+                    )
+                }
+                NativeAction.HIDE_KEYBOARD -> _uiControlChannel.trySend(UIControlEvent.HideKeyboard)
+                NativeAction.SET_FOCUS -> {
+                    val id = action.data["id"] as? String ?: ""
+                    if (id.isNotEmpty()) _uiControlChannel.trySend(UIControlEvent.SetFocus(id))
+                }
+                NativeAction.SCROLL_TO -> {
+                    val id = action.data["id"] as? String ?: ""
+                    if (id.isNotEmpty()) _uiControlChannel.trySend(UIControlEvent.ScrollTo(id))
+                }
+                NativeAction.SCROLL_TO_ITEM -> {
+                    val listId = action.data["listId"] as? String ?: ""
+                    val index = (action.data["index"] as? Number)?.toInt() ?: 0
+                    _uiControlChannel.trySend(UIControlEvent.ScrollToItem(listId, index))
+                }
+                NativeAction.SEND_VIEW_DATA -> {
+                    com.onthefly.app.presentation.navigation.ViewDataStore.put(action.data)
+                }
+                NativeAction.LOG -> {
+                    val level = action.data["level"] as? String ?: "d"
+                    val message = action.data["message"] as? String ?: action.data.toString()
+                    println("[$level] Script: $message")
+                }
+                // Platform display actions
+                NativeAction.SET_STATUS_BAR -> platformActions?.setStatusBarColor(
+                    color = action.data["color"] as? String ?: "#000000",
+                    darkIcons = action.data["darkIcons"] as? Boolean ?: false
+                )
+                NativeAction.SET_SCREEN_BRIGHTNESS -> platformActions?.setScreenBrightness(
+                    (action.data["level"] as? Number)?.toFloat() ?: 1.0f
+                )
+                NativeAction.KEEP_SCREEN_ON -> platformActions?.keepScreenOn(
+                    action.data["enabled"] as? Boolean ?: true
+                )
+                NativeAction.SET_ORIENTATION -> platformActions?.setOrientation(
+                    action.data["orientation"] as? String ?: "auto"
+                )
+                // WebSocket
+                NativeAction.CONNECT_WS -> {
+                    val id = action.data["id"] as? String ?: "default"
+                    val url = action.data["url"] as? String ?: ""
+                    val secCheck = NetworkSecurity.validate(url)
+                    if (!secCheck.allowed) {
+                        engine.dispatchOnError(EngineError(
+                            type = "websocket_error",
+                            message = secCheck.reason ?: "WebSocket blocked by security policy",
+                            details = mapOf("url" to url, "id" to id)
+                        ))
+                    } else {
+                        @Suppress("UNCHECKED_CAST")
+                        val options = WebSocketOptions(
+                            headers = (action.data["headers"] as? Map<String, Any>)?.mapValues { it.value.toString() } ?: emptyMap(),
+                            autoReconnect = action.data["autoReconnect"] as? Boolean ?: true,
+                            maxReconnectAttempts = (action.data["maxReconnectAttempts"] as? Number)?.toInt() ?: 5,
+                            reconnectDelayMs = (action.data["reconnectDelay"] as? Number)?.toLong() ?: 1000,
+                            pingIntervalMs = (action.data["pingInterval"] as? Number)?.toLong() ?: 30000
+                        )
+                        webSocketSource.connect(id, url, options)
+                    }
+                }
+                NativeAction.SEND_WS -> {
+                    val id = action.data["id"] as? String ?: "default"
+                    val message = action.data["message"] as? String ?: ""
+                    webSocketSource.send(id, message)
+                }
+                NativeAction.CLOSE_WS -> {
+                    val id = action.data["id"] as? String ?: "default"
+                    webSocketSource.close(id)
+                }
                 "__debug" -> handleDebugAction(action.data)
                 "__setTheme" -> {
                     val theme = action.data["theme"] as? String ?: "light"
@@ -431,6 +605,16 @@ class ScriptViewModel(
         localStorage.removeKV(key)
     }
 
+    fun dismissPopup(confirmed: Boolean) {
+        val popup = _popupState.value ?: return
+        _popupState.value = null
+        if (confirmed) {
+            popup.onConfirmCallback?.let { onEvent(it) }
+        } else {
+            popup.onCancelCallback?.let { onEvent(it) }
+        }
+    }
+
     fun consumeGoBack(): Boolean {
         if (_pendingGoBack) { _pendingGoBack = false; return true }
         return false
@@ -438,6 +622,7 @@ class ScriptViewModel(
 
     override fun onCleared() {
         if (isInitialized) dispatchLifecycleEvent(EngineEvent.ON_DESTROY)
+        webSocketSource.closeAll()
         engine.close()
         super.onCleared()
     }

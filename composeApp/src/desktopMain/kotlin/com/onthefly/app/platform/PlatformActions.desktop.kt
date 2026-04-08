@@ -61,4 +61,20 @@ actual class PlatformActions {
     actual fun showToast(message: String, long: Boolean) {
         println("Toast: $message")
     }
+
+    actual fun setStatusBarColor(color: String, darkIcons: Boolean) {
+        // No status bar on desktop
+    }
+
+    actual fun setScreenBrightness(level: Float) {
+        // Not supported on desktop
+    }
+
+    actual fun keepScreenOn(enabled: Boolean) {
+        // Not supported on desktop
+    }
+
+    actual fun setOrientation(orientation: String) {
+        // Not supported on desktop
+    }
 }

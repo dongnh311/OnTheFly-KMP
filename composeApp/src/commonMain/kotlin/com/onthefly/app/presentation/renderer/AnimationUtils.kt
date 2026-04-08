@@ -10,6 +10,7 @@ import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
@@ -63,10 +64,10 @@ fun AnimationConfig.toEnterTransition(): EnterTransition {
             }
         )
     }
-    val intSpec = if (easing == "spring") {
-        spring<Int>(stiffness = Spring.StiffnessMediumLow)
+    val intOffsetSpec = if (easing == "spring") {
+        spring<IntOffset>(stiffness = Spring.StiffnessMediumLow)
     } else {
-        tween<Int>(
+        tween<IntOffset>(
             durationMillis = duration,
             delayMillis = delay,
             easing = when (easing) {
@@ -80,10 +81,10 @@ fun AnimationConfig.toEnterTransition(): EnterTransition {
 
     return when (type) {
         "fadeIn" -> fadeIn(spec)
-        "slideInLeft" -> slideInHorizontally(intSpec) { -it }
-        "slideInRight" -> slideInHorizontally(intSpec) { it }
-        "slideInUp" -> slideInVertically(intSpec) { it }
-        "slideInDown" -> slideInVertically(intSpec) { -it }
+        "slideInLeft" -> slideInHorizontally(intOffsetSpec) { -it }
+        "slideInRight" -> slideInHorizontally(intOffsetSpec) { it }
+        "slideInUp" -> slideInVertically(intOffsetSpec) { it }
+        "slideInDown" -> slideInVertically(intOffsetSpec) { -it }
         "scaleIn" -> scaleIn(spec)
         else -> fadeIn(spec)
     }
@@ -104,10 +105,10 @@ fun AnimationConfig.toExitTransition(): ExitTransition {
             }
         )
     }
-    val intSpec = if (easing == "spring") {
-        spring<Int>(stiffness = Spring.StiffnessMediumLow)
+    val intOffsetSpec = if (easing == "spring") {
+        spring<IntOffset>(stiffness = Spring.StiffnessMediumLow)
     } else {
-        tween<Int>(
+        tween<IntOffset>(
             durationMillis = duration,
             delayMillis = delay,
             easing = when (easing) {
@@ -121,10 +122,10 @@ fun AnimationConfig.toExitTransition(): ExitTransition {
 
     return when (type) {
         "fadeOut" -> fadeOut(spec)
-        "slideOutLeft" -> slideOutHorizontally(intSpec) { -it }
-        "slideOutRight" -> slideOutHorizontally(intSpec) { it }
-        "slideOutUp" -> slideOutVertically(intSpec) { -it }
-        "slideOutDown" -> slideOutVertically(intSpec) { it }
+        "slideOutLeft" -> slideOutHorizontally(intOffsetSpec) { -it }
+        "slideOutRight" -> slideOutHorizontally(intOffsetSpec) { it }
+        "slideOutUp" -> slideOutVertically(intOffsetSpec) { -it }
+        "slideOutDown" -> slideOutVertically(intOffsetSpec) { it }
         "scaleOut" -> scaleOut(spec)
         else -> fadeOut(spec)
     }

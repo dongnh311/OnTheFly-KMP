@@ -76,6 +76,10 @@ function gotoComponentsDemo() {
     navigate("components-demo");
 }
 
+function gotoWebSocketDemo() {
+    navigate("websocket-demo");
+}
+
 // ─── Confirm Dialog ─────────────────────────────────────────
 
 function openConfirmDialog() {
@@ -144,6 +148,7 @@ function render() {
             { type: "Button", props: { text: "Detail Screen (Data Passing) →", onClick: "gotoDetail", style: "primaryButton" } },
             { type: "Button", props: { text: "API Demo (HTTP Requests) →", onClick: "gotoApiDemo", style: "primaryButton" } },
             { type: "Button", props: { text: "Components Demo (Phase 1) →", onClick: "gotoComponentsDemo", style: "primaryButton" } },
+            { type: "Button", props: { text: "WebSocket Demo (Realtime) →", onClick: "gotoWebSocketDemo", style: "primaryButton" } },
             {
                 type: "Row",
                 props: { style: "buttonRow" },

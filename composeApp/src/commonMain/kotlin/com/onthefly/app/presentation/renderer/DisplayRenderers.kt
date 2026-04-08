@@ -19,6 +19,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.TextStyle
+import coil3.compose.AsyncImage
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
@@ -116,25 +117,22 @@ fun RenderImage(c: UIComponent, onEvent: (String) -> Unit, onComponentEvent: (Co
         }
     }
 
-    // Placeholder - actual image loading requires a library like Coil/Kamel
-    // For now, show a placeholder box with the URL as tooltip
-    val placeholderColor = c.propColor("placeholder") ?: Color(0xFFE0E0E0)
-    androidx.compose.foundation.layout.Box(
-        modifier = mod.then(
-            Modifier.clip(RoundedCornerShape(borderRadius.dp))
-                .let { m ->
-                    if (c.props["height"] == null) m.size(200.dp) else m
-                }
-        ),
-        contentAlignment = androidx.compose.ui.Alignment.Center
-    ) {
-        androidx.compose.foundation.Canvas(modifier = Modifier.matchParentSize()) {
-            drawRect(color = placeholderColor)
-        }
-        Text(
-            text = if (url != null) "Image" else "No URL",
-            style = TextStyle(color = Color.Gray, fontSize = 12.sp)
+    if (url != null) {
+        AsyncImage(
+            model = url,
+            contentDescription = c.propString("contentDescription"),
+            modifier = mod,
+            contentScale = contentScale
         )
+    } else {
+        androidx.compose.foundation.layout.Box(
+            modifier = mod.then(
+                if (c.props["height"] == null) Modifier.size(200.dp) else Modifier
+            ),
+            contentAlignment = androidx.compose.ui.Alignment.Center
+        ) {
+            Text(text = "No URL", style = TextStyle(color = Color.Gray, fontSize = 12.sp))
+        }
     }
 }
 
