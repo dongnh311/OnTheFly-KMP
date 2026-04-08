@@ -4,19 +4,23 @@
 
 var quotesLoaded = 0;
 var quotesTotal = 0;
+var confirmSymbol = null;
 
 // ─── Lifecycle ─────────────────────────────────────────────
 
 function onCreateView() {
-    render(); // render with cached/mock data first
-    // Fetch real quotes for all stocks
+    render();
+    // Fetch real quotes for watchlist stocks
+    var stocks = getWatchlistStocks();
     var symbols = [];
-    for (var i = 0; i < StockData.stocks.length; i++) {
-        symbols.push(StockData.stocks[i].symbol);
+    for (var i = 0; i < stocks.length; i++) {
+        symbols.push(stocks[i].symbol);
     }
     quotesTotal = symbols.length;
     quotesLoaded = 0;
-    fetchQuotes(symbols);
+    if (symbols.length > 0) {
+        fetchQuotes(symbols);
+    }
 }
 
 function onVisible() {
@@ -50,6 +54,10 @@ function onNavTab_watchlist() { /* already here */ }
 function onNavTab_search()    { OnTheFly.sendToNative("navigateReplace", { screen: "stock-search" }); }
 function onNavTab_news()      { OnTheFly.sendToNative("navigateReplace", { screen: "stock-news" }); }
 
+function onAddStock() {
+    navigate("stock-search");
+}
+
 // ─── Stock tap handlers ────────────────────────────────────
 
 function onStockTap_AAPL()  { navigate("stock-detail", { symbol: "AAPL" }); }
@@ -60,6 +68,33 @@ function onStockTap_AMZN()  { navigate("stock-detail", { symbol: "AMZN" }); }
 function onStockTap_NVDA()  { navigate("stock-detail", { symbol: "NVDA" }); }
 function onStockTap_META()  { navigate("stock-detail", { symbol: "META" }); }
 function onStockTap_NFLX()  { navigate("stock-detail", { symbol: "NFLX" }); }
+function onStockTap_AMD()   { navigate("stock-detail", { symbol: "AMD" }); }
+
+// ─── Remove flow handlers ─────────────────────────────────
+
+function onRemoveStock_AAPL()  { confirmSymbol = "AAPL";  OnTheFly.update("removeDialog", { visible: true }); }
+function onRemoveStock_TSLA()  { confirmSymbol = "TSLA";  OnTheFly.update("removeDialog", { visible: true }); }
+function onRemoveStock_MSFT()  { confirmSymbol = "MSFT";  OnTheFly.update("removeDialog", { visible: true }); }
+function onRemoveStock_GOOGL() { confirmSymbol = "GOOGL"; OnTheFly.update("removeDialog", { visible: true }); }
+function onRemoveStock_AMZN()  { confirmSymbol = "AMZN";  OnTheFly.update("removeDialog", { visible: true }); }
+function onRemoveStock_NVDA()  { confirmSymbol = "NVDA";  OnTheFly.update("removeDialog", { visible: true }); }
+function onRemoveStock_META()  { confirmSymbol = "META";  OnTheFly.update("removeDialog", { visible: true }); }
+function onRemoveStock_NFLX()  { confirmSymbol = "NFLX";  OnTheFly.update("removeDialog", { visible: true }); }
+function onRemoveStock_AMD()   { confirmSymbol = "AMD";   OnTheFly.update("removeDialog", { visible: true }); }
+
+function onConfirmRemove() {
+    OnTheFly.update("removeDialog", { visible: false });
+    if (confirmSymbol) {
+        removeFromWatchlist(confirmSymbol);
+        confirmSymbol = null;
+        render();
+    }
+}
+
+function onCancelRemove() {
+    OnTheFly.update("removeDialog", { visible: false });
+    confirmSymbol = null;
+}
 
 // ─── UI Builders ───────────────────────────────────────────
 
@@ -69,52 +104,79 @@ function buildStockRow(stock, theme) {
         type: "Row",
         props: {
             fillMaxWidth: true,
-            padding: { horizontal: 20, vertical: 13 },
-            verticalAlignment: "center",
-            onClick: "onStockTap_" + stock.symbol
+            verticalAlignment: "center"
         },
         children: [
-            // Symbol badge
+            // Stock info area (tappable, weight:1)
             {
-                type: "Box",
+                type: "Row",
                 props: {
-                    width: 42, height: 42, cornerRadius: 12,
-                    backgroundColor: up ? theme.accent + "12" : theme.negative + "12",
-                    contentAlignment: "center"
+                    weight: 1,
+                    padding: { start: 16, top: 12, bottom: 12 },
+                    verticalAlignment: "center",
+                    onClick: "onStockTap_" + stock.symbol
                 },
                 children: [
-                    { type: "Text", props: { text: stock.symbol.substring(0, 2), fontSize: 12, fontWeight: "bold", color: up ? theme.positive : theme.negative } }
+                    // Left: symbol + name
+                    {
+                        type: "Column",
+                        props: { weight: 1 },
+                        children: [
+                            { type: "Text", props: { text: stock.symbol, fontSize: 15, fontWeight: 700, color: theme.textPrimary } },
+                            { type: "Text", props: { text: stock.name, fontSize: 12, color: theme.textSecondary, maxLines: 1 } }
+                        ]
+                    },
+                    // Right: price + change
+                    {
+                        type: "Column",
+                        props: { horizontalAlignment: "end" },
+                        children: [
+                            { type: "Text", props: { text: stockPriceText(stock.price), fontSize: 15, fontWeight: 600, color: theme.textPrimary } },
+                            { type: "Text", props: { text: (up ? "+" : "") + stock.change.toFixed(2) + " (" + fmtPct(stock.pct) + ")", fontSize: 12, color: up ? theme.positive : theme.negative } }
+                        ]
+                    }
                 ]
             },
-            { type: "Spacer", props: { width: 12 } },
-            // Name
+            // Remove button
             {
-                type: "Column",
-                props: { weight: 1 },
-                children: [
-                    { type: "Text", props: { text: stock.symbol, fontSize: 14, fontWeight: "semibold", color: theme.textPrimary } },
-                    { type: "Text", props: { text: stock.name, fontSize: 11, color: theme.textTertiary, maxLines: 1 } }
-                ]
-            },
-            // Price
-            {
-                type: "Column",
-                props: { horizontalAlignment: "end" },
-                children: [
-                    { type: "Text", props: { text: stockPriceText(stock.price), fontSize: 14, fontWeight: "bold", color: theme.textPrimary } },
-                    { type: "Text", props: { text: (up ? "+" : "") + stock.pct.toFixed(2) + "%", fontSize: 11, fontWeight: "semibold", color: up ? theme.positive : theme.negative } }
-                ]
+                type: "Button",
+                props: {
+                    text: "\u2715",
+                    variant: "outlined",
+                    textColor: theme.negative,
+                    borderColor: theme.negative + "40",
+                    fontSize: 11,
+                    cornerRadius: 6,
+                    padding: { horizontal: 10, vertical: 4 },
+                    margin: { end: 12 },
+                    onClick: "onRemoveStock_" + stock.symbol
+                }
             }
+        ]
+    };
+}
+
+function buildEmptyState(theme) {
+    return {
+        type: "Column",
+        props: {
+            fillMaxWidth: true,
+            horizontalAlignment: "center",
+            padding: { vertical: 40 }
+        },
+        children: [
+            { type: "Text", props: { text: "\u2B50", fontSize: 40, padding: { bottom: 8 } } },
+            { type: "Text", props: { text: St("watchlist_empty"), fontSize: 14, color: theme.textSecondary } }
         ]
     };
 }
 
 function buildBottomNav(activeTab, theme) {
     var tabs = [
-        { id: "dashboard", icon: "🏠", label: St("nav_home") },
-        { id: "watchlist", icon: "📈", label: St("nav_watchlist") },
-        { id: "search",    icon: "🔍", label: St("nav_search") },
-        { id: "news",      icon: "📰", label: St("nav_news") }
+        { id: "dashboard", icon: "\uD83C\uDFE0", label: St("nav_home") },
+        { id: "watchlist", icon: "\u2B50",         label: St("nav_watchlist") },
+        { id: "search",    icon: "\uD83D\uDD0D",   label: St("nav_search") },
+        { id: "news",      icon: "\uD83D\uDCF0",   label: St("nav_news") }
     ];
     var children = [];
     for (var i = 0; i < tabs.length; i++) {
@@ -134,7 +196,7 @@ function buildBottomNav(activeTab, theme) {
                 type: "Box",
                 props: {
                     width: 4, height: 4, cornerRadius: 2,
-                    backgroundColor: theme.accent,
+                    background: theme.accent,
                     margin: { top: 2 }
                 }
             });
@@ -154,8 +216,8 @@ function buildBottomNav(activeTab, theme) {
         type: "Row",
         props: {
             fillMaxWidth: true,
-            backgroundColor: theme.navBar,
-            horizontalArrangement: "spaceEvenly",
+            background: theme.navBar,
+            alignment: "spaceEvenly",
             padding: { top: 4, bottom: 8 },
             borderColor: theme.border,
             borderWidth: { top: 1 }
@@ -168,46 +230,76 @@ function buildBottomNav(activeTab, theme) {
 
 function render() {
     var theme = StockTheme.get();
-    var stocks = StockData.stocks;
+    var stocks = getWatchlistStocks();
 
+    // Build scrollable content
     var scrollContent = [];
 
-    for (var i = 0; i < stocks.length; i++) {
-        scrollContent.push(buildStockRow(stocks[i], theme));
+    if (stocks.length === 0) {
+        scrollContent.push(buildEmptyState(theme));
+    } else {
+        for (var i = 0; i < stocks.length; i++) {
+            scrollContent.push(buildStockRow(stocks[i], theme));
+        }
     }
 
     scrollContent.push({ type: "Spacer", props: { height: 70 } });
 
     OnTheFly.setUI({
         type: "Column",
-        props: { fillMaxSize: true, backgroundColor: theme.primary },
+        props: { height: "fill", background: theme.primary },
         children: [
-            // Header
+            // Top bar: title + Add Stock button
             {
-                type: "Column",
-                props: { fillMaxWidth: true, padding: { start: 20, end: 20, top: 12 } },
+                type: "Row",
+                props: {
+                    fillMaxWidth: true,
+                    verticalAlignment: "center",
+                    padding: { start: 16, end: 16, top: 4, bottom: 12 }
+                },
                 children: [
-                    { type: "Text", props: { text: St("watchlist_title"), fontSize: 20, fontWeight: 800, color: theme.textPrimary } },
+                    { type: "Text", props: { text: St("watchlist_title"), fontSize: 22, fontWeight: 800, color: theme.textPrimary, weight: 1 } },
                     {
-                        type: "Row",
-                        props: { verticalAlignment: "center", padding: { top: 4 } },
-                        children: [
-                            { type: "Text", props: { text: "●", fontSize: 10, color: theme.accent } },
-                            { type: "Spacer", props: { width: 4 } },
-                            { type: "Text", props: { text: St("watchlist_live"), fontSize: 10, fontWeight: 600, color: theme.accent, fontFamily: "monospace" } },
-                            { type: "Text", props: { text: " · " + stocks.length + " " + St("watchlist_symbols"), fontSize: 10, color: theme.textTertiary } }
-                        ]
+                        type: "Button",
+                        props: {
+                            text: "+ " + St("add_stock"),
+                            variant: "filled",
+                            background: theme.accent,
+                            textColor: "#FFFFFF",
+                            fontSize: 12,
+                            fontWeight: 600,
+                            cornerRadius: 8,
+                            padding: { horizontal: 12, vertical: 6 },
+                            onClick: "onAddStock"
+                        }
                     }
                 ]
             },
-            // Content
+
+            // Scrollable stock list
             {
                 type: "Column",
-                props: { fillMaxWidth: true, weight: 1, scrollable: true, padding: { top: 8 } },
+                props: { fillMaxWidth: true, weight: 1, scrollable: true },
                 children: scrollContent
             },
-            // Bottom nav
-            buildBottomNav("watchlist", theme)
+
+            // Bottom navigation
+            buildBottomNav("watchlist", theme),
+
+            // Confirm remove dialog
+            {
+                type: "ConfirmDialog",
+                props: {
+                    id: "removeDialog",
+                    visible: false,
+                    title: St("confirm_remove"),
+                    message: St("confirm_remove"),
+                    confirmText: St("confirm"),
+                    cancelText: St("cancel"),
+                    onConfirm: "onConfirmRemove",
+                    onCancel: "onCancelRemove"
+                }
+            }
         ]
     });
 }

@@ -95,14 +95,51 @@ fun Modifier.applyBorder(c: UIComponent, style: ComponentStyle?, borderRadius: I
     return this
 }
 
+@Suppress("UNCHECKED_CAST")
 fun Modifier.applyPadding(c: UIComponent, style: ComponentStyle?): Modifier {
-    val padding = (c.props["padding"] as? Number)?.toInt() ?: style?.padding ?: 0
+    // Support object form: padding: { top: 8, bottom: 16, left: 4, right: 4, horizontal: 12, vertical: 8 }
+    val paddingObj = c.props["padding"] as? Map<String, Any>
+    if (paddingObj != null) {
+        val h = (paddingObj["horizontal"] as? Number)?.toInt()
+        val v = (paddingObj["vertical"] as? Number)?.toInt()
+        val top = (paddingObj["top"] as? Number)?.toInt() ?: v ?: 0
+        val bottom = (paddingObj["bottom"] as? Number)?.toInt() ?: v ?: 0
+        val left = (paddingObj["left"] as? Number)?.toInt()
+        val right = (paddingObj["right"] as? Number)?.toInt()
+        val start = (paddingObj["start"] as? Number)?.toInt() ?: left ?: h ?: 0
+        val end = (paddingObj["end"] as? Number)?.toInt() ?: right ?: h ?: 0
+        return this.padding(start = start.dp, top = top.dp, end = end.dp, bottom = bottom.dp)
+    }
+
+    // Individual props: paddingTop, paddingBottom, paddingLeft, paddingRight, paddingStart, paddingEnd
+    val pTop = (c.props["paddingTop"] as? Number)?.toInt()
+    val pBottom = (c.props["paddingBottom"] as? Number)?.toInt()
+    val pLeft = (c.props["paddingLeft"] as? Number)?.toInt()
+    val pRight = (c.props["paddingRight"] as? Number)?.toInt()
+    val pStart = (c.props["paddingStart"] as? Number)?.toInt()
+    val pEnd = (c.props["paddingEnd"] as? Number)?.toInt()
+
+    if (pTop != null || pBottom != null || pLeft != null || pRight != null || pStart != null || pEnd != null) {
+        val padding = (c.props["padding"] as? Number)?.toInt() ?: style?.padding ?: 0
+        return this.padding(
+            start = (pStart ?: pLeft ?: padding).dp,
+            top = (pTop ?: padding).dp,
+            end = (pEnd ?: pRight ?: padding).dp,
+            bottom = (pBottom ?: padding).dp
+        )
+    }
+
+    // paddingHorizontal / paddingVertical
     val paddingH = (c.props["paddingHorizontal"] as? Number)?.toInt() ?: style?.paddingHorizontal
     val paddingV = (c.props["paddingVertical"] as? Number)?.toInt() ?: style?.paddingVertical
 
-    return if (paddingH != null || paddingV != null) {
-        this.padding(horizontal = (paddingH ?: 0).dp, vertical = (paddingV ?: 0).dp)
-    } else if (padding > 0) {
+    if (paddingH != null || paddingV != null) {
+        return this.padding(horizontal = (paddingH ?: 0).dp, vertical = (paddingV ?: 0).dp)
+    }
+
+    // Simple number: padding: 16
+    val padding = (c.props["padding"] as? Number)?.toInt() ?: style?.padding ?: 0
+    return if (padding > 0) {
         this.padding(padding.dp)
     } else {
         this

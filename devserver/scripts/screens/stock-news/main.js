@@ -2,14 +2,14 @@
 //  News Screen — StockPro
 // ═══════════════════════════════════════════════════════════
 
-var activeFilter = "all";
+var activeTab = "all";
 var newsLoaded = false;
 
 // ─── Lifecycle ─────────────────────────────────────────────
 
 function onCreateView() {
-    render(); // render with mock data first
-    fetchNews(); // fetch real news from Marketaux
+    render();
+    fetchNews();
 }
 
 // ─── API Response Handler ─────────────────────────────────
@@ -36,20 +36,20 @@ function onNavTab_watchlist() { OnTheFly.sendToNative("navigateReplace", { scree
 function onNavTab_search()    { OnTheFly.sendToNative("navigateReplace", { screen: "stock-search" }); }
 function onNavTab_news()      { /* already here */ }
 
-// ─── Filter handlers ──────────────────────────────────────
+// ─── Tab handlers ─────────────────────────────────────────
 
-function onFilterAll() {
-    activeFilter = "all";
+function onTabAll() {
+    activeTab = "all";
     render();
 }
 
-function onFilterBullish() {
-    activeFilter = "bullish";
+function onTabBreaking() {
+    activeTab = "breaking";
     render();
 }
 
-function onFilterBearish() {
-    activeFilter = "bearish";
+function onTabLatest() {
+    activeTab = "latest";
     render();
 }
 
@@ -61,101 +61,152 @@ function onNewsClick() {
 
 // ─── UI Builders ───────────────────────────────────────────
 
-function buildFilterTab(label, filterId, theme) {
-    var isActive = (activeFilter === filterId);
-    var bgColor;
-    var textCol;
-    var borderCol;
-    if (isActive) {
-        if (filterId === "bearish") {
-            bgColor = theme.negativeDim;
-            textCol = theme.negative;
-            borderCol = theme.negative + "33";
-        } else {
-            bgColor = theme.accentDim;
-            textCol = theme.accent;
-            borderCol = theme.accent + "33";
-        }
-    } else {
-        bgColor = theme.card;
-        textCol = theme.textTertiary;
-        borderCol = theme.border;
+function buildTab(label, tabId, theme) {
+    var isActive = (activeTab === tabId);
+    var handlerName = "onTab" + capitalize(tabId);
+    return {
+        type: "Column",
+        props: {
+            horizontalAlignment: "center",
+            padding: { horizontal: 14, vertical: 6 },
+            onClick: handlerName
+        },
+        children: [
+            {
+                type: "Text",
+                props: {
+                    text: label,
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color: isActive ? theme.accent : theme.textTertiary
+                }
+            },
+            {
+                type: "Box",
+                props: {
+                    height: 2,
+                    fillMaxWidth: true,
+                    background: isActive ? theme.accent : "transparent",
+                    margin: { top: 4 }
+                }
+            }
+        ]
+    };
+}
+
+function buildTabRow(theme) {
+    var tabs = [
+        { id: "all",      label: St("news_title") },
+        { id: "breaking", label: St("breaking") },
+        { id: "latest",   label: St("latest") }
+    ];
+    var children = [];
+    for (var i = 0; i < tabs.length; i++) {
+        children.push(buildTab(tabs[i].label, tabs[i].id, theme));
     }
     return {
-        type: "Button",
+        type: "Row",
         props: {
-            text: capitalize(label),
-            style: "outlined",
-            backgroundColor: bgColor,
-            borderColor: borderCol,
-            textColor: textCol,
-            fontSize: 12,
-            fontWeight: "semibold",
-            cornerRadius: 20,
-            padding: { horizontal: 14, vertical: 6 },
-            onClick: "onFilter" + capitalize(filterId)
-        }
+            fillMaxWidth: true,
+            padding: { start: 16, end: 16, top: 12, bottom: 8 }
+        },
+        children: children
+    };
+}
+
+function buildTagBadge(news, theme) {
+    var isBreaking = (news.tag === "breaking");
+    var badgeBg = isBreaking ? theme.negative + "30" : theme.accent + "30";
+    var badgeColor = isBreaking ? theme.negative : theme.accent;
+    var badgeText = isBreaking ? St("breaking") : St("latest");
+    return {
+        type: "Box",
+        props: {
+            background: badgeBg,
+            cornerRadius: 4,
+            padding: { horizontal: 6, vertical: 2 }
+        },
+        children: [
+            { type: "Text", props: { text: badgeText, fontSize: 10, fontWeight: 700, color: badgeColor } }
+        ]
     };
 }
 
 function buildNewsCard(news, theme) {
-    var tagChildren = [];
-    if (news.sym) {
-        tagChildren.push({
-            type: "Box",
-            props: { backgroundColor: theme.accentDim, cornerRadius: 5, padding: { horizontal: 8, vertical: 2 } },
-            children: [
-                { type: "Text", props: { text: news.sym, fontSize: 10, fontWeight: "bold", color: theme.accent } }
-            ]
-        });
-    }
-    tagChildren.push({
-        type: "Box",
-        props: {
-            backgroundColor: news.bull ? theme.accentDim : theme.negativeDim,
-            cornerRadius: 5,
-            padding: { horizontal: 8, vertical: 2 }
-        },
-        children: [
-            { type: "Text", props: { text: news.bull ? "BULLISH" : "BEARISH", fontSize: 10, fontWeight: "semibold", color: news.bull ? theme.positive : theme.negative } }
-        ]
-    });
-
     return {
         type: "Column",
         props: {
             fillMaxWidth: true,
-            backgroundColor: theme.card,
-            borderColor: theme.border,
+            background: theme.card,
+            borderColor: theme.border + "20",
             borderWidth: 1,
-            cornerRadius: 14,
-            padding: { horizontal: 14, vertical: 13 },
+            cornerRadius: 12,
+            padding: 14,
             onClick: "onNewsClick"
         },
         children: [
+            // Tag badge row
             {
                 type: "Row",
-                props: { spacing: 6, padding: { bottom: 7 } },
-                children: tagChildren
+                props: { spacing: 6, padding: { bottom: 6 } },
+                children: [
+                    buildTagBadge(news, theme)
+                ]
             },
-            { type: "Text", props: { text: news.title, fontSize: 14, fontWeight: "semibold", color: theme.textPrimary, lineHeight: 1.45 } },
-            { type: "Spacer", props: { height: 6 } },
-            { type: "Text", props: { text: news.src + " · " + news.time + " ago", fontSize: 10, color: theme.textTertiary } }
+            // Title
+            {
+                type: "Text",
+                props: {
+                    text: news.title,
+                    fontSize: 14,
+                    fontWeight: 600,
+                    color: theme.textPrimary,
+                    lineHeight: 1.3,
+                    padding: { bottom: 6 }
+                }
+            },
+            // Source + time + Read More
+            {
+                type: "Row",
+                props: {
+                    fillMaxWidth: true,
+                    alignment: "spaceBetween",
+                    verticalAlignment: "center"
+                },
+                children: [
+                    {
+                        type: "Text",
+                        props: {
+                            text: news.src + " \u00B7 " + news.time,
+                            fontSize: 11,
+                            color: theme.textTertiary
+                        }
+                    },
+                    {
+                        type: "Text",
+                        props: {
+                            text: St("read_more"),
+                            fontSize: 11,
+                            color: theme.accent
+                        }
+                    }
+                ]
+            }
         ]
     };
 }
 
-function buildBottomNav(activeTab, theme) {
+function buildBottomNav(activeNavTab, theme) {
     var tabs = [
-        { id: "dashboard", icon: "🏠", label: St("nav_home") },
-        { id: "watchlist", icon: "📈", label: St("nav_watchlist") },
-        { id: "search",    icon: "🔍", label: St("nav_search") },
-        { id: "news",      icon: "📰", label: St("nav_news") }
+        { id: "dashboard", icon: "\uD83C\uDFE0", label: St("nav_home") },
+        { id: "watchlist", icon: "\u2B50",         label: St("nav_watchlist") },
+        { id: "search",    icon: "\uD83D\uDD0D",   label: St("nav_search") },
+        { id: "news",      icon: "\uD83D\uDCF0",   label: St("nav_news") }
     ];
     var children = [];
     for (var i = 0; i < tabs.length; i++) {
         var tab = tabs[i];
-        var isActive = (tab.id === activeTab);
+        var isActive = (tab.id === activeNavTab);
         var tabChildren = [
             { type: "Text", props: { text: tab.icon, fontSize: 20 } },
             { type: "Text", props: {
@@ -172,8 +223,8 @@ function buildBottomNav(activeTab, theme) {
                     width: 4,
                     height: 4,
                     cornerRadius: 2,
-                    backgroundColor: theme.accent,
-                    margin: { top: 3 }
+                    background: theme.accent,
+                    margin: { top: 2 }
                 }
             });
         }
@@ -192,10 +243,10 @@ function buildBottomNav(activeTab, theme) {
         type: "Row",
         props: {
             fillMaxWidth: true,
-            backgroundColor: theme.navBar,
+            background: theme.navBar,
             borderColor: theme.border,
             borderWidth: { top: 1 },
-            horizontalArrangement: "spaceEvenly",
+            alignment: "spaceEvenly",
             padding: { top: 4, bottom: 8 }
         },
         children: children
@@ -206,43 +257,43 @@ function buildBottomNav(activeTab, theme) {
 
 function render() {
     var theme = StockTheme.get();
-    var newsList = getNewsByFilter(activeFilter);
+    var newsList = getNewsByTag(activeTab);
 
     var newsCards = [];
     for (var i = 0; i < newsList.length; i++) {
         newsCards.push(buildNewsCard(newsList[i], theme));
         if (i < newsList.length - 1) {
-            newsCards.push({ type: "Spacer", props: { height: 8 } });
+            newsCards.push({ type: "Spacer", props: { height: 10 } });
         }
     }
     newsCards.push({ type: "Spacer", props: { height: 70 } });
 
     OnTheFly.setUI({
         type: "Column",
-        props: { fillMaxSize: true, backgroundColor: theme.primary },
+        props: { height: "fill", background: theme.primary },
         children: [
-            // Title + filters
+            // Title
             {
-                type: "Column",
-                props: { fillMaxWidth: true, padding: { start: 20, end: 20, top: 12 } },
-                children: [
-                    { type: "Text", props: { text: St("news_title"), fontSize: 20, fontWeight: "bold", color: theme.textPrimary } },
-                    { type: "Spacer", props: { height: 10 } },
-                    {
-                        type: "Row",
-                        props: { spacing: 7 },
-                        children: [
-                            buildFilterTab(St("all"), "all", theme),
-                            buildFilterTab(St("bullish"), "bullish", theme),
-                            buildFilterTab(St("bearish"), "bearish", theme)
-                        ]
-                    }
-                ]
+                type: "Text",
+                props: {
+                    text: St("news_title"),
+                    fontSize: 22,
+                    fontWeight: 800,
+                    color: theme.textPrimary,
+                    padding: { start: 16, end: 16, top: 4 }
+                }
             },
-            // News list
+            // Tab row
+            buildTabRow(theme),
+            // Scrollable news list
             {
                 type: "Column",
-                props: { fillMaxWidth: true, weight: 1, scrollable: true, padding: { horizontal: 20, top: 14 } },
+                props: {
+                    fillMaxWidth: true,
+                    weight: 1,
+                    scrollable: true,
+                    padding: { horizontal: 16 }
+                },
                 children: newsCards
             },
             // Bottom nav

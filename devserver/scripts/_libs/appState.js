@@ -7,7 +7,7 @@ var AppState = (function() {
 
     function get(key, defaultValue) {
         var val = OnTheFly.shared.get(key);
-        return val !== undefined ? val : defaultValue;
+        return (val !== undefined && val !== null) ? val : defaultValue;
     }
 
     function set(key, value) {

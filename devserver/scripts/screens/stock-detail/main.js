@@ -5,7 +5,7 @@
 var stock = null;
 var currentSymbol = "";
 var bookmarked = false;
-var selectedRange = "1M";
+var selectedRange = "1D";
 var wsConnected = false;
 
 // ─── Lifecycle ─────────────────────────────────────────────
@@ -21,18 +21,14 @@ function onViewData(data) {
         bookmarked = isInWatchlist(data.symbol);
         render();
 
-        // Fetch real-time quote from Finnhub
         fetchQuote(data.symbol);
         fetchProfile(data.symbol);
-        // Fetch related news from Marketaux
         fetchNewsForSymbol(data.symbol);
-        // Connect WebSocket for live trades
         connectFinnhubWS();
     }
 }
 
 function onDestroy() {
-    // Clean up WebSocket on leave
     if (wsConnected && currentSymbol) {
         unsubscribeTrades(currentSymbol);
         disconnectFinnhubWS();
@@ -48,7 +44,6 @@ function onDataReceived(data) {
         return;
     }
 
-    // Finnhub quote
     if (data.requestId === "quote_" + currentSymbol) {
         var parsed = parseFinnhubQuote(currentSymbol, data.body);
         if (parsed) {
@@ -58,21 +53,15 @@ function onDataReceived(data) {
         }
     }
 
-    // Finnhub company profile
     if (data.requestId === "profile_" + currentSymbol) {
         parseFinnhubProfile(currentSymbol, data.body);
         stock = findStock(currentSymbol);
         render();
     }
 
-    // Marketaux related news
     if (data.requestId === "news_" + currentSymbol) {
-        var newsData = parseMarketauxNews(data.body);
-        if (newsData.length > 0) {
-            // Store as related news for this symbol
-            AppState.set("news_" + currentSymbol, newsData);
-            render();
-        }
+        stock = findStock(currentSymbol);
+        render();
     }
 }
 
@@ -93,11 +82,13 @@ function onRealtimeData(data) {
             if (trades[i].symbol === currentSymbol) {
                 updateStockFromTrade(trades[i]);
                 stock = findStock(currentSymbol);
-                // Update price display without full re-render
                 var up = stock.change >= 0;
                 var theme = StockTheme.get();
                 OnTheFly.update("priceText", { text: stockPriceText(stock.price) });
-                OnTheFly.update("changeText", { text: stockChangeArrow(stock), color: up ? theme.positive : theme.negative });
+                OnTheFly.update("changeText", {
+                    text: stockChangeArrow(stock),
+                    color: up ? theme.positive : theme.negative
+                });
             }
         }
     }
@@ -155,19 +146,33 @@ function onRange_ALL() { selectedRange = "ALL"; render(); }
 
 // ─── UI Builders ───────────────────────────────────────────
 
-function buildStatBox(label, value, theme) {
+function buildStatCell(label, value, theme) {
     return {
         type: "Column",
         props: {
-            backgroundColor: theme.card,
-            cornerRadius: 10,
-            borderColor: theme.border,
-            borderWidth: 1,
-            padding: { horizontal: 11, vertical: 9 }
+            weight: 1,
+            background: theme.card,
+            padding: { horizontal: 14, vertical: 10 }
         },
         children: [
-            { type: "Text", props: { text: label, fontSize: 10, color: theme.textTertiary } },
-            { type: "Text", props: { text: value, fontSize: 13, fontWeight: "bold", color: theme.textPrimary } }
+            {
+                type: "Text",
+                props: {
+                    text: label,
+                    fontSize: 11,
+                    color: theme.textTertiary,
+                    padding: { bottom: 2 }
+                }
+            },
+            {
+                type: "Text",
+                props: {
+                    text: value,
+                    fontSize: 14,
+                    fontWeight: "semibold",
+                    color: theme.textPrimary
+                }
+            }
         ]
     };
 }
@@ -179,12 +184,12 @@ function buildTimeButton(label, rangeId, theme) {
         props: {
             text: label,
             style: isActive ? "filled" : "text",
-            backgroundColor: isActive ? theme.accent : "transparent",
-            textColor: isActive ? theme.primary : theme.textTertiary,
-            fontSize: 11,
-            fontWeight: isActive ? "bold" : "normal",
-            cornerRadius: 8,
-            padding: { horizontal: 12, vertical: 6 },
+            background: isActive ? theme.accent : "transparent",
+            textColor: isActive ? "#FFFFFF" : theme.textTertiary,
+            fontSize: 12,
+            fontWeight: isActive ? "semibold" : "semibold",
+            cornerRadius: 6,
+            padding: { horizontal: 14, vertical: 6 },
             onClick: "onRange_" + rangeId
         }
     };
@@ -198,7 +203,12 @@ function render() {
     if (!stock) {
         OnTheFly.setUI({
             type: "Column",
-            props: { fillMaxSize: true, backgroundColor: theme.primary, horizontalAlignment: "center", verticalArrangement: "center" },
+            props: {
+                height: "fill",
+                background: theme.primary,
+                horizontalAlignment: "center",
+                verticalArrangement: "center"
+            },
             children: [
                 { type: "Text", props: { text: "Loading...", color: theme.textSecondary } }
             ]
@@ -207,218 +217,218 @@ function render() {
     }
 
     var up = stock.change >= 0;
-    // Check for API-fetched related news first, fallback to mock
-    var apiNews = AppState.get("news_" + stock.symbol, null);
-    var relatedNews = (apiNews && apiNews.length > 0) ? apiNews : getNewsForStock(stock.symbol);
 
-    // Stats grid data
+    // Stats data: 6 items, 2 per row = 3 rows
     var stats = [
-        [St("detail_open"),     "$" + stock.open],
-        [St("detail_high"),     "$" + stock.high],
-        [St("detail_low"),      "$" + stock.low],
-        [St("detail_vol"),      stock.vol],
-        [St("detail_pe"),       stock.pe.toFixed(1)],
-        [St("detail_mkt_cap"),  "$" + stock.cap],
-        [St("detail_52w_high"), "$" + stock.w52h],
-        [St("detail_52w_low"),  "$" + stock.w52l]
+        [St("detail_open"), stockPriceText(stock.open)],
+        [St("detail_high"), stockPriceText(stock.high)],
+        [St("detail_low"),  stockPriceText(stock.low)],
+        [St("detail_vol"),  stock.vol],
+        [St("detail_mkt_cap"), stock.cap],
+        [St("detail_pe"),   stock.pe.toFixed(1)]
     ];
 
-    // Build stats grid rows (2 columns)
+    // Build stats grid rows (2 columns per row)
     var statsRows = [];
     for (var i = 0; i < stats.length; i += 2) {
-        var rowChildren = [buildStatBox(stats[i][0], stats[i][1], theme)];
+        var rowChildren = [buildStatCell(stats[i][0], stats[i][1], theme)];
         if (i + 1 < stats.length) {
-            rowChildren.push(buildStatBox(stats[i + 1][0], stats[i + 1][1], theme));
+            rowChildren.push(buildStatCell(stats[i + 1][0], stats[i + 1][1], theme));
         }
         statsRows.push({
             type: "Row",
-            props: { fillMaxWidth: true, spacing: 7 },
+            props: {
+                fillMaxWidth: true,
+                spacing: 1
+            },
             children: rowChildren
         });
     }
 
-    // Build related news
-    var newsChildren = [];
-    if (relatedNews.length === 0) {
-        newsChildren.push({ type: "Text", props: { text: St("no_related_news"), fontSize: 12, color: theme.textTertiary, textAlign: "center", padding: 16 } });
-    } else {
-        for (var j = 0; j < relatedNews.length; j++) {
-            var n = relatedNews[j];
-            newsChildren.push({
-                type: "Column",
-                props: {
-                    fillMaxWidth: true,
-                    backgroundColor: theme.card,
-                    cornerRadius: 10,
-                    borderColor: theme.border,
-                    borderWidth: 1,
-                    padding: { horizontal: 12, vertical: 10 }
-                },
-                children: [
-                    { type: "Text", props: { text: n.title, fontSize: 12, fontWeight: "medium", color: theme.textPrimary, lineHeight: 1.4 } },
-                    { type: "Text", props: { text: n.src + " · " + n.time, fontSize: 10, color: theme.textTertiary, padding: { top: 3 } } }
-                ]
-            });
-            if (j < relatedNews.length - 1) {
-                newsChildren.push({ type: "Spacer", props: { height: 7 } });
-            }
-        }
-    }
-
     OnTheFly.setUI({
         type: "Column",
-        props: { fillMaxSize: true, backgroundColor: theme.primary },
+        props: { height: "fill", background: theme.primary },
         children: [
-            // Top bar
+            // ── Top bar: back + symbol + bookmark ──
             {
                 type: "Row",
                 props: {
                     fillMaxWidth: true,
-                    padding: { start: 20, end: 20, top: 8 },
+                    padding: { start: 16, end: 16, top: 4, bottom: 8 },
                     verticalAlignment: "center"
                 },
                 children: [
                     {
                         type: "Button",
                         props: {
-                            text: "‹",
-                            style: "outlined",
-                            backgroundColor: theme.card,
-                            borderColor: theme.border,
-                            borderWidth: 1,
-                            textColor: theme.textSecondary,
-                            fontSize: 16,
-                            cornerRadius: 10,
+                            text: "\u2190",
+                            variant: "text",
+                            textColor: theme.textPrimary,
+                            fontSize: 18,
+                            padding: { end: 12 },
                             onClick: "onBackClick"
                         }
                     },
-                    { type: "Text", props: { text: stock.symbol, fontSize: 16, fontWeight: "bold", color: theme.textPrimary, weight: 1, textAlign: "center" } },
+                    {
+                        type: "Text",
+                        props: {
+                            text: stock.symbol,
+                            fontSize: 18,
+                            fontWeight: "extrabold",
+                            color: theme.textPrimary,
+                            weight: 1,
+                            textAlign: "center"
+                        }
+                    },
                     {
                         type: "Button",
                         props: {
-                            text: bookmarked ? "★" : "☆",
-                            style: "outlined",
-                            borderColor: bookmarked ? theme.warning + "33" : theme.border,
-                            borderWidth: 1,
-                            backgroundColor: bookmarked ? theme.warning + "15" : "transparent",
+                            text: bookmarked ? "\u2B50" : "\u2606",
+                            variant: "text",
                             textColor: bookmarked ? theme.warning : theme.textTertiary,
-                            fontSize: 14,
-                            cornerRadius: 10,
+                            fontSize: 18,
                             onClick: "onBookmarkToggle"
                         }
                     }
                 ]
             },
 
-            // Scrollable content
+            // ── Scrollable content ──
             {
                 type: "Column",
                 props: { fillMaxWidth: true, weight: 1, scrollable: true },
                 children: [
-                    // Price section
-                    {
-                        type: "Column",
-                        props: { fillMaxWidth: true, padding: { horizontal: 20, top: 14 } },
-                        children: [
-                            { type: "Text", props: { text: stock.name, fontSize: 11, color: theme.textTertiary } },
-                            {
-                                type: "Row",
-                                props: { verticalAlignment: "baseline", padding: { top: 3 } },
-                                children: [
-                                    { type: "Text", props: { id: "priceText", text: stockPriceText(stock.price), fontSize: 32, fontWeight: "bold", color: theme.textPrimary, letterSpacing: -1.5 } },
-                                    { type: "Spacer", props: { width: 10 } },
-                                    { type: "Text", props: {
-                                        id: "changeText",
-                                        text: stockChangeArrow(stock),
-                                        fontSize: 14,
-                                        fontWeight: "bold",
-                                        color: up ? theme.positive : theme.negative
-                                    }}
-                                ]
-                            },
-                            {
-                                type: "Row",
-                                props: { verticalAlignment: "center", padding: { top: 5 } },
-                                children: [
-                                    { type: "Text", props: { text: "● " + St("real_time") + " · WebSocket", fontSize: 10, color: theme.accent } }
-                                ]
-                            }
-                        ]
-                    },
-
-                    { type: "Spacer", props: { height: 14 } },
-
-                    // Chart card
+                    // Price centered
                     {
                         type: "Column",
                         props: {
                             fillMaxWidth: true,
-                            backgroundColor: theme.card,
-                            cornerRadius: 16,
-                            borderColor: theme.border,
-                            borderWidth: 1,
-                            padding: 14,
-                            margin: { horizontal: 20 }
+                            horizontalAlignment: "center",
+                            padding: { top: 8, bottom: 16 }
                         },
                         children: [
                             {
-                                type: "Box",
+                                type: "Text",
                                 props: {
-                                    fillMaxWidth: true,
-                                    height: 140,
-                                    backgroundColor: theme.surfaceVariant,
-                                    cornerRadius: 12,
-                                    contentAlignment: "center"
-                                },
-                                children: [
-                                    { type: "Text", props: { text: "📊 Chart — " + selectedRange, fontSize: 14, color: theme.textTertiary } }
-                                ]
+                                    id: "priceText",
+                                    text: stockPriceText(stock.price),
+                                    fontSize: 32,
+                                    fontWeight: "extrabold",
+                                    color: theme.textPrimary,
+                                    letterSpacing: -1
+                                }
                             },
-                            { type: "Spacer", props: { height: 10 } },
-                            // Time range buttons inside chart card
                             {
-                                type: "Row",
-                                props: { fillMaxWidth: true, horizontalArrangement: "spaceEvenly" },
-                                children: [
-                                    buildTimeButton("1D", "1D", theme),
-                                    buildTimeButton("1W", "1W", theme),
-                                    buildTimeButton("1M", "1M", theme),
-                                    buildTimeButton("3M", "3M", theme),
-                                    buildTimeButton("1Y", "1Y", theme),
-                                    buildTimeButton("ALL", "ALL", theme)
-                                ]
+                                type: "Text",
+                                props: {
+                                    id: "changeText",
+                                    text: stockChangeArrow(stock),
+                                    fontSize: 15,
+                                    fontWeight: "semibold",
+                                    color: up ? theme.positive : theme.negative
+                                }
                             }
                         ]
                     },
 
-                    { type: "Spacer", props: { height: 14 } },
-
-                    // Statistics
+                    // Chart placeholder
                     {
-                        type: "Column",
-                        props: { fillMaxWidth: true, padding: { horizontal: 20 } },
+                        type: "Box",
+                        props: {
+                            fillMaxWidth: true,
+                            height: 100,
+                            background: theme.surfaceVariant,
+                            cornerRadius: 14,
+                            contentAlignment: "center",
+                            margin: { start: 16, end: 16, bottom: 12 },
+                            borderColor: theme.border + "20",
+                            borderWidth: 1
+                        },
                         children: [
-                            { type: "Text", props: { text: St("statistics"), fontSize: 16, fontWeight: "bold", color: theme.textPrimary, padding: { bottom: 8 } } },
                             {
-                                type: "Column",
-                                props: { fillMaxWidth: true, spacing: 7 },
-                                children: statsRows
+                                type: "Text",
+                                props: {
+                                    text: "\uD83D\uDCCA Chart",
+                                    fontSize: 14,
+                                    color: theme.textTertiary
+                                }
                             }
                         ]
                     },
 
-                    { type: "Spacer", props: { height: 14 } },
-
-                    // Related News
+                    // Time range buttons
                     {
-                        type: "Column",
-                        props: { fillMaxWidth: true, padding: { horizontal: 20 } },
+                        type: "Row",
+                        props: {
+                            fillMaxWidth: true,
+                            alignment: "center",
+                            padding: { start: 16, end: 16, bottom: 16 }
+                        },
                         children: [
-                            { type: "Text", props: { text: St("related_news"), fontSize: 16, fontWeight: "bold", color: theme.textPrimary, padding: { bottom: 8 } } }
-                        ].concat(newsChildren)
+                            buildTimeButton("1D", "1D", theme),
+                            buildTimeButton("1W", "1W", theme),
+                            buildTimeButton("1M", "1M", theme),
+                            buildTimeButton("3M", "3M", theme),
+                            buildTimeButton("1Y", "1Y", theme),
+                            buildTimeButton("ALL", "ALL", theme)
+                        ]
                     },
 
-                    { type: "Spacer", props: { height: 30 } }
+                    // Stats grid
+                    {
+                        type: "Column",
+                        props: {
+                            fillMaxWidth: true,
+                            cornerRadius: 12,
+                            background: theme.border + "30",
+                            spacing: 1,
+                            margin: { start: 16, end: 16, bottom: 16 },
+                            clipToBounds: true
+                        },
+                        children: statsRows
+                    },
+
+                    // Buy + Sell buttons
+                    {
+                        type: "Row",
+                        props: {
+                            fillMaxWidth: true,
+                            spacing: 10,
+                            padding: { start: 16, end: 16, bottom: 24 }
+                        },
+                        children: [
+                            {
+                                type: "Button",
+                                props: {
+                                    text: St("buy"),
+                                    variant: "filled",
+                                    background: theme.positive,
+                                    textColor: "#FFFFFF",
+                                    fontSize: 15,
+                                    fontWeight: "bold",
+                                    cornerRadius: 10,
+                                    weight: 1,
+                                    padding: { vertical: 13 },
+                                    onClick: "onBuyClick"
+                                }
+                            },
+                            {
+                                type: "Button",
+                                props: {
+                                    text: St("sell"),
+                                    variant: "filled",
+                                    background: theme.negative,
+                                    textColor: "#FFFFFF",
+                                    fontSize: 15,
+                                    fontWeight: "bold",
+                                    cornerRadius: 10,
+                                    weight: 1,
+                                    padding: { vertical: 13 },
+                                    onClick: "onSellClick"
+                                }
+                            }
+                        ]
+                    }
                 ]
             }
         ]

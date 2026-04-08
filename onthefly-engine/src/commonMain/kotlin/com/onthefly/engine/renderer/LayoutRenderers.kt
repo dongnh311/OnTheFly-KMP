@@ -71,7 +71,16 @@ fun RenderColumn(
         horizontalAlignment = alignment,
         verticalArrangement = if (spacing > 0) Arrangement.spacedBy(spacing.dp) else Arrangement.Top
     ) {
-        c.children.forEach { DynamicRenderer(it, onEvent, onComponentEvent) }
+        c.children.forEach { child ->
+            val w = (child.props["weight"] as? Number)?.toFloat()
+            if (w != null && w > 0f) {
+                Box(modifier = Modifier.weight(w)) {
+                    DynamicRenderer(child, onEvent, onComponentEvent)
+                }
+            } else {
+                DynamicRenderer(child, onEvent, onComponentEvent)
+            }
+        }
     }
 }
 
@@ -128,7 +137,16 @@ fun RenderRow(
         verticalAlignment = verticalAlignment,
         horizontalArrangement = horizontalArrangement
     ) {
-        c.children.forEach { DynamicRenderer(it, onEvent, onComponentEvent) }
+        c.children.forEach { child ->
+            val w = (child.props["weight"] as? Number)?.toFloat()
+            if (w != null && w > 0f) {
+                Box(modifier = Modifier.weight(w)) {
+                    DynamicRenderer(child, onEvent, onComponentEvent)
+                }
+            } else {
+                DynamicRenderer(child, onEvent, onComponentEvent)
+            }
+        }
     }
 }
 

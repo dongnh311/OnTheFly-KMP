@@ -18,6 +18,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Check
@@ -83,6 +88,12 @@ fun RenderTextField(c: UIComponent, onComponentEvent: (ComponentEvent) -> Unit, 
 
     val style = c.resolveStyle()
 
+    val textColor = c.propColor("textColor")
+    val placeholderColor = c.propColor("placeholderColor")
+    val bgColor = c.propColor("background")
+    val borderColor = c.propColor("borderColor")
+    val cornerRadius = c.propInt("cornerRadius", 8)
+
     val keyboardType = when (type) {
         "email" -> KeyboardType.Email
         "number" -> KeyboardType.Number
@@ -93,11 +104,31 @@ fun RenderTextField(c: UIComponent, onComponentEvent: (ComponentEvent) -> Unit, 
     val isPassword = type == "password"
     val isMultiline = type == "multiline" || maxLines > 1
 
+    // Internal state to avoid focus loss on recomposition
+    var textState by remember(componentId) { mutableStateOf(value) }
+    // Sync from JS when value changes externally (e.g., JS reset)
+    LaunchedEffect(value) {
+        if (value != textState && value.isNotEmpty()) textState = value
+    }
+
+    val fieldColors = OutlinedTextFieldDefaults.colors(
+        focusedTextColor = textColor ?: Color.Unspecified,
+        unfocusedTextColor = textColor ?: Color.Unspecified,
+        focusedPlaceholderColor = placeholderColor ?: Color.Unspecified,
+        unfocusedPlaceholderColor = placeholderColor ?: Color.Unspecified,
+        focusedContainerColor = bgColor ?: Color.Unspecified,
+        unfocusedContainerColor = bgColor ?: Color.Unspecified,
+        focusedBorderColor = borderColor ?: Color.Unspecified,
+        unfocusedBorderColor = borderColor ?: Color.Unspecified,
+        cursorColor = textColor ?: Color.Unspecified
+    )
+
     OutlinedTextField(
-        value = value,
+        value = textState,
         onValueChange = { newValue ->
             val limited = if (maxLength != null) newValue.take(maxLength) else newValue
-            if (onChanged != null) {
+            textState = limited
+            if (componentId.isNotEmpty()) {
                 onComponentEvent(
                     ComponentEvent(
                         EngineEvent.ON_TEXT_CHANGED,
@@ -143,7 +174,8 @@ fun RenderTextField(c: UIComponent, onComponentEvent: (ComponentEvent) -> Unit, 
         ),
         maxLines = if (isMultiline) maxLines.coerceAtLeast(3) else 1,
         singleLine = !isMultiline,
-        shape = RoundedCornerShape(8.dp)
+        colors = fieldColors,
+        shape = RoundedCornerShape(cornerRadius.dp)
     )
 }
 

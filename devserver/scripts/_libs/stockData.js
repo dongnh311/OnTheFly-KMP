@@ -1,7 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-//  StockData — API integration + mock fallback for Stock App
-//  Finnhub: stock quotes, search, WebSocket realtime
-//  Marketaux: market news
+//  StockData — Mock data + API integration for Stock App
 // ═══════════════════════════════════════════════════════════
 
 // ─── API Configuration ────────────────────────────────────
@@ -20,8 +18,6 @@ var StockAPI = {
 
 // ─── Finnhub API Helpers ──────────────────────────────────
 
-// Fetch quote for a single symbol
-// Callback: onDataReceived with requestId = "quote_SYMBOL"
 function fetchQuote(symbol) {
     OnTheFly.sendToNative("sendRequest", {
         id: "quote_" + symbol,
@@ -30,15 +26,12 @@ function fetchQuote(symbol) {
     });
 }
 
-// Fetch quotes for multiple symbols (fires one request per symbol)
 function fetchQuotes(symbols) {
     for (var i = 0; i < symbols.length; i++) {
         fetchQuote(symbols[i]);
     }
 }
 
-// Fetch company profile for a symbol
-// Callback: onDataReceived with requestId = "profile_SYMBOL"
 function fetchProfile(symbol) {
     OnTheFly.sendToNative("sendRequest", {
         id: "profile_" + symbol,
@@ -47,8 +40,6 @@ function fetchProfile(symbol) {
     });
 }
 
-// Search symbols via Finnhub
-// Callback: onDataReceived with requestId = "search_QUERY"
 function fetchSearch(query) {
     OnTheFly.sendToNative("sendRequest", {
         id: "search_" + query,
@@ -57,9 +48,8 @@ function fetchSearch(query) {
     });
 }
 
-// Fetch market indices (uses quote endpoint for index ETFs)
 function fetchIndices() {
-    var indexSymbols = ["SPY", "QQQ", "DIA"]; // S&P 500, NASDAQ, DOW proxies
+    var indexSymbols = ["SPY", "QQQ", "DIA"];
     for (var i = 0; i < indexSymbols.length; i++) {
         OnTheFly.sendToNative("sendRequest", {
             id: "index_" + indexSymbols[i],
@@ -71,7 +61,6 @@ function fetchIndices() {
 
 // ─── Finnhub WebSocket ────────────────────────────────────
 
-// Connect to Finnhub realtime WebSocket
 function connectFinnhubWS() {
     OnTheFly.connectWS(
         StockAPI.finnhub.ws + "?token=" + StockAPI.finnhub.key,
@@ -79,25 +68,20 @@ function connectFinnhubWS() {
     );
 }
 
-// Subscribe to realtime trades for a symbol
 function subscribeTrades(symbol) {
     OnTheFly.sendWS(JSON.stringify({ type: "subscribe", symbol: symbol }), "finnhub");
 }
 
-// Unsubscribe from a symbol
 function unsubscribeTrades(symbol) {
     OnTheFly.sendWS(JSON.stringify({ type: "unsubscribe", symbol: symbol }), "finnhub");
 }
 
-// Disconnect Finnhub WebSocket
 function disconnectFinnhubWS() {
     OnTheFly.closeWS("finnhub");
 }
 
 // ─── Marketaux API Helpers ────────────────────────────────
 
-// Fetch general market news
-// Callback: onDataReceived with requestId = "news_all"
 function fetchNews() {
     OnTheFly.sendToNative("sendRequest", {
         id: "news_all",
@@ -107,8 +91,6 @@ function fetchNews() {
     });
 }
 
-// Fetch news for specific symbols
-// Callback: onDataReceived with requestId = "news_SYMBOL"
 function fetchNewsForSymbol(symbol) {
     OnTheFly.sendToNative("sendRequest", {
         id: "news_" + symbol,
@@ -118,14 +100,10 @@ function fetchNewsForSymbol(symbol) {
     });
 }
 
-// ─── Quote Response Parser ────────────────────────────────
-// Finnhub quote response: { c, d, dp, h, l, o, pc, t }
-// c = current price, d = change, dp = percent change
-// h = high, l = low, o = open, pc = previous close, t = timestamp
+// ─── Response Parsers ─────────────────────────────────────
 
 function parseFinnhubQuote(symbol, body) {
     if (!body || body.c === 0) return null;
-    // Find existing stock data to merge with
     var existing = findStock(symbol);
     return {
         symbol: symbol,
@@ -138,13 +116,10 @@ function parseFinnhubQuote(symbol, body) {
         open: body.o || 0,
         vol: existing ? existing.vol : "N/A",
         cap: existing ? existing.cap : "N/A",
-        pe: existing ? existing.pe : 0,
-        w52h: existing ? existing.w52h : 0,
-        w52l: existing ? existing.w52l : 0
+        pe: existing ? existing.pe : 0
     };
 }
 
-// Parse Finnhub profile response and merge into stock
 function parseFinnhubProfile(symbol, body) {
     if (!body || !body.name) return;
     var stock = findStock(symbol);
@@ -158,7 +133,6 @@ function parseFinnhubProfile(symbol, body) {
     }
 }
 
-// Update or insert stock into StockData.stocks
 function upsertStock(stockObj) {
     if (!stockObj) return;
     for (var i = 0; i < StockData.stocks.length; i++) {
@@ -170,8 +144,6 @@ function upsertStock(stockObj) {
     StockData.stocks.push(stockObj);
 }
 
-// Parse Finnhub WebSocket trade message
-// Message format: { "data": [{ "p": price, "s": symbol, "t": timestamp, "v": volume }], "type": "trade" }
 function parseFinnhubWSMessage(messageStr) {
     var msg = JSON.parse(messageStr);
     if (msg && msg.type === "trade" && msg.data && msg.data.length > 0) {
@@ -189,11 +161,9 @@ function parseFinnhubWSMessage(messageStr) {
     return null;
 }
 
-// Update stock price from WebSocket trade data
 function updateStockFromTrade(trade) {
     var stock = findStock(trade.symbol);
     if (stock) {
-        var prevPrice = stock.price;
         stock.price = trade.price;
         stock.change = trade.price - stock.open;
         if (stock.open > 0) {
@@ -204,9 +174,6 @@ function updateStockFromTrade(trade) {
     }
 }
 
-// ─── Marketaux Response Parser ────────────────────────────
-// Response: { data: [{ title, description, url, source, published_at, entities: [{ symbol, sentiment_score }] }] }
-
 function parseMarketauxNews(body) {
     if (!body || !body.data) return [];
     var result = [];
@@ -214,7 +181,6 @@ function parseMarketauxNews(body) {
         var article = body.data[i];
         var sym = null;
         var bull = true;
-        // Extract first entity symbol and sentiment
         if (article.entities && article.entities.length > 0) {
             sym = article.entities[0].symbol || null;
             if (article.entities[0].sentiment_score !== undefined) {
@@ -228,76 +194,40 @@ function parseMarketauxNews(body) {
             time: timeAgo(article.published_at),
             url: article.url || "",
             sym: sym,
+            tag: (i % 3 === 0) ? "breaking" : "latest",
             bull: bull
         });
     }
     return result;
 }
 
-// ─── Index Mapping ────────────────────────────────────────
-
-var INDEX_MAP = {
-    SPY: { name: "S&P 500", idx: 0 },
-    QQQ: { name: "NASDAQ",  idx: 1 },
-    DIA: { name: "DOW 30",  idx: 2 }
-};
-
-function updateIndexFromQuote(etfSymbol, body) {
-    var info = INDEX_MAP[etfSymbol];
-    if (!info || !body || body.c === 0) return;
-    var up = (body.d || 0) >= 0;
-    var sign = up ? "+" : "";
-    StockData.indices[info.idx] = {
-        name: info.name,
-        val: formatPrice(body.c),
-        chg: sign + formatDecimal(body.dp, 2) + "%",
-        up: up
-    };
-}
-
-// ─── Mock Data (fallback) ─────────────────────────────────
+// ─── Mock Data (matching mockup exactly) ──────────────────
 
 var StockData = {
     stocks: [
-        { symbol: "AAPL",  name: "Apple Inc.",       price: 213.25, change: 2.34,   pct: 1.11,  vol: "52.3M", cap: "3.28T", high: 214.8,  low: 210.5,  open: 211,   pe: 33.2, w52h: 237.23, w52l: 164.08 },
-        { symbol: "TSLA",  name: "Tesla, Inc.",      price: 342.18, change: -5.62,  pct: -1.62, vol: "89.1M", cap: "1.10T", high: 350,    low: 339.2,  open: 348,   pe: 65.8, w52h: 488.54, w52l: 138.8  },
-        { symbol: "MSFT",  name: "Microsoft Corp.",  price: 467.12, change: 3.87,   pct: 0.84,  vol: "21.7M", cap: "3.47T", high: 469.5,  low: 462.3,  open: 463,   pe: 37.1, w52h: 471.66, w52l: 384.23 },
-        { symbol: "GOOGL", name: "Alphabet Inc.",    price: 181.43, change: -1.23,  pct: -0.67, vol: "18.4M", cap: "2.24T", high: 183.9,  low: 180.1,  open: 182.5, pe: 24.5, w52h: 192.57, w52l: 145.02 },
-        { symbol: "AMZN",  name: "Amazon.com",       price: 218.94, change: 4.12,   pct: 1.92,  vol: "34.6M", cap: "2.30T", high: 220.1,  low: 215.3,  open: 214.8, pe: 42.8, w52h: 228.68, w52l: 166.21 },
-        { symbol: "NVDA",  name: "NVIDIA Corp.",     price: 145.67, change: 6.78,   pct: 4.88,  vol: "312M",  cap: "3.58T", high: 147.2,  low: 139.5,  open: 139,   pe: 55.3, w52h: 153.13, w52l: 75.61  },
-        { symbol: "META",  name: "Meta Platforms",   price: 632.50, change: -8.30,  pct: -1.30, vol: "15.2M", cap: "1.60T", high: 641,    low: 628.7,  open: 640,   pe: 28.9, w52h: 656.31, w52l: 432.77 },
-        { symbol: "NFLX",  name: "Netflix, Inc.",    price: 1045.8, change: 12.45,  pct: 1.20,  vol: "8.3M",  cap: "448B",  high: 1052,   low: 1030,   open: 1033,  pe: 51.2, w52h: 1064.75, w52l: 564.2 }
-    ],
-
-    indices: [
-        { name: "S&P 500", val: "5,842.31", chg: "+0.86%", up: true },
-        { name: "NASDAQ",  val: "18,923.45", chg: "+1.24%", up: true },
-        { name: "DOW 30",  val: "42,156.78", chg: "-0.12%", up: false }
+        { symbol: "AAPL",  name: "Apple Inc.",       price: 189.84, change: 2.35,   pct: 1.25,  open: 187.49, high: 190.21, low: 186.80, vol: "52.3M", cap: "2.95T", pe: 31.2 },
+        { symbol: "TSLA",  name: "Tesla, Inc.",      price: 248.42, change: -5.18,  pct: -2.04, open: 253.60, high: 255.10, low: 246.30, vol: "98.7M", cap: "790B",  pe: 62.8 },
+        { symbol: "NVDA",  name: "NVIDIA Corp.",     price: 875.28, change: 12.45,  pct: 1.44,  open: 862.83, high: 880.50, low: 860.15, vol: "41.2M", cap: "2.16T", pe: 72.5 },
+        { symbol: "MSFT",  name: "Microsoft Corp.",  price: 415.56, change: 3.22,   pct: 0.78,  open: 412.34, high: 417.80, low: 411.50, vol: "22.1M", cap: "3.09T", pe: 37.1 },
+        { symbol: "GOOGL", name: "Alphabet Inc.",    price: 155.72, change: -1.38,  pct: -0.88, open: 157.10, high: 158.40, low: 154.20, vol: "28.5M", cap: "1.93T", pe: 25.3 },
+        { symbol: "AMZN",  name: "Amazon.com Inc.",  price: 185.07, change: 4.52,   pct: 2.50,  open: 180.55, high: 186.30, low: 179.90, vol: "55.8M", cap: "1.93T", pe: 58.4 },
+        { symbol: "META",  name: "Meta Platforms",   price: 505.95, change: 8.30,   pct: 1.67,  open: 497.65, high: 508.20, low: 495.80, vol: "18.3M", cap: "1.30T", pe: 33.7 },
+        { symbol: "AMD",   name: "Advanced Micro",   price: 178.32, change: -2.14,  pct: -1.19, open: 180.46, high: 181.90, low: 176.50, vol: "62.4M", cap: "288B",  pe: 46.2 }
     ],
 
     news: [
-        { id: 1, title: "NVIDIA tops $3.5T market cap as AI demand surges",     src: "Reuters",    time: "2h ago",  sym: "NVDA", bull: true },
-        { id: 2, title: "Apple unveils new AI features at WWDC 2025",           src: "Bloomberg",  time: "4h ago",  sym: "AAPL", bull: true },
-        { id: 3, title: "Tesla recalls 125K vehicles over steering issue",      src: "CNBC",       time: "5h ago",  sym: "TSLA", bull: false },
-        { id: 4, title: "Microsoft Azure revenue grows 35% YoY",               src: "WSJ",        time: "6h ago",  sym: "MSFT", bull: true },
-        { id: 5, title: "Fed signals potential rate cut in September",          src: "AP News",    time: "8h ago",  sym: null,   bull: true },
-        { id: 6, title: "Meta faces EU antitrust investigation",               src: "FT",         time: "10h ago", sym: "META", bull: false },
-        { id: 7, title: "Amazon expands same-day delivery to 20 cities",       src: "TechCrunch", time: "12h ago", sym: "AMZN", bull: true },
-        { id: 8, title: "Netflix subscriber growth beats expectations",        src: "Variety",    time: "1d ago",  sym: "NFLX", bull: true }
+        { id: 1, title: "Fed Holds Rates Steady, Signals Patience",    src: "Reuters",     time: "2h ago",  tag: "breaking" },
+        { id: 2, title: "NVIDIA Beats Q4 Expectations on AI Demand",   src: "Bloomberg",   time: "4h ago",  tag: "latest" },
+        { id: 3, title: "Apple Vision Pro Sales Exceed Forecasts",     src: "CNBC",        time: "5h ago",  tag: "latest" },
+        { id: 4, title: "Tesla Announces New Gigafactory in India",    src: "TechCrunch",  time: "6h ago",  tag: "latest" },
+        { id: 5, title: "S&P 500 Hits New All-Time High",             src: "MarketWatch", time: "8h ago",  tag: "breaking" },
+        { id: 6, title: "Bitcoin Surges Past $70K Milestone",         src: "CoinDesk",    time: "10h ago", tag: "latest" }
     ],
 
     portfolio: {
         totalValue: 125847.32,
         dayChange: 1284.56,
         dayChangePct: 1.03
-    },
-
-    mockUser: {
-        name: "demo",
-        email: "demo@onthefly.app",
-        watchlistCount: 8,
-        alertsCount: "3.2K",
-        tradesCount: 12
     }
 };
 
@@ -313,7 +243,7 @@ function findStock(symbol) {
 function getWatchlist() {
     var saved = AppState.get("stock_watchlist", null);
     if (saved) return saved;
-    var defaults = ["AAPL", "NVDA", "MSFT", "AMZN"];
+    var defaults = ["AAPL", "TSLA", "NVDA", "MSFT"];
     AppState.set("stock_watchlist", defaults);
     return defaults;
 }
@@ -354,12 +284,6 @@ function getWatchlistStocks() {
     return result;
 }
 
-function getTopMovers() {
-    var sorted = StockData.stocks.slice();
-    sorted.sort(function(a, b) { return Math.abs(b.pct) - Math.abs(a.pct); });
-    return sorted.slice(0, 5);
-}
-
 function searchStocks(query) {
     if (!query || query.length === 0) return StockData.stocks;
     var q = query.toLowerCase();
@@ -373,15 +297,17 @@ function searchStocks(query) {
     return result;
 }
 
-function getNewsByFilter(filter) {
-    if (!filter || filter === "all") return StockData.news;
+function getNewsByTag(tag) {
+    if (!tag || tag === "all") return StockData.news;
     var result = [];
     for (var i = 0; i < StockData.news.length; i++) {
-        var n = StockData.news[i];
-        if (filter === "bullish" && n.bull) result.push(n);
-        if (filter === "bearish" && !n.bull) result.push(n);
+        if (StockData.news[i].tag === tag) result.push(StockData.news[i]);
     }
     return result;
+}
+
+function getNewsByFilter(filter) {
+    return getNewsByTag(filter);
 }
 
 function getNewsForStock(symbol) {
@@ -403,23 +329,9 @@ function stockChangeText(stock) {
 
 function stockChangeArrow(stock) {
     var sign = stock.change >= 0 ? "+" : "";
-    var arrow = stock.change >= 0 ? "▲" : "▼";
-    return arrow + " " + Math.abs(stock.change).toFixed(2) + " (" + sign + stock.pct.toFixed(2) + "%)";
+    return sign + stock.change.toFixed(2) + " (" + sign + stock.pct.toFixed(2) + "%)";
 }
 
-// Recalculate portfolio value from watchlist stocks
-function recalcPortfolio() {
-    var stocks = getWatchlistStocks();
-    var totalVal = 0;
-    var totalChange = 0;
-    for (var i = 0; i < stocks.length; i++) {
-        // Assume ~100 shares each for demo
-        totalVal += stocks[i].price * 100;
-        totalChange += stocks[i].change * 100;
-    }
-    if (totalVal > 0) {
-        StockData.portfolio.totalValue = totalVal;
-        StockData.portfolio.dayChange = totalChange;
-        StockData.portfolio.dayChangePct = (totalChange / (totalVal - totalChange)) * 100;
-    }
+function fmtPct(n) {
+    return (n >= 0 ? "+" : "") + n.toFixed(2) + "%";
 }

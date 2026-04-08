@@ -10,6 +10,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import androidx.compose.ui.graphics.Color
 import com.onthefly.engine.data.ScriptStorage
 import com.onthefly.engine.platform.PlatformActions
 import com.onthefly.engine.ui.OnTheFlyScreen
@@ -19,7 +20,7 @@ fun App(localStorage: ScriptStorage, platformActions: PlatformActions? = null) {
     val navController = rememberNavController()
 
     MaterialTheme {
-        Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+        Surface(modifier = Modifier.fillMaxSize(), color = Color.Transparent) {
             NavHost(navController = navController, startDestination = "script/stock-login") {
                 composable(
                     route = "script/{bundleName}",
