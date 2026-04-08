@@ -29,4 +29,5 @@ dependencyResolutionManagement {
     }
 }
 
+include(":onthefly-engine")
 include(":composeApp")

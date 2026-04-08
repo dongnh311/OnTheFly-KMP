@@ -1,12 +1,12 @@
 package com.onthefly.app
 
 import androidx.compose.ui.window.ComposeUIViewController
-import com.onthefly.app.data.source.ScriptStorage
-import com.onthefly.app.platform.PlatformActions
+import com.onthefly.engine.data.IosScriptStorage
+import com.onthefly.engine.platform.IosPlatformActions
 
 fun MainViewController() = ComposeUIViewController {
-    val localStorage = ScriptStorage()
+    val localStorage = IosScriptStorage()
     localStorage.ensureInitialized()
-    val platformActions = PlatformActions()
+    val platformActions = IosPlatformActions()
     App(localStorage, platformActions)
 }

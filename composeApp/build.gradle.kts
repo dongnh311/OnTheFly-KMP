@@ -26,22 +26,6 @@ kotlin {
             baseName = "ComposeApp"
             isStatic = true
         }
-        // cinterop for QuickJS - requires pre-built static library
-        // Build with: cd native/ios && ./build_ios.sh
-        iosTarget.compilations.getByName("main") {
-            cinterops {
-                val quickjs by creating {
-                    defFile(project.file("src/nativeInterop/cinterop/quickjs.def"))
-                    val targetName = iosTarget.name
-                    compilerOpts("-I${rootProject.projectDir}/native/ios", "-I${rootProject.projectDir}/native/quickjs", "-DCONFIG_VERSION=\"2025-09-13\"", "-DCONFIG_BIGNUM", "-D_GNU_SOURCE")
-                    extraOpts("-libraryPath", "${rootProject.projectDir}/native/ios/build/$targetName")
-                }
-            }
-        }
-        iosTarget.binaries.all {
-            val targetName = iosTarget.name
-            linkerOpts("-L${rootProject.projectDir}/native/ios/build/$targetName", "-lonthefly_ios")
-        }
     }
 
     jvm("desktop")
@@ -50,41 +34,19 @@ kotlin {
         val desktopMain by getting
 
         commonMain.dependencies {
+            implementation(projects.ontheflyEngine)
             implementation(compose.runtime)
-            implementation(compose.foundation)
             implementation(compose.material3)
-            implementation(compose.materialIconsExtended)
-            implementation(compose.ui)
-            implementation(compose.components.resources)
-            implementation(compose.components.uiToolingPreview)
-            implementation(libs.androidx.lifecycle.viewmodel.compose)
-            implementation(libs.androidx.lifecycle.runtime.compose)
             implementation(libs.navigation.compose)
-            implementation(libs.ktor.client.core)
-            implementation(libs.ktor.client.websockets)
-            implementation(libs.kotlinx.datetime)
-            implementation(libs.coil.compose)
-            implementation(libs.coil.network.ktor2)
-        }
-
-        commonTest.dependencies {
-            implementation(kotlin("test"))
         }
 
         androidMain.dependencies {
             implementation(compose.preview)
             implementation(libs.androidx.activity.compose)
-            implementation(libs.ktor.client.okhttp)
-        }
-
-        iosMain.dependencies {
-            implementation(libs.ktor.client.darwin)
         }
 
         desktopMain.dependencies {
             implementation(compose.desktop.currentOs)
-            implementation(libs.androidx.lifecycle.viewmodel.compose)
-            implementation(libs.ktor.client.okhttp)
             implementation("org.jetbrains.kotlinx:kotlinx-coroutines-swing:1.8.1")
         }
     }
@@ -100,10 +62,6 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "1.0"
-
-        ndk {
-            abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64")
-        }
     }
 
     packaging {
@@ -123,13 +81,6 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    externalNativeBuild {
-        cmake {
-            path = file("src/androidMain/cpp/CMakeLists.txt")
-            version = "3.22.1"
-        }
-    }
-
     sourceSets["main"].assets.srcDirs("src/androidMain/assets")
 }
 
@@ -139,7 +90,6 @@ val copyScriptsToAssets by tasks.registering {
         val assetsDir = layout.projectDirectory.dir("src/androidMain/assets/scripts").asFile
         val scriptsDir = rootProject.file("devserver/scripts")
 
-        // Copy special dirs (_base, _libs, languages) and version.json
         listOf("_base", "_libs", "languages").forEach { dir ->
             val src = File(scriptsDir, dir)
             if (src.exists()) src.copyRecursively(File(assetsDir, dir), overwrite = true)
@@ -147,7 +97,6 @@ val copyScriptsToAssets by tasks.registering {
         val versionJson = File(scriptsDir, "version.json")
         if (versionJson.exists()) versionJson.copyTo(File(assetsDir, "version.json"), overwrite = true)
 
-        // Copy screen bundles (flatten: screens/home → home)
         val screensDir = File(scriptsDir, "screens")
         if (screensDir.exists()) {
             screensDir.listFiles()?.filter { it.isDirectory }?.forEach { bundle ->
