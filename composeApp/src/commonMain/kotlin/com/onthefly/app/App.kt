@@ -20,7 +20,7 @@ fun App(localStorage: ScriptStorage, platformActions: PlatformActions? = null) {
 
     MaterialTheme {
         Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-            NavHost(navController = navController, startDestination = "script/home") {
+            NavHost(navController = navController, startDestination = "script/stock-login") {
                 composable(
                     route = "script/{bundleName}",
                     arguments = listOf(navArgument("bundleName") { type = NavType.StringType; defaultValue = "home" })

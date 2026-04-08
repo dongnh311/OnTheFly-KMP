@@ -85,14 +85,16 @@ android {
 }
 
 // Copy scripts from devserver to Android assets (flatten screens/ into root)
+// Note: Android AAPT ignores dirs starting with '_', so rename _base→base, _libs→libs
 val copyScriptsToAssets by tasks.registering {
     doLast {
         val assetsDir = layout.projectDirectory.dir("src/androidMain/assets/scripts").asFile
         val scriptsDir = rootProject.file("devserver/scripts")
 
-        listOf("_base", "_libs", "languages").forEach { dir ->
-            val src = File(scriptsDir, dir)
-            if (src.exists()) src.copyRecursively(File(assetsDir, dir), overwrite = true)
+        // Rename _base/_libs to base/libs to avoid AAPT exclusion
+        mapOf("_base" to "base", "_libs" to "libs", "languages" to "languages").forEach { (src, dst) ->
+            val srcDir = File(scriptsDir, src)
+            if (srcDir.exists()) srcDir.copyRecursively(File(assetsDir, dst), overwrite = true)
         }
         val versionJson = File(scriptsDir, "version.json")
         if (versionJson.exists()) versionJson.copyTo(File(assetsDir, "version.json"), overwrite = true)

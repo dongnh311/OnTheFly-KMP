@@ -137,7 +137,7 @@ static void setup_globals(JSContext *ctx) {
 extern "C" {
 
 JNIEXPORT jlong JNICALL
-Java_com_onthefly_app_engine_QuickJSBridge_nativeCreateRuntime(JNIEnv *env, jobject thiz) {
+Java_com_onthefly_engine_core_QuickJSBridge_nativeCreateRuntime(JNIEnv *env, jobject thiz) {
     JSRuntime *rt = JS_NewRuntime();
     if (!rt) { LOGE("Failed to create JS runtime"); return 0; }
     JS_SetMemoryLimit(rt, 64 * 1024 * 1024);
@@ -145,7 +145,7 @@ Java_com_onthefly_app_engine_QuickJSBridge_nativeCreateRuntime(JNIEnv *env, jobj
 }
 
 JNIEXPORT jlong JNICALL
-Java_com_onthefly_app_engine_QuickJSBridge_nativeCreateContext(JNIEnv *env, jobject thiz, jlong runtimePtr) {
+Java_com_onthefly_engine_core_QuickJSBridge_nativeCreateContext(JNIEnv *env, jobject thiz, jlong runtimePtr) {
     auto *rt = reinterpret_cast<JSRuntime *>(runtimePtr);
     if (!rt) return 0;
     JSContext *ctx = JS_NewContext(rt);
@@ -155,7 +155,7 @@ Java_com_onthefly_app_engine_QuickJSBridge_nativeCreateContext(JNIEnv *env, jobj
 }
 
 JNIEXPORT jstring JNICALL
-Java_com_onthefly_app_engine_QuickJSBridge_nativeEval(JNIEnv *env, jobject thiz, jlong contextPtr, jstring script, jstring fileName) {
+Java_com_onthefly_engine_core_QuickJSBridge_nativeEval(JNIEnv *env, jobject thiz, jlong contextPtr, jstring script, jstring fileName) {
     auto *ctx = reinterpret_cast<JSContext *>(contextPtr);
     if (!ctx) return env->NewStringUTF("Error: context is null");
 
@@ -181,8 +181,8 @@ Java_com_onthefly_app_engine_QuickJSBridge_nativeEval(JNIEnv *env, jobject thiz,
     return env->NewStringUTF(resultStr.c_str());
 }
 
-JNIEXPORT jstring JNICALL Java_com_onthefly_app_engine_QuickJSBridge_nativeGetUI(JNIEnv *env, jobject thiz, jlong) { return env->NewStringUTF(g_ui_json.c_str()); }
-JNIEXPORT jstring JNICALL Java_com_onthefly_app_engine_QuickJSBridge_nativeGetStyles(JNIEnv *env, jobject thiz, jlong) { return env->NewStringUTF(g_styles_json.c_str()); }
+JNIEXPORT jstring JNICALL Java_com_onthefly_engine_core_QuickJSBridge_nativeGetUI(JNIEnv *env, jobject thiz, jlong) { return env->NewStringUTF(g_ui_json.c_str()); }
+JNIEXPORT jstring JNICALL Java_com_onthefly_engine_core_QuickJSBridge_nativeGetStyles(JNIEnv *env, jobject thiz, jlong) { return env->NewStringUTF(g_styles_json.c_str()); }
 
 static jstring drain_queue(JNIEnv *env, std::vector<std::string> &queue) {
     std::string json = "[";
@@ -192,14 +192,14 @@ static jstring drain_queue(JNIEnv *env, std::vector<std::string> &queue) {
     return env->NewStringUTF(json.c_str());
 }
 
-JNIEXPORT jstring JNICALL Java_com_onthefly_app_engine_QuickJSBridge_nativeGetPendingUpdates(JNIEnv *env, jobject thiz, jlong) { return drain_queue(env, g_pending_updates); }
-JNIEXPORT jstring JNICALL Java_com_onthefly_app_engine_QuickJSBridge_nativeGetPendingActions(JNIEnv *env, jobject thiz, jlong) { return drain_queue(env, g_native_actions); }
-JNIEXPORT jstring JNICALL Java_com_onthefly_app_engine_QuickJSBridge_nativeGetPendingLogs(JNIEnv *env, jobject thiz, jlong) { return drain_queue(env, g_pending_logs); }
+JNIEXPORT jstring JNICALL Java_com_onthefly_engine_core_QuickJSBridge_nativeGetPendingUpdates(JNIEnv *env, jobject thiz, jlong) { return drain_queue(env, g_pending_updates); }
+JNIEXPORT jstring JNICALL Java_com_onthefly_engine_core_QuickJSBridge_nativeGetPendingActions(JNIEnv *env, jobject thiz, jlong) { return drain_queue(env, g_native_actions); }
+JNIEXPORT jstring JNICALL Java_com_onthefly_engine_core_QuickJSBridge_nativeGetPendingLogs(JNIEnv *env, jobject thiz, jlong) { return drain_queue(env, g_pending_logs); }
 
-JNIEXPORT void JNICALL Java_com_onthefly_app_engine_QuickJSBridge_nativeDestroyContext(JNIEnv *env, jobject thiz, jlong contextPtr) {
+JNIEXPORT void JNICALL Java_com_onthefly_engine_core_QuickJSBridge_nativeDestroyContext(JNIEnv *env, jobject thiz, jlong contextPtr) {
     auto *ctx = reinterpret_cast<JSContext *>(contextPtr); if (ctx) JS_FreeContext(ctx);
 }
-JNIEXPORT void JNICALL Java_com_onthefly_app_engine_QuickJSBridge_nativeDestroyRuntime(JNIEnv *env, jobject thiz, jlong runtimePtr) {
+JNIEXPORT void JNICALL Java_com_onthefly_engine_core_QuickJSBridge_nativeDestroyRuntime(JNIEnv *env, jobject thiz, jlong runtimePtr) {
     auto *rt = reinterpret_cast<JSRuntime *>(runtimePtr); if (rt) JS_FreeRuntime(rt);
 }
 

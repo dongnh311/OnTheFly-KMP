@@ -21,13 +21,19 @@ class AndroidScriptStorage(private val context: Context) : ScriptStorage {
             val entries = assetManager.list("scripts") ?: return
             for (entry in entries) {
                 if (entry == "screens") {
-                    // Flatten: screens/home → home
                     val screens = assetManager.list("scripts/screens") ?: continue
                     for (screen in screens) {
                         copyAssetBundle(assetManager, "scripts/screens/$screen", screen)
                     }
                 } else {
-                    copyAssetBundle(assetManager, "scripts/$entry", entry)
+                    // Android AAPT strips dirs starting with '_', so assets use
+                    // 'base'/'libs' but engine expects '_base'/'_libs'
+                    val targetName = when (entry) {
+                        "base" -> "_base"
+                        "libs" -> "_libs"
+                        else -> entry
+                    }
+                    copyAssetBundle(assetManager, "scripts/$entry", targetName)
                 }
             }
         } catch (_: Exception) { }

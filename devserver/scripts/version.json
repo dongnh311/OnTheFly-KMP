@@ -1,12 +1,20 @@
 {
   "schemaVersion": 1,
-  "globalVersion": "2026.04.07.2",
+  "globalVersion": "2026.04.08.1",
   "bundles": {
     "home":             { "version": "1.0.0", "files": ["manifest.json", "main.js", "theme.js"] },
     "demo-app":         { "version": "1.0.0", "files": ["manifest.json", "main.js", "theme.js"] },
     "detail-app":       { "version": "1.0.0", "files": ["manifest.json", "main.js", "theme.js"] },
     "api-demo":         { "version": "1.0.0", "files": ["manifest.json", "main.js", "theme.js"] },
     "popup-fullscreen": { "version": "1.0.0", "files": ["manifest.json", "main.js", "theme.js"] },
-    "popup-confirm":    { "version": "1.0.0", "files": ["manifest.json", "main.js", "theme.js"] }
+    "popup-confirm":    { "version": "1.0.0", "files": ["manifest.json", "main.js", "theme.js"] },
+    "stock-splash":     { "version": "1.0.0", "files": ["manifest.json", "main.js", "theme.js"] },
+    "stock-login":      { "version": "1.0.0", "files": ["manifest.json", "main.js", "theme.js"] },
+    "stock-dashboard":  { "version": "1.0.0", "files": ["manifest.json", "main.js", "theme.js"] },
+    "stock-watchlist":  { "version": "1.0.0", "files": ["manifest.json", "main.js", "theme.js"] },
+    "stock-search":     { "version": "1.0.0", "files": ["manifest.json", "main.js", "theme.js"] },
+    "stock-news":       { "version": "1.0.0", "files": ["manifest.json", "main.js", "theme.js"] },
+    "stock-account":    { "version": "1.0.0", "files": ["manifest.json", "main.js", "theme.js"] },
+    "stock-detail":     { "version": "1.0.0", "files": ["manifest.json", "main.js", "theme.js"] }
   }
 }
