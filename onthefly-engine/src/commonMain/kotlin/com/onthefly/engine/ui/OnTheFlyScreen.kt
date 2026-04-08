@@ -28,6 +28,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import coil3.ImageLoader
+import coil3.compose.setSingletonImageLoaderFactory
+import coil3.network.ktor2.KtorNetworkFetcherFactory
 import com.onthefly.engine.data.ScriptStorage
 import com.onthefly.engine.model.EngineEvent
 import com.onthefly.engine.navigation.ViewDataStore
@@ -49,6 +52,12 @@ fun OnTheFlyScreen(
     viewData: String? = null,
     modifier: Modifier = Modifier
 ) {
+    setSingletonImageLoaderFactory { context ->
+        ImageLoader.Builder(context)
+            .components { add(KtorNetworkFetcherFactory()) }
+            .build()
+    }
+
     val viewModel: ScriptViewModel = viewModel(
         key = bundleName,
         factory = ScriptViewModelFactory(localStorage, platformActions)

@@ -44,7 +44,8 @@ fun App(localStorage: ScriptStorage, platformActions: PlatformActions? = null) {
                                 else -> navController.navigate("script/${event.screen}")
                             }
                         },
-                        onGoBack = { navController.popBackStack() }
+                        onGoBack = { navController.popBackStack() },
+                        onToast = { message -> platformActions?.showToast(message) }
                     )
                 }
             }
