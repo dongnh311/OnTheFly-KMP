@@ -17,6 +17,27 @@ JavaScript defines UI → QuickJS executes (C) → UIComponent tree (Kotlin) →
 
 > Same JS bundle, native UI on both platforms — powered by QuickJS engine.
 
+## Architecture
+
+The project is split into two modules:
+
+| Module | Type | Description |
+|---|---|---|
+| `onthefly-engine` | KMP Library | Core engine, renderers, viewmodel, data layer — publishable to Maven |
+| `composeApp` | Sample App | Demo app that depends on `onthefly-engine` |
+
+```
+onthefly-engine (library)          composeApp (sample app)
+├── core/     QuickJSEngine        ├── App.kt (NavHost + OnTheFlyScreen)
+├── model/    UIComponent, Events  ├── MainActivity.kt (Android)
+├── renderer/ 40+ Compose widgets  ├── Main.kt (Desktop)
+├── viewmodel/ScriptViewModel      └── MainViewController.kt (iOS)
+├── data/     Storage, Network, WS
+├── platform/ PlatformActions (interface)
+├── ui/       OnTheFlyScreen (public API)
+└── style/    Theme, Dark mode
+```
+
 ## Tech Stack
 
 | Component | Technology | Version |
@@ -24,12 +45,69 @@ JavaScript defines UI → QuickJS executes (C) → UIComponent tree (Kotlin) →
 | Language | Kotlin Multiplatform | 2.1.10 |
 | UI | Compose Multiplatform | 1.7.3 |
 | Navigation | Compose Navigation | 2.8.0-alpha12 |
-| Networking | Ktor Client | 2.3.12 |
+| Networking | Ktor Client + WebSockets | 2.3.12 |
+| Image Loading | Coil 3 (KMP) | 3.1.0 |
 | JS Engine | QuickJS (embedded C) | 2025-09-13 |
 | Lifecycle | AndroidX Lifecycle | 2.8.4 |
 | Build | Gradle 8.11.1, AGP 8.7.3 | - |
 | Android Min SDK | 24 (Android 7.0) | Target: 36 |
 | iOS Min | 16.0 | - |
+
+## Using the Library
+
+### Import
+
+```kotlin
+// build.gradle.kts
+commonMain.dependencies {
+    implementation("com.onthefly:onthefly-engine:1.0.0")
+}
+```
+
+### Minimal Usage
+
+```kotlin
+// Android Activity
+val storage = AndroidScriptStorage(this)
+storage.ensureInitialized()
+
+setContent {
+    OnTheFlyScreen(
+        bundleName = "my-screen",
+        localStorage = storage,
+        platformActions = AndroidPlatformActions(this),
+        onNavigate = { event -> /* handle navigation */ },
+        onGoBack = { finish() }
+    )
+}
+```
+
+### Custom ScriptStorage
+
+```kotlin
+class RemoteScriptStorage(private val api: MyApiClient) : ScriptStorage {
+    override fun readFile(bundleName: String, fileName: String): String {
+        return api.fetchScript("$bundleName/$fileName")
+    }
+    // ... implement other methods
+}
+```
+
+### OnTheFlyScreen API
+
+```kotlin
+@Composable
+fun OnTheFlyScreen(
+    bundleName: String,
+    localStorage: ScriptStorage,          // interface — bring your own implementation
+    platformActions: PlatformActions?,     // interface — optional
+    onNavigate: (NavigationEvent) -> Unit, // callback for navigation
+    onGoBack: () -> Unit,                  // callback for back
+    onToast: (String) -> Unit,             // callback for toast
+    viewData: String?,                     // data passed from previous screen
+    modifier: Modifier
+)
+```
 
 ## UI Components (40+)
 
@@ -51,7 +129,7 @@ JavaScript defines UI → QuickJS executes (C) → UIComponent tree (Kotlin) →
 |---|---|
 | `Text` | Styled text (fontSize, fontWeight, fontStyle, maxLines, textDecoration, lineHeight) |
 | `RichText` | Multiple styled spans with click handlers |
-| `Image` | Remote/local image with contentScale, borderRadius |
+| `Image` | Remote image loading via Coil 3 (contentScale, borderRadius) |
 | `Icon` | Material icons (50+ mapped: home, settings, search, favorite, etc.) |
 | `Badge` | Notification dot or count badge |
 | `Avatar` | Circular avatar with initials fallback |
@@ -102,7 +180,6 @@ JavaScript defines UI → QuickJS executes (C) → UIComponent tree (Kotlin) →
 
 ### State Management
 ```javascript
-// Reactive local state
 OnTheFly.state("count", 0);
 OnTheFly.setState("count", OnTheFly.getState("count") + 1);
 
@@ -111,40 +188,62 @@ OnTheFly.setState("count", OnTheFly.getState("count") + 1);
 
 // Computed values
 OnTheFly.computed("total", function() { return getState("price") * getState("qty"); });
-{ type: "Text", props: { text: "Total: $computed.total" } }
 
-// Global store (cross-screen)
+// Global store (cross-screen) + persistent storage
 OnTheFly.store.set("user", { name: "Dong" });
-OnTheFly.store.watch("cart", function(v) { /* react to changes */ });
-
-// Persistent storage (survives restart)
 OnTheFly.sendToNative("setStorage", { key: "token", value: "abc" });
+```
+
+### WebSocket / Realtime
+```javascript
+OnTheFly.connectWS("wss://echo.websocket.org", {
+    id: "chat", autoReconnect: true, maxReconnectAttempts: 5
+});
+OnTheFly.sendWS("Hello!", "chat");
+OnTheFly.closeWS("chat");
+
+function onRealtimeData(data) {
+    // data = { id: "chat", message: "...", type: "text" }
+}
+function onWSConnected(data) { /* { id: "chat" } */ }
+function onWSDisconnected(data) { /* { id, code, reason } */ }
+```
+
+### Form Validation
+```javascript
+var result = OnTheFly.validateForm({
+    "emailField": {
+        value: formData.email,
+        rules: [
+            { type: "required", message: "Email is required" },
+            { type: "email", message: "Invalid email" }
+        ]
+    },
+    "passwordField": {
+        value: formData.password,
+        rules: [
+            { type: "required" },
+            { type: "minLength", value: 8 }
+        ]
+    }
+});
+if (result._valid) { /* submit */ }
 ```
 
 ### Multi-Language (i18n)
 ```javascript
 OnTheFly.setLocale("vi");
-OnTheFly.t("welcome_back");              // "Chào mừng trở lại!"
-OnTheFly.t("greeting", { name: "Dong" }); // "Xin chào, Dong!"
+OnTheFly.t("greeting", { name: "Dong" }); // "Xin chao, Dong!"
 
-// Auto-binding in UI
+// Auto-binding
 { type: "Text", props: { text: "$lang.welcome_back" } }
-{ type: "Button", props: { text: "$lang.submit" } }
 ```
-
-Language files: `devserver/scripts/languages/en.json`, `vi.json` (65+ keys each).
 
 ### Animation System
 ```javascript
-// Enter/exit animations on any component
 { type: "Card", props: {
     enterAnimation: { type: "slideInUp", duration: 300, easing: "spring" },
     exitAnimation: { type: "fadeOut", duration: 200 }
-}}
-
-// Stagger animation for lists
-{ type: "LazyColumn", props: {
-    itemAnimation: { type: "slideInLeft", duration: 200, staggerDelay: 50 }
 }}
 
 // Types: fadeIn/Out, slideIn/OutLeft/Right/Up/Down, scaleIn/Out
@@ -155,138 +254,96 @@ Language files: `devserver/scripts/languages/en.json`, `vi.json` (65+ keys each)
 ```javascript
 function onError(error) {
   // error = { type: "js_error"|"network_error"|"timeout_error", message, code, details }
-  if (error.type === "network_error" && error.status === 401) {
-    OnTheFly.sendToNative("navigateClearStack", { screen: "login" });
-  }
 }
 ```
 - Auto-retry on script load failures (configurable `maxRetries`)
 - Network requests: retry with exponential backoff, timeout, cancellation
-- Error config from manifest.json: `showFallbackUI`, `reportErrors`, `maxRetries`
 
 ### Security
 - **Script signature verification** (SHA-256 per-file + bundle hash)
-- **Domain whitelist** for outbound requests
+- **Domain whitelist** for outbound requests (HTTP + WebSocket)
 - **HTTPS enforcement** (configurable)
 - **Rate limiting** (max requests per minute)
-- Platform SHA-256: `java.security` (Android/Desktop), `CommonCrypto` (iOS)
 
 ### Platform Integration
 ```javascript
 OnTheFly.sendToNative("openUrl", { url: "https://example.com" });
 OnTheFly.sendToNative("copyToClipboard", { text: "Hello" });
 OnTheFly.sendToNative("share", { title: "Check this", text: "...", url: "..." });
-OnTheFly.sendToNative("getDeviceInfo", {});  // → platform, model, screen, locale, darkMode
+OnTheFly.sendToNative("getDeviceInfo", {});
 OnTheFly.sendToNative("vibrate", { type: "success" });
+OnTheFly.sendToNative("showSnackbar", { message: "Saved!", actionText: "Undo" });
+OnTheFly.sendToNative("showPopup", { title: "Confirm", message: "Delete?", confirmText: "Yes" });
+OnTheFly.sendToNative("setStatusBar", { color: "#1A1A2E", darkIcons: true });
+OnTheFly.sendToNative("keepScreenOn", { enabled: true });
+OnTheFly.sendToNative("setOrientation", { orientation: "landscape" });
 ```
 
-### Dark Mode
+### Dark Mode & Custom Components
 ```javascript
 OnTheFly.registerStyles({ title: { color: "#FFF" } }, "dark");
 OnTheFly.setTheme("dark");
-```
 
-### Custom Components
-```javascript
 OnTheFly.registerComponent("UserCard", function(props) {
-  return {
-    type: "Card", children: [
-      { type: "Row", props: { spacing: 12 }, children: [
-        { type: "Avatar", props: { name: props.name, size: 40 } },
-        { type: "Text", props: { text: props.name, fontWeight: "bold" } }
-      ]}
-    ]
-  };
+  return { type: "Card", children: [
+    { type: "Avatar", props: { name: props.name } },
+    { type: "Text", props: { text: props.name } }
+  ]};
 });
-// Usage: { type: "UserCard", props: { name: "Dong" } }
 ```
 
-### Debug Tools
+### Debug & Versioning
 ```javascript
 OnTheFly.debug.showConsole(true);
 OnTheFly.debug.enableInspector(true);
-OnTheFly.debug.enableNetworkLog(true);
-OnTheFly.debug.showPerformanceOverlay(true);
-OnTheFly.debug.config({ console: true, inspector: false, verboseLogging: true });
-```
-
-### Versioning
-```javascript
 OnTheFly.getBundleInfo();    // { name: "home", version: "2.1.0" }
 OnTheFly.getEngineVersion(); // "1.0.0"
 ```
-- Engine-bundle compatibility check (`minEngineVersion`, `maxEngineVersion`)
-- Semver comparison for version validation
 
 ## Project Structure
 
 ```
 OnTheFly-KMP/
-├── composeApp/src/
-│   ├── commonMain/kotlin/com/onthefly/app/
-│   │   ├── App.kt
-│   │   ├── domain/
-│   │   │   ├── model/              UIComponent, EngineEvent, NativeAction, ScriptBundle
-│   │   │   ├── repository/         ScriptRepository
-│   │   │   └── usecase/            LoadScriptUseCase
-│   │   ├── engine/
-│   │   │   ├── QuickJSEngine.kt    Bridge + state/i18n/debug API injection
-│   │   │   ├── ErrorHandler.kt     EngineError, ErrorConfig
-│   │   │   ├── SecurityConfig.kt   Domain whitelist, HTTPS, rate limiting
-│   │   │   ├── ScriptVerifier.kt   SHA-256 signature verification
-│   │   │   ├── VersionManager.kt   Semver compatibility
-│   │   │   ├── DebugConfig.kt      Observable debug state
-│   │   │   └── style/              ComponentStyle, StyleRegistry (dark mode)
-│   │   ├── data/
-│   │   │   ├── repository/         ScriptRepositoryImpl (libs, base, languages)
-│   │   │   └── source/             ScriptStorage, NetworkSource, DevServerSource
-│   │   ├── platform/
-│   │   │   └── PlatformActions.kt  expect: openUrl, clipboard, share, deviceInfo, vibrate
-│   │   ├── presentation/
-│   │   │   ├── renderer/
-│   │   │   │   ├── DynamicRenderer.kt      Component router + animation wrapper
-│   │   │   │   ├── RenderUtils.kt          Prop helpers, modifiers, accessibility
-│   │   │   │   ├── LayoutRenderers.kt       Column, Row, Box, Card, Spacer, Divider
-│   │   │   │   ├── DisplayRenderers.kt      Text, Image, Icon, IconButton
-│   │   │   │   ├── InputRenderers.kt        Button, TextField, Toggle, Checkbox, etc.
-│   │   │   │   ├── ListRenderers.kt         LazyColumn, LazyRow, Grid + stagger
-│   │   │   │   ├── NavigationRenderers.kt   TopAppBar, BottomNavBar, TabBar, Drawer
-│   │   │   │   ├── FeedbackRenderers.kt     FullScreenPopup, ConfirmDialog
-│   │   │   │   ├── OverlayRenderers.kt      BottomSheet, Snackbar, Badge, Avatar, etc.
-│   │   │   │   ├── AdvancedRenderers.kt     RichText, Slider, SwipeToAction, WebView
-│   │   │   │   └── AnimationUtils.kt        Enter/exit/stagger animation system
-│   │   │   ├── viewmodel/          ScriptViewModel
-│   │   │   ├── navigation/         AppNavigation
-│   │   │   └── screen/             ScriptScreen, ScriptViewModelFactory
-│   │   └── util/                   JsonParser
-│   │
-│   ├── androidMain/                Android: JNI bridge, ScriptStorage, PlatformActions
-│   ├── iosMain/                    iOS: cinterop bridge, ScriptStorage, PlatformActions
-│   └── desktopMain/                Desktop: JNI bridge, ScriptStorage, PlatformActions
+├── onthefly-engine/                    KMP LIBRARY (publishable)
+│   ├── build.gradle.kts                android-library + KMP + maven-publish
+│   └── src/
+│       ├── commonMain/kotlin/com/onthefly/engine/
+│       │   ├── core/                   QuickJSEngine, QuickJSBridge (expect)
+│       │   ├── model/                  UIComponent, EngineEvent, NativeAction
+│       │   ├── data/                   ScriptStorage (interface), Repository, Network, WebSocket
+│       │   ├── renderer/              11 renderer files (40+ components)
+│       │   ├── viewmodel/            ScriptViewModel, ScriptViewModelFactory
+│       │   ├── ui/                   OnTheFlyScreen (public composable API)
+│       │   ├── style/                ComponentStyle, StyleRegistry
+│       │   ├── security/             SecurityConfig, ScriptVerifier
+│       │   ├── error/                EngineError, ErrorConfig
+│       │   ├── version/              VersionManager
+│       │   ├── debug/                DebugConfig
+│       │   ├── navigation/           ViewDataStore
+│       │   ├── platform/             PlatformActions (interface)
+│       │   └── util/                 JsonParser
+│       ├── commonTest/               Unit tests (VersionManager, Security, Error, JsonParser)
+│       ├── androidMain/              JNI bridge, AndroidScriptStorage, AndroidPlatformActions
+│       │   └── cpp/                  QuickJS C source + bridge
+│       ├── iosMain/                  cinterop bridge, IosScriptStorage, IosPlatformActions
+│       └── desktopMain/              JNI bridge, DesktopScriptStorage, DesktopPlatformActions
 │
-├── native/                         C/C++ QuickJS bridges
-│   ├── quickjs/                    QuickJS engine source
-│   ├── ios/                        iOS C bridge + build script
-│   ├── bridge_desktop.cpp          Desktop JNI bridge
-│   └── CMakeLists.txt
+├── composeApp/                         SAMPLE APP
+│   ├── build.gradle.kts                depends on :onthefly-engine
+│   └── src/
+│       ├── commonMain/                 App.kt (NavHost + OnTheFlyScreen)
+│       ├── androidMain/                MainActivity.kt
+│       ├── iosMain/                    MainViewController.kt
+│       └── desktopMain/                Main.kt
 │
-├── devserver/
+├── native/                             C/C++ QuickJS bridges
+├── devserver/                          Dev server + JS script bundles
 │   ├── scripts/
-│   │   ├── _base/                  Shared utility functions
-│   │   ├── _libs/                  Shared state libraries
-│   │   ├── languages/              i18n translations (en.json, vi.json)
-│   │   ├── screens/                Screen bundles
-│   │   │   ├── home/
-│   │   │   ├── components-demo/
-│   │   │   ├── demo-app/
-│   │   │   ├── detail-app/
-│   │   │   ├── api-demo/
-│   │   │   ├── popup-fullscreen/
-│   │   │   └── popup-confirm/
-│   │   └── version.json
-│   └── server.py                   Dev server (HTTP + watcher + validation)
-│
-└── iosApp/                         Xcode project wrapper
+│   │   ├── _base/, _libs/              Shared utilities and state
+│   │   ├── languages/                  i18n (en.json, vi.json)
+│   │   └── screens/                    home, demo-app, api-demo, websocket-demo, etc.
+│   └── server.py                       HTTP + WebSocket push + file watcher
+└── iosApp/                             Xcode project wrapper
 ```
 
 ## Bidirectional Event System
@@ -296,82 +353,79 @@ OnTheFly-KMP/
 | Category | Events |
 |---|---|
 | Lifecycle | `onCreateView`, `onResume`, `onPause`, `onDestroy`, `onVisible`, `onInvisible` |
-| Data | `onDataReceived`, `onViewData`, `onDeepLink`, `onPushNotification` |
+| Data | `onDataReceived`, `onViewData`, `onRealtimeData` |
+| WebSocket | `onWSConnected`, `onWSDisconnected`, `onWSError` |
 | Input | `onClick`, `onToggle`, `onTextChanged`, `onSubmit`, `onCheckChanged`, `onRadioChanged`, `onSliderChanged`, `onDropdownChanged` |
-| Navigation | `onTabChanged`, `onDrawerItemClick` |
-| List | `onRefresh`, `onEndReached`, `onSwipeAction` |
-| Error | `onError` (js_error, network_error, timeout_error) |
+| List | `onRefresh`, `onEndReached`, `onTabChanged` |
+| Error | `onError` (js_error, network_error, timeout_error, websocket_error) |
 
-### JS → Native (30+ actions)
+### JS → Native (35+ actions)
 
 | Category | Actions |
 |---|---|
 | Navigation | `navigate`, `goBack`, `navigateDelayed`, `navigateReplace`, `navigateClearStack` |
 | Network | `sendRequest` (retry, timeout), `cancelRequest` |
-| UI | `showToast`, `showSnackbar`, `hideKeyboard`, `setFocus`, `scrollTo` |
+| WebSocket | `connectWebSocket`, `sendWebSocket`, `closeWebSocket` |
+| UI | `showToast`, `showSnackbar`, `showPopup`, `hideKeyboard`, `setFocus`, `scrollTo` |
 | Storage | `setStorage`, `getStorage`, `removeStorage` |
-| Platform | `openUrl`, `copyToClipboard`, `readClipboard`, `share`, `getDeviceInfo`, `vibrate` |
+| Platform | `openUrl`, `copyToClipboard`, `share`, `getDeviceInfo`, `vibrate`, `setStatusBar`, `setScreenBrightness`, `keepScreenOn`, `setOrientation` |
 
-## expect/actual Pattern
+## Interfaces (Public API)
 
-| expect (commonMain) | actual Android | actual iOS | actual Desktop |
-|---|---|---|---|
-| `QuickJSBridge` | JNI → bridge.cpp | cinterop → onthefly_bridge.c | JNI → bridge_desktop.cpp |
-| `ScriptStorage` | Context + SharedPrefs | NSFileManager + NSUserDefaults | java.io.File + Preferences |
-| `PlatformActions` | Intent, ClipboardManager, Vibrator | UIKit, UIPasteboard, Haptics | AWT Desktop, Toolkit |
-| `sha256Hex()` | java.security.MessageDigest | CommonCrypto CC_SHA256 | java.security.MessageDigest |
-| `currentTimeMillis()` | System.currentTimeMillis() | NSDate.timeIntervalSince1970 | System.currentTimeMillis() |
-| `createHttpClient()` | Ktor OkHttp | Ktor Darwin | Ktor OkHttp |
-| `getDevServerBaseUrl()` | `10.0.2.2:8080` | `localhost:8080` | `localhost:8080` |
+| Interface | Built-in Implementations | Purpose |
+|---|---|---|
+| `ScriptStorage` | `AndroidScriptStorage`, `IosScriptStorage`, `DesktopScriptStorage` | Script file I/O + key-value storage |
+| `PlatformActions` | `AndroidPlatformActions`, `IosPlatformActions`, `DesktopPlatformActions` | Platform-specific actions (URL, clipboard, vibration, etc.) |
 
 ## Build & Run
 
 ### Prerequisites
 
 - JDK 17+
-- Android SDK (API 36)
-- Android NDK 27.0.12077973
-- CMake 3.22.1
+- Android SDK (API 36) + NDK 27.0.12077973 + CMake 3.22.1
 - Xcode 15+ (for iOS)
 
 ### Android
 
 ```bash
 ./gradlew :composeApp:assembleDebug
-# Or open in Android Studio and run
 ```
 
 ### Desktop
 
 ```bash
-# Compile native library first (one-time):
-cd native && mkdir -p build && cd build
-cmake .. && make
-
-# Run:
+cd native && mkdir -p build && cd build && cmake .. && make  # one-time
 ./gradlew :composeApp:run
 ```
 
 ### iOS
 
 ```bash
-# Build QuickJS static libraries (one-time):
-cd native/ios && ./build_ios.sh
+cd native/ios && ./build_ios.sh  # one-time
+# Open iosApp/iosApp.xcodeproj in Xcode
+```
 
-# Open iosApp/iosApp.xcodeproj in Xcode and run
+### Tests
+
+```bash
+./gradlew :onthefly-engine:desktopTest
+```
+
+### Publish Library
+
+```bash
+./gradlew :onthefly-engine:publishToMavenLocal
 ```
 
 ## Hot Reload (Dev Server)
 
 ```bash
 cd devserver
-pip install watchdog   # optional, for fast file watching
+pip install watchdog websockets  # optional
 python server.py
-# Server runs on port 8080
-# Edit JS → save → auto-validate → push to devices in ~2s
+# HTTP on port 8080, WebSocket push on port 8081
+# Edit JS → save → auto-validate → push to devices
 ```
-
-### Dev Server Commands
 
 | Command | Description |
 |---|---|
@@ -379,11 +433,9 @@ python server.py
 | `c` / `clients` | List connected devices with details |
 | `v [bundle]` | Validate JS syntax |
 | `d [bundle]` | Deploy scripts to Android assets |
-| `l` / `list` | List all bundles |
 | `r` / `reload` | Force reload all devices |
 | `ra` / `run android` | Launch Android emulator build |
 | `rd` / `run desktop` | Launch desktop app |
-| `q` / `quit` | Stop server |
 
 ## Migrated From
 
