@@ -15,6 +15,7 @@ import com.onthefly.app.data.source.WebSocketCallback
 import com.onthefly.app.data.source.WebSocketOptions
 import com.onthefly.app.data.source.WebSocketSource
 import com.onthefly.app.data.source.createHttpClient
+import com.onthefly.app.util.escapeJson
 import com.onthefly.app.domain.model.EngineEvent
 import com.onthefly.app.domain.model.NativeAction
 import com.onthefly.app.domain.model.UIComponent
@@ -78,20 +79,23 @@ class ScriptViewModel(
             client = createHttpClient(),
             callback = object : WebSocketCallback {
                 override fun onConnected(id: String) {
-                    engine.eval("OnTheFly._updateWSState('$id', 'connected')", "<ws>")
-                    sendDataToScript(EngineEvent.ON_WS_CONNECTED, """{"id":"$id"}""")
+                    val safeId = id.escapeJson()
+                    engine.eval("OnTheFly._updateWSState('${safeId.replace("'", "\\'")}', 'connected')", "<ws>")
+                    sendDataToScript(EngineEvent.ON_WS_CONNECTED, """{"id":"$safeId"}""")
                 }
                 override fun onMessage(id: String, message: String) {
-                    val escaped = message.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "\\r")
-                    sendDataToScript(EngineEvent.ON_REALTIME_DATA, """{"id":"$id","message":"$escaped","type":"text"}""")
+                    sendDataToScript(EngineEvent.ON_REALTIME_DATA,
+                        """{"id":"${id.escapeJson()}","message":"${message.escapeJson()}","type":"text"}""")
                 }
                 override fun onDisconnected(id: String, code: Int, reason: String) {
-                    engine.eval("OnTheFly._updateWSState('$id', 'disconnected')", "<ws>")
-                    sendDataToScript(EngineEvent.ON_WS_DISCONNECTED, """{"id":"$id","code":$code,"reason":"$reason"}""")
+                    val safeId = id.escapeJson()
+                    engine.eval("OnTheFly._updateWSState('${safeId.replace("'", "\\'")}', 'disconnected')", "<ws>")
+                    sendDataToScript(EngineEvent.ON_WS_DISCONNECTED,
+                        """{"id":"$safeId","code":$code,"reason":"${reason.escapeJson()}"}""")
                 }
                 override fun onError(id: String, error: String) {
-                    val escaped = error.replace("\\", "\\\\").replace("\"", "\\\"")
-                    sendDataToScript(EngineEvent.ON_WS_ERROR, """{"id":"$id","error":"$escaped"}""")
+                    sendDataToScript(EngineEvent.ON_WS_ERROR,
+                        """{"id":"${id.escapeJson()}","error":"${error.escapeJson()}"}""")
                 }
             },
             scope = viewModelScope
@@ -266,11 +270,14 @@ class ScriptViewModel(
             }
         }
 
-        // Fallback polling (runs when WS is unavailable)
+        // Start fallback polling only after WS has had time to connect
         viewModelScope.launch {
+            delay(3000)
+            if (DevServerSource.useWebSocket) return@launch
+            // WS failed — fall back to polling
             while (true) {
                 delay(2000)
-                if (!isInitialized || DevServerSource.useWebSocket) continue
+                if (!isInitialized) continue
                 try {
                     if (updateManager.devServerHasChanges()) {
                         updateManager.updateFromDevServer(currentBundleName)
@@ -368,11 +375,7 @@ class ScriptViewModel(
         for (action in actions) {
             when (action.action) {
                 NativeAction.SHOW_TOAST -> _toastChannel.trySend(action.data["message"] as? String ?: "")
-                NativeAction.NAVIGATE -> {
-                    val screen = action.data["screen"] as? String ?: ""
-                    val navData = (action.data["data"] as? Map<String, Any>) ?: emptyMap()
-                    _navChannel.trySend(NavigationEvent(screen = screen, data = navData))
-                }
+                NativeAction.NAVIGATE -> _navChannel.trySend(action.toNavEvent())
                 NativeAction.GO_BACK -> _pendingGoBack = true
                 NativeAction.NAVIGATE_DELAYED -> {
                     val screen = action.data["screen"] as? String ?: ""
@@ -389,7 +392,6 @@ class ScriptViewModel(
                 NativeAction.SET_STORAGE -> handleSetStorage(action.data)
                 NativeAction.GET_STORAGE -> handleGetStorage(action.data)
                 NativeAction.REMOVE_STORAGE -> handleRemoveStorage(action.data)
-                // Platform actions
                 NativeAction.OPEN_URL -> platformActions?.openUrl(action.data["url"] as? String ?: "")
                 NativeAction.COPY_TO_CLIPBOARD -> platformActions?.copyToClipboard(action.data["text"] as? String ?: "")
                 NativeAction.READ_CLIPBOARD -> {
@@ -410,18 +412,8 @@ class ScriptViewModel(
                     type = action.data["type"] as? String,
                     durationMs = (action.data["duration"] as? Number)?.toInt()
                 )
-                // Navigation (replace/clear)
-                NativeAction.NAVIGATE_REPLACE -> {
-                    val screen = action.data["screen"] as? String ?: ""
-                    val navData = (action.data["data"] as? Map<String, Any>) ?: emptyMap()
-                    _navChannel.trySend(NavigationEvent(screen = screen, data = navData, replace = true))
-                }
-                NativeAction.NAVIGATE_CLEAR_STACK -> {
-                    val screen = action.data["screen"] as? String ?: ""
-                    val navData = (action.data["data"] as? Map<String, Any>) ?: emptyMap()
-                    _navChannel.trySend(NavigationEvent(screen = screen, data = navData, clearStack = true))
-                }
-                // UI actions
+                NativeAction.NAVIGATE_REPLACE -> _navChannel.trySend(action.toNavEvent(replace = true))
+                NativeAction.NAVIGATE_CLEAR_STACK -> _navChannel.trySend(action.toNavEvent(clearStack = true))
                 NativeAction.SHOW_SNACKBAR -> {
                     val message = action.data["message"] as? String ?: ""
                     val actionText = action.data["actionText"] as? String
@@ -460,7 +452,6 @@ class ScriptViewModel(
                     val message = action.data["message"] as? String ?: action.data.toString()
                     println("[$level] Script: $message")
                 }
-                // Platform display actions
                 NativeAction.SET_STATUS_BAR -> platformActions?.setStatusBarColor(
                     color = action.data["color"] as? String ?: "#000000",
                     darkIcons = action.data["darkIcons"] as? Boolean ?: false
@@ -474,7 +465,6 @@ class ScriptViewModel(
                 NativeAction.SET_ORIENTATION -> platformActions?.setOrientation(
                     action.data["orientation"] as? String ?: "auto"
                 )
-                // WebSocket
                 NativeAction.CONNECT_WS -> {
                     val id = action.data["id"] as? String ?: "default"
                     val url = action.data["url"] as? String ?: ""
@@ -627,3 +617,11 @@ class ScriptViewModel(
         super.onCleared()
     }
 }
+
+@Suppress("UNCHECKED_CAST")
+private fun NativeAction.toNavEvent(replace: Boolean = false, clearStack: Boolean = false) = NavigationEvent(
+    screen = data["screen"] as? String ?: "",
+    data = (data["data"] as? Map<String, Any>) ?: emptyMap(),
+    replace = replace,
+    clearStack = clearStack
+)

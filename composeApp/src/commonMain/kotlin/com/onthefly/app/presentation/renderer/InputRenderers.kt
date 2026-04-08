@@ -1,5 +1,6 @@
 package com.onthefly.app.presentation.renderer
 
+import com.onthefly.app.util.escapeJson
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -496,9 +497,3 @@ fun RenderSearchBar(c: UIComponent, onEvent: (String) -> Unit, onComponentEvent:
     }
 }
 
-fun String.escapeJson(): String = this
-    .replace("\\", "\\\\")
-    .replace("\"", "\\\"")
-    .replace("\n", "\\n")
-    .replace("\r", "\\r")
-    .replace("\t", "\\t")

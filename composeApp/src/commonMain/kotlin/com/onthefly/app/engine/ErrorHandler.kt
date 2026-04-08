@@ -1,5 +1,7 @@
 package com.onthefly.app.engine
 
+import com.onthefly.app.util.escapeJson
+
 /**
  * Configuration for error handling, loaded from manifest.json "errorConfig".
  */
@@ -33,27 +35,20 @@ data class EngineError(
 ) {
     fun toJson(): String {
         val sb = StringBuilder("{")
-        sb.append("\"type\":\"${type.escapeJsonValue()}\",")
-        sb.append("\"message\":\"${message.escapeJsonValue()}\"")
+        sb.append("\"type\":\"${type.escapeJson()}\",")
+        sb.append("\"message\":\"${message.escapeJson()}\"")
         if (code != null) sb.append(",\"code\":$code")
         for ((k, v) in details) {
-            sb.append(",\"${k.escapeJsonValue()}\":")
+            sb.append(",\"${k.escapeJson()}\":")
             when (v) {
-                is String -> sb.append("\"${v.escapeJsonValue()}\"")
+                is String -> sb.append("\"${v.escapeJson()}\"")
                 is Number -> sb.append(v)
                 is Boolean -> sb.append(v)
                 null -> sb.append("null")
-                else -> sb.append("\"${v.toString().escapeJsonValue()}\"")
+                else -> sb.append("\"${v.toString().escapeJson()}\"")
             }
         }
         sb.append("}")
         return sb.toString()
     }
 }
-
-private fun String.escapeJsonValue(): String = this
-    .replace("\\", "\\\\")
-    .replace("\"", "\\\"")
-    .replace("\n", "\\n")
-    .replace("\r", "\\r")
-    .replace("\t", "\\t")

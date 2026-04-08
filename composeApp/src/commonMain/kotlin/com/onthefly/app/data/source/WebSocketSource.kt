@@ -125,15 +125,15 @@ class WebSocketSource(
 
     fun close(id: String, code: Int = 1000, reason: String = "") {
         states[id] = "disconnecting"
+        val session = sessions.remove(id)
+        val job = connections.remove(id)
         scope.launch {
             try {
-                sessions[id]?.close(CloseReason(code.toShort(), reason))
+                session?.close(CloseReason(code.toShort(), reason))
             } catch (_: Exception) { }
+            job?.cancel()
+            states[id] = "disconnected"
         }
-        connections[id]?.cancel()
-        connections.remove(id)
-        sessions.remove(id)
-        states[id] = "disconnected"
     }
 
     fun closeAll() {
