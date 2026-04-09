@@ -156,10 +156,10 @@ function render() {
                 ]
             },
 
-            // ── Scrollable content ──
+            // ── Content (chart fills remaining space) ──
             {
                 type: "Column",
-                props: { fillMaxWidth: true, weight: 1, scrollable: true },
+                props: { fillMaxWidth: true, weight: 1 },
                 children: [
                     // Symbol chips row (horizontal scroll)
                     {
@@ -213,15 +213,15 @@ function render() {
                         ]
                     },
 
-                    // Candlestick Chart
+                    // Candlestick Chart (fill remaining space)
                     {
                         type: "Box",
-                        props: { padding: { horizontal: 16, bottom: 4 } },
+                        props: { padding: { horizontal: 16, bottom: 4 }, weight: 1 },
                         children: [
                             {
                                 type: "CandlestickChart",
                                 props: {
-                                    height: 280,
+                                    fillHeight: true,
                                     candles: chartData.candles,
                                     ma7: chartData.ma7,
                                     ma25: chartData.ma25,

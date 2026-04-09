@@ -3,6 +3,7 @@ package com.onthefly.engine.renderer
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -79,7 +80,8 @@ fun RenderCandlestickChart(
     val visible = c.propBool("visible", true)
     if (!visible) return
 
-    val chartHeight = c.propInt("height", 250)
+    val chartHeight = c.propInt("height", 0)
+    val fillHeight = c.propBool("fillHeight")
     val bgColor = c.propColor("background") ?: Color(0xFF1F2937)
     val upColor = c.propColor("upColor") ?: Color(0xFF10B981)
     val downColor = c.propColor("downColor") ?: Color(0xFFEF4444)
@@ -101,13 +103,11 @@ fun RenderCandlestickChart(
     val shape = RoundedCornerShape(borderRadius.dp)
     val textMeasurer = rememberTextMeasurer()
 
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(chartHeight.dp)
-            .clip(shape)
-            .background(bgColor, shape)
-    ) {
+    var mod = modifier.fillMaxWidth()
+    mod = if (fillHeight) mod.fillMaxSize() else mod.height(if (chartHeight > 0) chartHeight.dp else 250.dp)
+    mod = mod.clip(shape).background(bgColor, shape)
+
+    Box(modifier = mod) {
         if (candles.isEmpty()) return@Box
 
         Canvas(modifier = Modifier.fillMaxSize()) {
