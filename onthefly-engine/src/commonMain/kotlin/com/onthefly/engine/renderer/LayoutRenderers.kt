@@ -48,12 +48,13 @@ fun RenderColumn(
 
     if (!visible) return
 
-    val shape = RoundedCornerShape(borderRadius.dp)
+    val shape = c.resolveShape()
     var mod = modifier
         .applyWidth(c.props["width"] ?: style?.width ?: "fill")
         .applyHeight(c.props["height"] ?: style?.height)
         .applyOpacity(c.props["opacity"] ?: style?.opacity)
 
+    if (borderRadius > 0) mod = mod.clip(shape)
     if (bg != null) mod = mod.background(bg, shape)
     mod = mod.applyBorder(c, style, borderRadius)
     mod = mod.applyPadding(c, style)
@@ -114,12 +115,13 @@ fun RenderRow(
     }
     val verticalAlignment = resolveVerticalAlignment(crossAlignment)
 
-    val shape = RoundedCornerShape(borderRadius.dp)
+    val shape = c.resolveShape()
     var mod = modifier
         .applyWidth(c.props["width"] ?: style?.width ?: "fill")
         .applyHeight(c.props["height"] ?: style?.height)
         .applyOpacity(c.props["opacity"] ?: style?.opacity)
 
+    if (borderRadius > 0) mod = mod.clip(shape)
     if (bg != null) mod = mod.background(bg, shape)
     mod = mod.applyBorder(c, style, borderRadius)
     mod = mod.applyPadding(c, style)
@@ -167,12 +169,13 @@ fun RenderBox(
 
     if (!visible) return
 
-    val shape = RoundedCornerShape(borderRadius.dp)
+    val shape = c.resolveShape()
     var mod = modifier
         .applyWidth(c.props["width"] ?: "fill")
         .applyHeight(c.props["height"])
         .applyOpacity(c.props["opacity"])
 
+    if (borderRadius > 0) mod = mod.clip(shape)
     if (bg != null) mod = mod.background(bg, shape)
     mod = mod.applyBorder(c, style, borderRadius)
     mod = mod.applyPadding(c, style)

@@ -13,30 +13,31 @@ function onCreateView() {
     render();
 }
 
+function onVisible() {
+    render();
+}
+
 // ─── Navigation ────────────────────────────────────────────
 
 function onNavTab_dashboard() { OnTheFly.sendToNative("navigateReplace", { screen: "stock-dashboard" }); }
 function onNavTab_watchlist() { OnTheFly.sendToNative("navigateReplace", { screen: "stock-watchlist" }); }
 function onNavTab_search()    { /* already here */ }
 function onNavTab_news()      { OnTheFly.sendToNative("navigateReplace", { screen: "stock-news" }); }
+function onNavTab_chart() { OnTheFly.sendToNative("navigateReplace", { screen: "stock-chart" }); }
 
-// ─── Stock tap handlers ───────────────────────────────────
+// ─── Stock tap handler (dynamic, no hardcode) ────────────
 
-function onStockTap_AAPL()  { navigate("stock-detail", { symbol: "AAPL" }); }
-function onStockTap_TSLA()  { navigate("stock-detail", { symbol: "TSLA" }); }
-function onStockTap_MSFT()  { navigate("stock-detail", { symbol: "MSFT" }); }
-function onStockTap_GOOGL() { navigate("stock-detail", { symbol: "GOOGL" }); }
-function onStockTap_AMZN()  { navigate("stock-detail", { symbol: "AMZN" }); }
-function onStockTap_NVDA()  { navigate("stock-detail", { symbol: "NVDA" }); }
-function onStockTap_META()  { navigate("stock-detail", { symbol: "META" }); }
-function onStockTap_NFLX()  { navigate("stock-detail", { symbol: "NFLX" }); }
-function onStockTap_AMD()   { navigate("stock-detail", { symbol: "AMD" }); }
-
-// Dynamic stock tap for API results
 function onClick(id, data) {
     if (id && id.indexOf("stockRow_") === 0) {
         var symbol = id.substring(9);
-        navigate("stock-detail", { symbol: symbol });
+        if (AppState.get("add_watchlist_mode", false)) {
+            addToWatchlist(symbol);
+            AppState.remove("add_watchlist_mode");
+            toast(symbol + " added to watchlist");
+            goBack();
+        } else {
+            navigate("stock-detail", { symbol: symbol });
+        }
     }
 }
 
@@ -115,25 +116,26 @@ function buildStockRow(stock, theme) {
         type: "Row",
         props: {
             fillMaxWidth: true,
-            padding: { horizontal: 20, vertical: 13 },
-            verticalAlignment: "center",
-            onClick: "onStockTap_" + stock.symbol
+            padding: { horizontal: 16, vertical: 13 },
+            crossAlignment: "center",
+            id: "stockRow_" + stock.symbol,
+            onClick: "onClick"
         },
         children: [
             {
                 type: "Column",
                 props: { weight: 1 },
                 children: [
-                    { type: "Text", props: { text: stock.symbol, fontSize: 14, fontWeight: "semibold", color: theme.textPrimary } },
-                    { type: "Text", props: { text: stock.name, fontSize: 11, color: theme.textTertiary, maxLines: 1 } }
+                    { type: "Text", props: { text: stock.symbol, fontSize: 15, fontWeight: "700", color: theme.textPrimary } },
+                    { type: "Text", props: { text: stock.name, fontSize: 12, color: theme.textSecondary, maxLines: 1 } }
                 ]
             },
             {
                 type: "Column",
-                props: { horizontalAlignment: "end" },
+                props: { alignment: "end", width: "wrap" },
                 children: [
-                    { type: "Text", props: { text: stockPriceText(stock.price), fontSize: 14, fontWeight: "bold", color: theme.textPrimary } },
-                    { type: "Text", props: { text: fmtPct(stock.pct), fontSize: 11, fontWeight: "semibold", color: up ? theme.positive : theme.negative } }
+                    { type: "Text", props: { text: stockPriceText(stock.price), fontSize: 15, fontWeight: "700", color: theme.textPrimary } },
+                    { type: "Text", props: { text: (stock.change >= 0 ? "+" : "") + stock.change.toFixed(2) + " (" + fmtPct(stock.pct) + ")", fontSize: 12, fontWeight: "600", color: up ? theme.positive : theme.negative } }
                 ]
             }
         ]
@@ -146,8 +148,8 @@ function buildApiResultRow(item, theme) {
         props: {
             id: "stockRow_" + item.symbol,
             fillMaxWidth: true,
-            padding: { horizontal: 20, vertical: 13 },
-            verticalAlignment: "center",
+            padding: { horizontal: 16, vertical: 13 },
+            crossAlignment: "center",
             onClick: "onClick"
         },
         children: [
@@ -155,78 +157,23 @@ function buildApiResultRow(item, theme) {
                 type: "Column",
                 props: { weight: 1 },
                 children: [
-                    { type: "Text", props: { text: item.symbol, fontSize: 14, fontWeight: "semibold", color: theme.textPrimary } },
-                    { type: "Text", props: { text: item.name, fontSize: 11, color: theme.textTertiary, maxLines: 1 } }
+                    { type: "Text", props: { text: item.symbol, fontSize: 15, fontWeight: "700", color: theme.textPrimary } },
+                    { type: "Text", props: { text: item.name, fontSize: 12, color: theme.textSecondary, maxLines: 1 } }
                 ]
             },
             item.price > 0 ? {
                 type: "Column",
-                props: { horizontalAlignment: "end" },
+                props: { alignment: "end", width: "wrap" },
                 children: [
-                    { type: "Text", props: { text: stockPriceText(item.price), fontSize: 14, fontWeight: "bold", color: theme.textPrimary } },
+                    { type: "Text", props: { text: stockPriceText(item.price), fontSize: 15, fontWeight: "700", color: theme.textPrimary } },
                     item.pct !== 0 ? { type: "Text", props: {
                         text: fmtPct(item.pct),
-                        fontSize: 11, fontWeight: "semibold",
+                        fontSize: 12, fontWeight: "600",
                         color: item.pct >= 0 ? theme.positive : theme.negative
                     }} : { type: "Spacer", props: { height: 1 } }
                 ]
             } : { type: "Spacer", props: { width: 1 } }
         ]
-    };
-}
-
-function buildBottomNav(activeTab, theme) {
-    var tabs = [
-        { id: "dashboard", icon: "\uD83C\uDFE0", label: St("nav_home") },
-        { id: "watchlist", icon: "\u2B50",         label: St("nav_watchlist") },
-        { id: "search",    icon: "\uD83D\uDD0D",   label: St("nav_search") },
-        { id: "news",      icon: "\uD83D\uDCF0",   label: St("nav_news") }
-    ];
-    var children = [];
-    for (var i = 0; i < tabs.length; i++) {
-        var tab = tabs[i];
-        var isActive = (tab.id === activeTab);
-        var tabChildren = [
-            { type: "Text", props: { text: tab.icon, fontSize: 20 } },
-            { type: "Text", props: {
-                text: tab.label,
-                fontSize: 9,
-                color: isActive ? theme.accent : theme.textTertiary,
-                fontWeight: isActive ? "bold" : "normal"
-            }}
-        ];
-        if (isActive) {
-            tabChildren.push({
-                type: "Box",
-                props: {
-                    width: 4, height: 4, cornerRadius: 2,
-                    background: theme.accent,
-                    margin: { top: 3 }
-                }
-            });
-        }
-        children.push({
-            type: "Column",
-            props: {
-                weight: 1,
-                horizontalAlignment: "center",
-                padding: { vertical: 8 },
-                onClick: "onNavTab_" + tab.id
-            },
-            children: tabChildren
-        });
-    }
-    return {
-        type: "Row",
-        props: {
-            fillMaxWidth: true,
-            background: theme.navBar,
-            borderColor: theme.border,
-            borderWidth: 1,
-            alignment: "spaceEvenly",
-            padding: { top: 4, bottom: 8 }
-        },
-        children: children
     };
 }
 
@@ -248,10 +195,10 @@ function render() {
             type: "Text",
             props: {
                 text: St("recent_search"),
-                fontSize: 14,
-                fontWeight: "600",
+                fontSize: 15,
+                fontWeight: "700",
                 color: theme.textSecondary,
-                padding: { start: 16, end: 16, top: 8, bottom: 0 }
+                padding: { left: 16, right: 16, top: 12, bottom: 0 }
             }
         });
 
@@ -262,10 +209,11 @@ function render() {
             chipChildren.push({
                 type: "Box",
                 props: {
+                    width: "wrap",
                     background: theme.surfaceVariant,
                     borderColor: theme.border,
                     borderWidth: 1,
-                    cornerRadius: 16,
+                    borderRadius: 16,
                     padding: { horizontal: 12, vertical: 6 },
                     onClick: "onChip" + sym
                 },
@@ -275,12 +223,10 @@ function render() {
             });
         }
         scrollContent.push({
-            type: "FlowRow",
+            type: "Row",
             props: {
-                fillMaxWidth: true,
                 spacing: 8,
-                lineSpacing: 8,
-                padding: { start: 16, end: 16, top: 8, bottom: 16 }
+                padding: { left: 16, right: 16, top: 8, bottom: 16 }
             },
             children: chipChildren
         });
@@ -290,21 +236,27 @@ function render() {
             type: "Text",
             props: {
                 text: St("popular"),
-                fontSize: 14,
-                fontWeight: "600",
+                fontSize: 15,
+                fontWeight: "700",
                 color: theme.textSecondary,
-                padding: { start: 16, end: 16, bottom: 8 }
+                padding: { left: 16, right: 16, bottom: 8 }
             }
         });
 
         var popularStocks = StockData.stocks.slice(0, 5);
         for (var p = 0; p < popularStocks.length; p++) {
+            if (p > 0) {
+                scrollContent.push({ type: "Divider", props: { color: theme.border } });
+            }
             scrollContent.push(buildStockRow(popularStocks[p], theme));
         }
     } else {
         // ── Search results ──
         if (displayResults.length > 0) {
             for (var r = 0; r < displayResults.length; r++) {
+                if (r > 0) {
+                    scrollContent.push({ type: "Divider", props: { color: theme.border } });
+                }
                 if (showApiResults) {
                     scrollContent.push(buildApiResultRow(displayResults[r], theme));
                 } else {
@@ -317,7 +269,7 @@ function render() {
                 type: "Column",
                 props: {
                     fillMaxWidth: true,
-                    horizontalAlignment: "center",
+                    alignment: "center",
                     padding: { vertical: 40 }
                 },
                 children: [
@@ -329,34 +281,20 @@ function render() {
 
     scrollContent.push({ type: "Spacer", props: { height: 70 } });
 
-    // ── Search field: Row with magnifier icon + TextField ──
     var searchFieldRow = {
-        type: "Row",
+        type: "TextField",
         props: {
-            fillMaxWidth: true,
-            verticalAlignment: "center",
-            padding: { horizontal: 14, vertical: 10 },
+            id: "searchField",
+            value: query,
+            placeholder: St("search_placeholder"),
             background: theme.inputBg,
-            borderColor: theme.border,
-            borderWidth: 1,
-            cornerRadius: 10
-        },
-        children: [
-            { type: "Text", props: { text: "\uD83D\uDD0D", fontSize: 16, padding: { end: 8 } } },
-            {
-                type: "TextField",
-                props: {
-                    id: "searchField",
-                    value: query,
-                    placeholder: St("search_placeholder"),
-                    background: "transparent",
-                    textColor: theme.textPrimary,
-                    placeholderColor: theme.textTertiary,
-                    fontSize: 14,
-                    weight: 1
-                }
-            }
-        ]
+            textColor: theme.textPrimary,
+            placeholderColor: theme.textTertiary,
+            fontSize: 14,
+            cornerRadius: 10,
+            leadingIcon: "search",
+            padding: { horizontal: 12, vertical: 8 }
+        }
     };
 
     OnTheFly.setUI({
@@ -366,7 +304,7 @@ function render() {
             // Header: title + search field
             {
                 type: "Column",
-                props: { fillMaxWidth: true, padding: { start: 16, end: 16, top: 4, bottom: 12 } },
+                props: { fillMaxWidth: true, padding: { start: 16, end: 16, top: 4, bottom: 16 } },
                 children: [
                     {
                         type: "Text",
@@ -388,7 +326,7 @@ function render() {
                 children: scrollContent
             },
             // Bottom nav
-            buildBottomNav("search", theme)
+            buildStockBottomNav("search", theme)
         ]
     });
 }

@@ -82,6 +82,7 @@ function onAccountClick() {
 }
 
 function onNavTab_dashboard() { /* already here */ }
+function onNavTab_chart()     { OnTheFly.sendToNative("navigateReplace", { screen: "stock-chart" }); }
 function onNavTab_watchlist() { OnTheFly.sendToNative("navigateReplace", { screen: "stock-watchlist" }); }
 function onNavTab_search()    { OnTheFly.sendToNative("navigateReplace", { screen: "stock-search" }); }
 function onNavTab_news()      { OnTheFly.sendToNative("navigateReplace", { screen: "stock-news" }); }
@@ -108,7 +109,8 @@ function buildTopBar(theme) {
         props: {
             fillMaxWidth: true,
             padding: { start: 16, end: 16, top: 4, bottom: 12 },
-            verticalAlignment: "center"
+            verticalAlignment: "center",
+            alignment: "spaceBetween"
         },
         children: [
             {
@@ -118,22 +120,21 @@ function buildTopBar(theme) {
                     fontSize: 22,
                     fontWeight: "800",
                     color: theme.textPrimary,
-                    weight: 1
+                    width: "wrap"
                 }
             },
             {
-                type: "Column",
+                type: "Box",
                 props: {
-                    width: 32,
-                    height: 32,
-                    cornerRadius: 16,
+                    width: 34,
+                    height: 34,
+                    borderRadius: 17,
                     background: theme.accent,
-                    horizontalAlignment: "center",
-                    verticalArrangement: "center",
+                    contentAlignment: "center",
                     onClick: "onAccountClick"
                 },
                 children: [
-                    { type: "Text", props: { text: "\uD83D\uDC64", fontSize: 14 } }
+                    { type: "Icon", props: { name: "person", size: 20, color: "#FFFFFF" } }
                 ]
             }
         ]
@@ -145,18 +146,17 @@ function buildPortfolioCard(theme) {
     var up = portfolio.dayChange >= 0;
     var changeColor = up ? theme.positive : theme.negative;
     var changeSign = up ? "+" : "";
-    var badgeBg = changeColor + "20";
+    var badgeBg = "#33" + changeColor.replace("#", "");
 
     return {
         type: "Column",
         props: {
             fillMaxWidth: true,
             padding: 20,
-            cornerRadius: 16,
+            borderRadius: 14,
             background: theme.card,
-            borderColor: theme.border + "30",
-            borderWidth: 1,
-            margin: { start: 16, end: 16, bottom: 16 }
+            borderColor: theme.border,
+            borderWidth: 1
         },
         children: [
             {
@@ -196,9 +196,10 @@ function buildPortfolioCard(theme) {
                     {
                         type: "Box",
                         props: {
+                            width: "wrap",
                             background: badgeBg,
-                            cornerRadius: 4,
-                            padding: { horizontal: 6, vertical: 1 }
+                            borderRadius: 4,
+                            padding: { horizontal: 6, vertical: 2 }
                         },
                         children: [
                             {
@@ -226,7 +227,7 @@ function buildSectionHeader(title, actionText, actionHandler, theme) {
                 fontSize: 17,
                 fontWeight: "700",
                 color: theme.textPrimary,
-                weight: 1
+                width: "wrap"
             }
         }
     ];
@@ -237,6 +238,7 @@ function buildSectionHeader(title, actionText, actionHandler, theme) {
                 text: actionText,
                 fontSize: 12,
                 color: theme.accent,
+                width: "wrap",
                 onClick: actionHandler
             }
         });
@@ -245,8 +247,9 @@ function buildSectionHeader(title, actionText, actionHandler, theme) {
         type: "Row",
         props: {
             fillMaxWidth: true,
-            padding: { start: 16, end: 16, bottom: 8 },
-            verticalAlignment: "center"
+            padding: { start: 16, end: 16, top: 16, bottom: 8 },
+            verticalAlignment: "center",
+            alignment: "spaceBetween"
         },
         children: children
     };
@@ -263,9 +266,9 @@ function buildTrendingCards(theme) {
             props: {
                 width: 130,
                 padding: { start: 14, end: 14, top: 12, bottom: 12 },
-                cornerRadius: 12,
+                borderRadius: 12,
                 background: theme.card,
-                borderColor: theme.border + "30",
+                borderColor: theme.border,
                 borderWidth: 1,
                 onClick: "onStockTap_" + s.symbol
             },
@@ -284,10 +287,10 @@ function buildTrendingCards(theme) {
                     props: {
                         text: s.name,
                         fontSize: 10,
-                        color: theme.textSecondary,
-                        padding: { bottom: 8 }
+                        color: theme.textSecondary
                     }
                 },
+                { type: "Spacer", props: { height: 10 } },
                 {
                     type: "Text",
                     props: {
@@ -309,9 +312,9 @@ function buildTrendingCards(theme) {
         });
     }
     return {
-        type: "LazyRow",
-        props: { padding: { horizontal: 16, bottom: 16 }, spacing: 10 },
-        items: items
+        type: "Row",
+        props: { scrollable: true, padding: { start: 16, end: 16 }, spacing: 10 },
+        children: items
     };
 }
 
@@ -324,9 +327,7 @@ function buildStockRow(stock, theme) {
             fillMaxWidth: true,
             padding: { start: 16, end: 16, top: 12, bottom: 12 },
             verticalAlignment: "center",
-            onClick: "onStockTap_" + stock.symbol,
-            borderColor: theme.border + "20",
-            borderWidth: 1
+            onClick: "onStockTap_" + stock.symbol
         },
         children: [
             {
@@ -354,7 +355,7 @@ function buildStockRow(stock, theme) {
             },
             {
                 type: "Column",
-                props: { horizontalAlignment: "end" },
+                props: { alignment: "end", width: "wrap" },
                 children: [
                     {
                         type: "Text",
@@ -379,60 +380,6 @@ function buildStockRow(stock, theme) {
     };
 }
 
-function buildBottomNav(activeTab, theme) {
-    var tabs = [
-        { id: "dashboard", icon: "\uD83C\uDFE0", label: St("nav_home") },
-        { id: "watchlist", icon: "\u2B50",         label: St("nav_watchlist") },
-        { id: "search",    icon: "\uD83D\uDD0D",  label: St("nav_search") },
-        { id: "news",      icon: "\uD83D\uDCF0",  label: St("nav_news") }
-    ];
-    var children = [];
-    for (var i = 0; i < tabs.length; i++) {
-        var tab = tabs[i];
-        var isActive = (tab.id === activeTab);
-        children.push({
-            type: "Column",
-            props: {
-                weight: 1,
-                horizontalAlignment: "center",
-                padding: { vertical: 8 },
-                onClick: "onNavTab_" + tab.id
-            },
-            children: [
-                {
-                    type: "Text",
-                    props: {
-                        text: tab.icon,
-                        fontSize: 20,
-                        opacity: isActive ? 1.0 : 0.5
-                    }
-                },
-                {
-                    type: "Text",
-                    props: {
-                        text: tab.label,
-                        fontSize: 10,
-                        color: isActive ? theme.accent : theme.textTertiary,
-                        fontWeight: isActive ? "bold" : "normal",
-                        opacity: isActive ? 1.0 : 0.5
-                    }
-                }
-            ]
-        });
-    }
-    return {
-        type: "Row",
-        props: {
-            fillMaxWidth: true,
-            background: theme.navBar,
-            padding: { top: 4, bottom: 8 },
-            borderColor: theme.border,
-            borderWidth: 1
-        },
-        children: children
-    };
-}
-
 // ─── Main Render ───────────────────────────────────────────
 
 function render() {
@@ -440,8 +387,12 @@ function render() {
 
     var scrollContent = [];
 
-    // Portfolio card
-    scrollContent.push(buildPortfolioCard(theme));
+    // Portfolio card (wrapped with horizontal padding)
+    scrollContent.push({
+        type: "Box",
+        props: { padding: { horizontal: 16, bottom: 16 } },
+        children: [buildPortfolioCard(theme)]
+    });
 
     // Trending header + See All
     scrollContent.push(buildSectionHeader(St("trending"), St("see_all"), "onSeeAllTrending", theme));
@@ -454,6 +405,9 @@ function render() {
 
     // All 8 stock list rows
     for (var i = 0; i < StockData.stocks.length; i++) {
+        if (i > 0) {
+            scrollContent.push({ type: "Divider", props: { color: theme.border + "30" } });
+        }
         scrollContent.push(buildStockRow(StockData.stocks[i], theme));
     }
 
@@ -467,7 +421,7 @@ function render() {
                 props: { fillMaxWidth: true, weight: 1, scrollable: true },
                 children: scrollContent
             },
-            buildBottomNav("dashboard", theme)
+            buildStockBottomNav("dashboard", theme)
         ]
     });
 }

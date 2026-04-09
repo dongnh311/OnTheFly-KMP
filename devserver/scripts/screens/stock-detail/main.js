@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-//  Stock Detail Screen — StockPro
+//  Stock Detail Screen — StockPro (matching mockup exactly)
 // ═══════════════════════════════════════════════════════════
 
 var stock = null;
@@ -14,10 +14,21 @@ function onCreateView() {
     // Default — wait for onViewData
 }
 
+function onVisible() {
+    if (currentSymbol) {
+        render();
+    }
+}
+
 function onViewData(data) {
+    OnTheFly.log("onViewData received: " + JSON.stringify(data));
     if (data && data.symbol) {
         currentSymbol = data.symbol;
         stock = findStock(data.symbol);
+        if (!stock) {
+            // Stock not in local data, create stub
+            stock = { symbol: data.symbol, name: data.symbol, price: 0, change: 0, pct: 0, open: 0, high: 0, low: 0, vol: "-", cap: "-", pe: 0 };
+        }
         bookmarked = isInWatchlist(data.symbol);
         render();
 
@@ -146,52 +157,28 @@ function onRange_ALL() { selectedRange = "ALL"; render(); }
 
 // ─── UI Builders ───────────────────────────────────────────
 
-function buildStatCell(label, value, theme) {
+function buildTimeButton(label, rangeId, theme) {
+    var isActive = (selectedRange === rangeId);
     return {
-        type: "Column",
+        type: "Box",
         props: {
-            weight: 1,
-            background: theme.card,
-            padding: { horizontal: 14, vertical: 10 }
+            width: "wrap",
+            background: isActive ? theme.accent : "transparent",
+            borderRadius: 16,
+            padding: { horizontal: 14, vertical: 6 },
+            onClick: "onRange_" + rangeId
         },
         children: [
             {
                 type: "Text",
                 props: {
                     text: label,
-                    fontSize: 11,
-                    color: theme.textTertiary,
-                    padding: { bottom: 2 }
-                }
-            },
-            {
-                type: "Text",
-                props: {
-                    text: value,
-                    fontSize: 14,
-                    fontWeight: "semibold",
-                    color: theme.textPrimary
+                    fontSize: 12,
+                    fontWeight: "600",
+                    color: isActive ? "#FFFFFF" : theme.textTertiary
                 }
             }
         ]
-    };
-}
-
-function buildTimeButton(label, rangeId, theme) {
-    var isActive = (selectedRange === rangeId);
-    return {
-        type: "Button",
-        props: {
-            text: label,
-            style: isActive ? "filled" : "text",
-            background: isActive ? theme.accent : "transparent",
-            textColor: isActive ? "#FFFFFF" : theme.textTertiary,
-            fontSize: 12,
-            fontWeight: isActive ? "semibold" : "semibold",
-            cornerRadius: 6,
-            padding: { horizontal: 14, vertical: 6 },
-            onClick: "onRange_" + rangeId
-        }
     };
 }
 
@@ -206,11 +193,12 @@ function render() {
             props: {
                 height: "fill",
                 background: theme.primary,
-                horizontalAlignment: "center",
-                verticalArrangement: "center"
+                alignment: "center"
             },
             children: [
-                { type: "Text", props: { text: "Loading...", color: theme.textSecondary } }
+                { type: "Spacer", props: { weight: 1 } },
+                { type: "Text", props: { text: "Loading...", color: theme.textSecondary } },
+                { type: "Spacer", props: { weight: 1 } }
             ]
         });
         return;
@@ -218,7 +206,7 @@ function render() {
 
     var up = stock.change >= 0;
 
-    // Stats data: 6 items, 2 per row = 3 rows
+    // Stats data
     var stats = [
         [St("detail_open"), stockPriceText(stock.open)],
         [St("detail_high"), stockPriceText(stock.high)],
@@ -228,20 +216,22 @@ function render() {
         [St("detail_pe"),   stock.pe.toFixed(1)]
     ];
 
-    // Build stats grid rows (2 columns per row)
+    // Build stats rows
     var statsRows = [];
-    for (var i = 0; i < stats.length; i += 2) {
-        var rowChildren = [buildStatCell(stats[i][0], stats[i][1], theme)];
-        if (i + 1 < stats.length) {
-            rowChildren.push(buildStatCell(stats[i + 1][0], stats[i + 1][1], theme));
+    for (var i = 0; i < stats.length; i++) {
+        if (i > 0) {
+            statsRows.push({ type: "Divider", props: { color: theme.border } });
         }
         statsRows.push({
-            type: "Row",
+            type: "Column",
             props: {
                 fillMaxWidth: true,
-                spacing: 1
+                padding: { horizontal: 16, top: 10, bottom: 10 }
             },
-            children: rowChildren
+            children: [
+                { type: "Text", props: { text: stats[i][0], fontSize: 11, color: theme.textTertiary, padding: { bottom: 2 } } },
+                { type: "Text", props: { text: stats[i][1], fontSize: 16, fontWeight: "700", color: theme.textPrimary } }
+            ]
         });
     }
 
@@ -255,17 +245,15 @@ function render() {
                 props: {
                     fillMaxWidth: true,
                     padding: { start: 16, end: 16, top: 4, bottom: 8 },
-                    verticalAlignment: "center"
+                    crossAlignment: "center"
                 },
                 children: [
                     {
-                        type: "Button",
+                        type: "Icon",
                         props: {
-                            text: "\u2190",
-                            variant: "text",
-                            textColor: theme.textPrimary,
-                            fontSize: 18,
-                            padding: { end: 12 },
+                            name: "arrow_back",
+                            size: 22,
+                            color: theme.textPrimary,
                             onClick: "onBackClick"
                         }
                     },
@@ -274,19 +262,18 @@ function render() {
                         props: {
                             text: stock.symbol,
                             fontSize: 18,
-                            fontWeight: "extrabold",
+                            fontWeight: "800",
                             color: theme.textPrimary,
                             weight: 1,
                             textAlign: "center"
                         }
                     },
                     {
-                        type: "Button",
+                        type: "Text",
                         props: {
                             text: bookmarked ? "\u2B50" : "\u2606",
-                            variant: "text",
-                            textColor: bookmarked ? theme.warning : theme.textTertiary,
-                            fontSize: 18,
+                            fontSize: 20,
+                            color: bookmarked ? theme.warning : theme.textTertiary,
                             onClick: "onBookmarkToggle"
                         }
                     }
@@ -303,7 +290,7 @@ function render() {
                         type: "Column",
                         props: {
                             fillMaxWidth: true,
-                            horizontalAlignment: "center",
+                            alignment: "center",
                             padding: { top: 8, bottom: 16 }
                         },
                         children: [
@@ -313,7 +300,7 @@ function render() {
                                     id: "priceText",
                                     text: stockPriceText(stock.price),
                                     fontSize: 32,
-                                    fontWeight: "extrabold",
+                                    fontWeight: "800",
                                     color: theme.textPrimary,
                                     letterSpacing: -1
                                 }
@@ -324,7 +311,7 @@ function render() {
                                     id: "changeText",
                                     text: stockChangeArrow(stock),
                                     fontSize: 15,
-                                    fontWeight: "semibold",
+                                    fontWeight: "600",
                                     color: up ? theme.positive : theme.negative
                                 }
                             }
@@ -334,24 +321,20 @@ function render() {
                     // Chart placeholder
                     {
                         type: "Box",
-                        props: {
-                            fillMaxWidth: true,
-                            height: 100,
-                            background: theme.surfaceVariant,
-                            cornerRadius: 14,
-                            contentAlignment: "center",
-                            margin: { start: 16, end: 16, bottom: 12 },
-                            borderColor: theme.border + "20",
-                            borderWidth: 1
-                        },
+                        props: { padding: { horizontal: 16, bottom: 12 } },
                         children: [
                             {
-                                type: "Text",
+                                type: "Box",
                                 props: {
-                                    text: "\uD83D\uDCCA Chart",
-                                    fontSize: 14,
-                                    color: theme.textTertiary
-                                }
+                                    fillMaxWidth: true,
+                                    height: 120,
+                                    background: theme.surfaceVariant,
+                                    borderRadius: 14,
+                                    contentAlignment: "center"
+                                },
+                                children: [
+                                    { type: "Text", props: { text: "\uD83D\uDCC8 Chart", fontSize: 14, color: theme.textTertiary } }
+                                ]
                             }
                         ]
                     },
@@ -362,7 +345,8 @@ function render() {
                         props: {
                             fillMaxWidth: true,
                             alignment: "center",
-                            padding: { start: 16, end: 16, bottom: 16 }
+                            padding: { start: 16, end: 16, bottom: 16 },
+                            spacing: 4
                         },
                         children: [
                             buildTimeButton("1D", "1D", theme),
@@ -374,18 +358,21 @@ function render() {
                         ]
                     },
 
-                    // Stats grid
+                    // Stats card
                     {
-                        type: "Column",
-                        props: {
-                            fillMaxWidth: true,
-                            cornerRadius: 12,
-                            background: theme.border + "30",
-                            spacing: 1,
-                            margin: { start: 16, end: 16, bottom: 16 },
-                            clipToBounds: true
-                        },
-                        children: statsRows
+                        type: "Box",
+                        props: { padding: { horizontal: 16, bottom: 16 } },
+                        children: [
+                            {
+                                type: "Column",
+                                props: {
+                                    fillMaxWidth: true,
+                                    borderRadius: 12,
+                                    background: theme.card
+                                },
+                                children: statsRows
+                            }
+                        ]
                     },
 
                     // Buy + Sell buttons
@@ -398,34 +385,32 @@ function render() {
                         },
                         children: [
                             {
-                                type: "Button",
+                                type: "Box",
                                 props: {
-                                    text: St("buy"),
-                                    variant: "filled",
-                                    background: theme.positive,
-                                    textColor: "#FFFFFF",
-                                    fontSize: 15,
-                                    fontWeight: "bold",
-                                    cornerRadius: 10,
                                     weight: 1,
-                                    padding: { vertical: 13 },
+                                    background: theme.positive,
+                                    borderRadius: 10,
+                                    padding: { vertical: 14 },
+                                    contentAlignment: "center",
                                     onClick: "onBuyClick"
-                                }
+                                },
+                                children: [
+                                    { type: "Text", props: { text: St("buy"), fontSize: 15, fontWeight: "700", color: "#FFFFFF" } }
+                                ]
                             },
                             {
-                                type: "Button",
+                                type: "Box",
                                 props: {
-                                    text: St("sell"),
-                                    variant: "filled",
-                                    background: theme.negative,
-                                    textColor: "#FFFFFF",
-                                    fontSize: 15,
-                                    fontWeight: "bold",
-                                    cornerRadius: 10,
                                     weight: 1,
-                                    padding: { vertical: 13 },
+                                    background: theme.negative,
+                                    borderRadius: 10,
+                                    padding: { vertical: 14 },
+                                    contentAlignment: "center",
                                     onClick: "onSellClick"
-                                }
+                                },
+                                children: [
+                                    { type: "Text", props: { text: St("sell"), fontSize: 15, fontWeight: "700", color: "#FFFFFF" } }
+                                ]
                             }
                         ]
                     }

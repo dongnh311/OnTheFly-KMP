@@ -131,6 +131,8 @@ fun RenderLazyRow(
 ) {
     val spacing = c.propInt("spacing")
     val padding = c.propInt("padding")
+    val paddingH = c.propInt("paddingHorizontal")
+    val paddingV = c.propInt("paddingVertical")
     val visible = c.propBool("visible", true)
     if (!visible) return
 
@@ -141,11 +143,17 @@ fun RenderLazyRow(
         } ?: emptyList()
     }
 
+    val contentPadding = if (paddingH > 0 || paddingV > 0) {
+        PaddingValues(horizontal = paddingH.dp, vertical = paddingV.dp)
+    } else {
+        PaddingValues(padding.dp)
+    }
+
     LazyRow(
         modifier = modifier
             .applyWidth(c.props["width"] ?: "fill")
             .applyHeight(c.props["height"]),
-        contentPadding = PaddingValues(padding.dp),
+        contentPadding = contentPadding,
         horizontalArrangement = if (spacing > 0) Arrangement.spacedBy(spacing.dp) else Arrangement.Start
     ) {
         items(items, key = { it.props["id"]?.toString() ?: it.hashCode() }) { item ->

@@ -59,6 +59,24 @@ fun UIComponent.resolveBorderRadius(style: ComponentStyle?): Int {
         ?: 0
 }
 
+fun UIComponent.resolveShape(): RoundedCornerShape {
+    val tl = (props["borderRadiusTopLeft"] as? Number)?.toInt()
+    val tr = (props["borderRadiusTopRight"] as? Number)?.toInt()
+    val bl = (props["borderRadiusBottomLeft"] as? Number)?.toInt()
+    val br = (props["borderRadiusBottomRight"] as? Number)?.toInt()
+    return if (tl != null || tr != null || bl != null || br != null) {
+        val uniform = resolveBorderRadius(resolveStyle())
+        RoundedCornerShape(
+            topStart = (tl ?: uniform).dp,
+            topEnd = (tr ?: uniform).dp,
+            bottomStart = (bl ?: uniform).dp,
+            bottomEnd = (br ?: uniform).dp
+        )
+    } else {
+        RoundedCornerShape(resolveBorderRadius(resolveStyle()).dp)
+    }
+}
+
 fun Modifier.applyWidth(width: Any?): Modifier = when {
     width == null || width == "fill" -> this.fillMaxWidth()
     width == "wrap" -> this.wrapContentWidth()
@@ -90,7 +108,7 @@ fun Modifier.applyBorder(c: UIComponent, style: ComponentStyle?, borderRadius: I
         ?: (c.props["borderColor"] as? String)?.toComposeColor()
 
     if (bWidth != null && bWidth > 0 && bColor != null && bColor != Color.Unspecified) {
-        return this.border(bWidth.dp, bColor, RoundedCornerShape(borderRadius.dp))
+        return this.border(bWidth.dp, bColor, c.resolveShape())
     }
     return this
 }

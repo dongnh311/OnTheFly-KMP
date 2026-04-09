@@ -15,6 +15,8 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -92,7 +94,8 @@ fun RenderTextField(c: UIComponent, onComponentEvent: (ComponentEvent) -> Unit, 
     val placeholderColor = c.propColor("placeholderColor")
     val bgColor = c.propColor("background")
     val borderColor = c.propColor("borderColor")
-    val cornerRadius = c.propInt("cornerRadius", 8)
+    val focusedBorderColor = c.propColor("focusedBorderColor")
+    val cornerRadius = c.propInt("cornerRadius", 0).let { if (it > 0) it else c.propInt("borderRadius", 8) }
 
     val keyboardType = when (type) {
         "email" -> KeyboardType.Email
@@ -118,7 +121,7 @@ fun RenderTextField(c: UIComponent, onComponentEvent: (ComponentEvent) -> Unit, 
         unfocusedPlaceholderColor = placeholderColor ?: Color.Unspecified,
         focusedContainerColor = bgColor ?: Color.Unspecified,
         unfocusedContainerColor = bgColor ?: Color.Unspecified,
-        focusedBorderColor = borderColor ?: Color.Unspecified,
+        focusedBorderColor = focusedBorderColor ?: borderColor ?: Color.Unspecified,
         unfocusedBorderColor = borderColor ?: Color.Unspecified,
         cursorColor = textColor ?: Color.Unspecified
     )
@@ -138,7 +141,7 @@ fun RenderTextField(c: UIComponent, onComponentEvent: (ComponentEvent) -> Unit, 
                 )
             }
         },
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth().clip(RoundedCornerShape(cornerRadius.dp)),
         enabled = enabled,
         readOnly = readOnly,
         label = if (label != null) {{ Text(label) }} else null,
@@ -274,16 +277,36 @@ fun RenderToggle(c: UIComponent, onComponentEvent: (ComponentEvent) -> Unit, mod
     val enabled = c.propBool("enabled", true)
     val componentId = c.propString("id") ?: ""
     val activeColor = c.propColor("activeColor")
+    val inactiveColor = c.propColor("inactiveColor")
+    val thumbColor = c.propColor("thumbColor")
     val onToggle = c.propString("onToggle")
     val visible = c.propBool("visible", true)
     if (!visible) return
 
+    val scale = c.propFloat("scale", 0.85f)
+    val borderColor = c.propColor("borderColor")
+    val hasCustomColors = activeColor != null || inactiveColor != null || thumbColor != null
+    val switchColors = if (hasCustomColors) {
+        SwitchDefaults.colors(
+            checkedTrackColor = activeColor ?: SwitchDefaults.colors().checkedTrackColor,
+            uncheckedTrackColor = inactiveColor ?: SwitchDefaults.colors().uncheckedTrackColor,
+            checkedThumbColor = thumbColor ?: Color.White,
+            checkedBorderColor = activeColor ?: Color.Transparent,
+            uncheckedThumbColor = thumbColor ?: Color.White,
+            uncheckedBorderColor = borderColor ?: Color(0xFF4B5563)
+        )
+    } else {
+        SwitchDefaults.colors()
+    }
+
     Row(
-        modifier = modifier.fillMaxWidth().padding(horizontal = 4.dp),
+        modifier = modifier,
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Text(text = label, style = MaterialTheme.typography.bodyLarge)
+        if (label.isNotEmpty()) {
+            Text(text = label, style = MaterialTheme.typography.bodyLarge)
+        }
         Switch(
             checked = checked,
             onCheckedChange = { newValue ->
@@ -292,11 +315,8 @@ fun RenderToggle(c: UIComponent, onComponentEvent: (ComponentEvent) -> Unit, mod
                 )
             },
             enabled = enabled,
-            colors = if (activeColor != null) {
-                SwitchDefaults.colors(checkedTrackColor = activeColor)
-            } else {
-                SwitchDefaults.colors()
-            }
+            colors = switchColors,
+            modifier = Modifier.graphicsLayer(scaleX = scale, scaleY = scale)
         )
     }
 }

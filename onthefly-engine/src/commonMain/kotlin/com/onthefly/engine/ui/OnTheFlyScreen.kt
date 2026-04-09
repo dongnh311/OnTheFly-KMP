@@ -76,14 +76,14 @@ fun OnTheFlyScreen(
 
     LaunchedEffect(bundleName) {
         ViewDataStore.pushRoute("script/$bundleName")
-        viewModel.loadAndRun(bundleName)
-        viewModel.startAutoReload()
         val data = viewData ?: ViewDataStore.take()
-        data?.let { viewModel.sendDataToScript(EngineEvent.ON_VIEW_DATA, it) }
+        viewModel.loadAndRun(bundleName, data)
+        viewModel.startAutoReload()
     }
 
     LaunchedEffect(Unit) {
         viewModel.navFlow.collect { event ->
+            println("NAV_FLOW_RECEIVED: screen=${event.screen} clearStack=${event.clearStack} from=$bundleName")
             if (event.data.isNotEmpty()) ViewDataStore.put(event.data)
             onNavigate(event)
         }

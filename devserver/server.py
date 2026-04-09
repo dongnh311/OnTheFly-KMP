@@ -772,6 +772,7 @@ def interactive_loop(scripts_dir):
     ra, run android        Launch Android Emulator build
     ri, run ios            Launch iOS Simulator build
     rd, run desktop        Launch Desktop app
+    ba, build android      Clean rebuild + install + launch Android
     ka, kill               Kill all emulators and processes
     s, status              Server status + connected devices
     c, clients             List connected devices
@@ -815,8 +816,21 @@ def interactive_loop(scripts_dir):
 
         elif cmd in ('ra', 'run') and (arg == 'android' or cmd == 'ra'):
             print('  🚀 Launching on Android Emulator...')
-            subprocess.Popen(['./gradlew', ':composeApp:installDebug'], cwd='..').wait()
+            subprocess.Popen(['./gradlew', ':composeApp:installDebug', '--no-configuration-cache'], cwd='..').wait()
             subprocess.Popen(['adb', 'shell', 'monkey', '-p', 'com.onthefly.app', '-c', 'android.intent.category.LAUNCHER', '1'])
+
+        elif cmd in ('ba', 'build') and (arg == 'android' or cmd == 'ba'):
+            print('  🔨 Clean rebuild + install Android...')
+            ret = subprocess.Popen(['./gradlew', ':onthefly-engine:clean', ':composeApp:clean', ':composeApp:assembleDebug', '--no-configuration-cache'], cwd='..').wait()
+            if ret == 0:
+                print('  📦 Installing APK...')
+                subprocess.Popen(['adb', 'install', '-r', 'composeApp/build/outputs/apk/debug/composeApp-debug.apk'], cwd='..').wait()
+                print('  🚀 Launching app...')
+                subprocess.Popen(['adb', 'shell', 'am', 'force-stop', 'com.onthefly.app']).wait()
+                subprocess.Popen(['adb', 'shell', 'monkey', '-p', 'com.onthefly.app', '-c', 'android.intent.category.LAUNCHER', '1'])
+                print('  \033[32m✓\033[0m Build + install + launch complete!')
+            else:
+                print('  \033[31m✗\033[0m Build failed!')
             
         elif cmd in ('ri', 'run') and (arg == 'ios' or cmd == 'ri'):
             print('  🍎 Launching on iOS Simulator...')

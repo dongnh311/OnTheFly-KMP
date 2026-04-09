@@ -132,7 +132,7 @@ class ScriptViewModel(
     private var errorConfig = ErrorConfig()
     private var loadRetryCount = 0
 
-    fun loadAndRun(bundleName: String) {
+    fun loadAndRun(bundleName: String, viewData: String? = null) {
         if (isInitialized) return
         currentBundleName = bundleName
 
@@ -145,6 +145,7 @@ class ScriptViewModel(
                 loadFromLocal(bundleName)
                 isInitialized = true
                 dispatchLifecycleEvent(EngineEvent.ON_CREATE_VIEW)
+                viewData?.let { sendDataToScript(EngineEvent.ON_VIEW_DATA, it) }
             } catch (e: Exception) {
                 handleLoadError(e.message ?: "Unknown error")
             }
@@ -346,6 +347,7 @@ class ScriptViewModel(
     }
 
     fun onEvent(functionName: String) {
+        println("ON_EVENT: $functionName isInitialized=$isInitialized")
         if (!isInitialized) return
         try {
             engine.callFunction(functionName)
@@ -413,7 +415,11 @@ class ScriptViewModel(
                     durationMs = (action.data["duration"] as? Number)?.toInt()
                 )
                 NativeAction.NAVIGATE_REPLACE -> _navChannel.trySend(action.toNavEvent(replace = true))
-                NativeAction.NAVIGATE_CLEAR_STACK -> _navChannel.trySend(action.toNavEvent(clearStack = true))
+                NativeAction.NAVIGATE_CLEAR_STACK -> {
+                    val event = action.toNavEvent(clearStack = true)
+                    val result = _navChannel.trySend(event)
+                    println("NAV_CLEAR_STACK: screen=${event.screen} trySend=${result.isSuccess}")
+                }
                 NativeAction.SHOW_SNACKBAR -> {
                     val message = action.data["message"] as? String ?: ""
                     val actionText = action.data["actionText"] as? String

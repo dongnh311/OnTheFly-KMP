@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-//  Watchlist Screen — StockPro
+//  Watchlist Screen — StockPro (matching mockup exactly)
 // ═══════════════════════════════════════════════════════════
 
 var quotesLoaded = 0;
@@ -10,7 +10,6 @@ var confirmSymbol = null;
 
 function onCreateView() {
     render();
-    // Fetch real quotes for watchlist stocks
     var stocks = getWatchlistStocks();
     var symbols = [];
     for (var i = 0; i < stocks.length; i++) {
@@ -53,8 +52,10 @@ function onNavTab_dashboard() { OnTheFly.sendToNative("navigateReplace", { scree
 function onNavTab_watchlist() { /* already here */ }
 function onNavTab_search()    { OnTheFly.sendToNative("navigateReplace", { screen: "stock-search" }); }
 function onNavTab_news()      { OnTheFly.sendToNative("navigateReplace", { screen: "stock-news" }); }
+function onNavTab_chart() { OnTheFly.sendToNative("navigateReplace", { screen: "stock-chart" }); }
 
 function onAddStock() {
+    AppState.set("add_watchlist_mode", true);
     navigate("stock-search");
 }
 
@@ -104,53 +105,44 @@ function buildStockRow(stock, theme) {
         type: "Row",
         props: {
             fillMaxWidth: true,
-            verticalAlignment: "center"
+            padding: { left: 16, right: 12, top: 12, bottom: 12 },
+            crossAlignment: "center",
+            onClick: "onStockTap_" + stock.symbol
         },
         children: [
-            // Stock info area (tappable, weight:1)
+            // Left: symbol + name
             {
-                type: "Row",
-                props: {
-                    weight: 1,
-                    padding: { start: 16, top: 12, bottom: 12 },
-                    verticalAlignment: "center",
-                    onClick: "onStockTap_" + stock.symbol
-                },
+                type: "Column",
+                props: { weight: 1, spacing: 2 },
                 children: [
-                    // Left: symbol + name
-                    {
-                        type: "Column",
-                        props: { weight: 1 },
-                        children: [
-                            { type: "Text", props: { text: stock.symbol, fontSize: 15, fontWeight: 700, color: theme.textPrimary } },
-                            { type: "Text", props: { text: stock.name, fontSize: 12, color: theme.textSecondary, maxLines: 1 } }
-                        ]
-                    },
-                    // Right: price + change
-                    {
-                        type: "Column",
-                        props: { horizontalAlignment: "end" },
-                        children: [
-                            { type: "Text", props: { text: stockPriceText(stock.price), fontSize: 15, fontWeight: 600, color: theme.textPrimary } },
-                            { type: "Text", props: { text: (up ? "+" : "") + stock.change.toFixed(2) + " (" + fmtPct(stock.pct) + ")", fontSize: 12, color: up ? theme.positive : theme.negative } }
-                        ]
-                    }
+                    { type: "Text", props: { text: stock.symbol, fontSize: 15, fontWeight: "700", color: theme.textPrimary } },
+                    { type: "Text", props: { text: stock.name, fontSize: 12, color: theme.textSecondary, maxLines: 1 } }
                 ]
             },
-            // Remove button
+            // Right: price + change
             {
-                type: "Button",
+                type: "Column",
+                props: { alignment: "end", width: "wrap", spacing: 2 },
+                children: [
+                    { type: "Text", props: { text: stockPriceText(stock.price), fontSize: 15, fontWeight: "700", color: theme.textPrimary } },
+                    { type: "Text", props: { text: (up ? "+" : "") + stock.change.toFixed(2) + " (" + fmtPct(stock.pct) + ")", fontSize: 12, fontWeight: "600", color: up ? theme.positive : theme.negative } }
+                ]
+            },
+            { type: "Spacer", props: { width: 10 } },
+            // Remove button (small circular X)
+            {
+                type: "Box",
                 props: {
-                    text: "\u2715",
-                    variant: "outlined",
-                    textColor: theme.negative,
-                    borderColor: theme.negative + "40",
-                    fontSize: 11,
-                    cornerRadius: 6,
-                    padding: { horizontal: 10, vertical: 4 },
-                    margin: { end: 12 },
+                    width: 24,
+                    height: 24,
+                    borderRadius: 12,
+                    background: "#33" + theme.negative.replace("#", ""),
+                    contentAlignment: "center",
                     onClick: "onRemoveStock_" + stock.symbol
-                }
+                },
+                children: [
+                    { type: "Icon", props: { name: "close", size: 12, color: theme.negative } }
+                ]
             }
         ]
     };
@@ -161,68 +153,13 @@ function buildEmptyState(theme) {
         type: "Column",
         props: {
             fillMaxWidth: true,
-            horizontalAlignment: "center",
-            padding: { vertical: 40 }
+            alignment: "center",
+            padding: { top: 40, bottom: 40 }
         },
         children: [
             { type: "Text", props: { text: "\u2B50", fontSize: 40, padding: { bottom: 8 } } },
             { type: "Text", props: { text: St("watchlist_empty"), fontSize: 14, color: theme.textSecondary } }
         ]
-    };
-}
-
-function buildBottomNav(activeTab, theme) {
-    var tabs = [
-        { id: "dashboard", icon: "\uD83C\uDFE0", label: St("nav_home") },
-        { id: "watchlist", icon: "\u2B50",         label: St("nav_watchlist") },
-        { id: "search",    icon: "\uD83D\uDD0D",   label: St("nav_search") },
-        { id: "news",      icon: "\uD83D\uDCF0",   label: St("nav_news") }
-    ];
-    var children = [];
-    for (var i = 0; i < tabs.length; i++) {
-        var tab = tabs[i];
-        var isActive = (tab.id === activeTab);
-        var tabChildren = [
-            { type: "Text", props: { text: tab.icon, fontSize: 20 } },
-            { type: "Text", props: {
-                text: tab.label,
-                fontSize: 9,
-                color: isActive ? theme.accent : theme.textTertiary,
-                fontWeight: isActive ? "bold" : "normal"
-            }}
-        ];
-        if (isActive) {
-            tabChildren.push({
-                type: "Box",
-                props: {
-                    width: 4, height: 4, cornerRadius: 2,
-                    background: theme.accent,
-                    margin: { top: 2 }
-                }
-            });
-        }
-        children.push({
-            type: "Column",
-            props: {
-                weight: 1,
-                horizontalAlignment: "center",
-                padding: { vertical: 8 },
-                onClick: "onNavTab_" + tab.id
-            },
-            children: tabChildren
-        });
-    }
-    return {
-        type: "Row",
-        props: {
-            fillMaxWidth: true,
-            background: theme.navBar,
-            alignment: "spaceEvenly",
-            padding: { top: 4, bottom: 8 },
-            borderColor: theme.border,
-            borderWidth: { top: 1 }
-        },
-        children: children
     };
 }
 
@@ -232,13 +169,15 @@ function render() {
     var theme = StockTheme.get();
     var stocks = getWatchlistStocks();
 
-    // Build scrollable content
     var scrollContent = [];
 
     if (stocks.length === 0) {
         scrollContent.push(buildEmptyState(theme));
     } else {
         for (var i = 0; i < stocks.length; i++) {
+            if (i > 0) {
+                scrollContent.push({ type: "Divider", props: { color: theme.border } });
+            }
             scrollContent.push(buildStockRow(stocks[i], theme));
         }
     }
@@ -254,24 +193,32 @@ function render() {
                 type: "Row",
                 props: {
                     fillMaxWidth: true,
-                    verticalAlignment: "center",
-                    padding: { start: 16, end: 16, top: 4, bottom: 12 }
+                    crossAlignment: "center",
+                    padding: { start: 16, end: 16, top: 4, bottom: 12 },
+                    alignment: "spaceBetween"
                 },
                 children: [
-                    { type: "Text", props: { text: St("watchlist_title"), fontSize: 22, fontWeight: 800, color: theme.textPrimary, weight: 1 } },
+                    { type: "Text", props: { text: St("watchlist_title"), fontSize: 22, fontWeight: "800", color: theme.textPrimary, width: "wrap" } },
                     {
-                        type: "Button",
+                        type: "Box",
                         props: {
-                            text: "+ " + St("add_stock"),
-                            variant: "filled",
+                            width: "wrap",
                             background: theme.accent,
-                            textColor: "#FFFFFF",
-                            fontSize: 12,
-                            fontWeight: 600,
-                            cornerRadius: 8,
-                            padding: { horizontal: 12, vertical: 6 },
+                            borderRadius: 8,
+                            padding: { horizontal: 14, vertical: 8 },
                             onClick: "onAddStock"
-                        }
+                        },
+                        children: [
+                            {
+                                type: "Text",
+                                props: {
+                                    text: "+ " + St("add_stock"),
+                                    fontSize: 12,
+                                    fontWeight: "700",
+                                    color: "#FFFFFF"
+                                }
+                            }
+                        ]
                     }
                 ]
             },
@@ -284,7 +231,7 @@ function render() {
             },
 
             // Bottom navigation
-            buildBottomNav("watchlist", theme),
+            buildStockBottomNav("watchlist", theme),
 
             // Confirm remove dialog
             {

@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-//  Account Screen — StockPro
+//  Account Screen — StockPro (matching mockup exactly)
 // ═══════════════════════════════════════════════════════════
 
 var pushOn = true;
@@ -9,6 +9,10 @@ var bioOn = false;
 // ─── Lifecycle ─────────────────────────────────────────────
 
 function onCreateView() {
+    render();
+}
+
+function onVisible() {
     render();
 }
 
@@ -55,20 +59,27 @@ function onTwoFactor() {
     toast("Coming soon");
 }
 
+var pendingLogout = false;
+
 function onSignOut() {
     OnTheFly.update("logoutDialog", { visible: true });
 }
 
 function onConfirmLogout() {
-    OnTheFly.update("logoutDialog", { visible: false });
-    AppState.logout();
-    AppState.remove("stock_user_email");
-    AppState.remove("stock_watchlist");
     OnTheFly.sendToNative("navigateClearStack", { screen: "stock-login" });
 }
 
 function onCancelLogout() {
     OnTheFly.update("logoutDialog", { visible: false });
+}
+
+function checkPendingLogout() {
+    if (pendingLogout) {
+        pendingLogout = false;
+        OnTheFly.sendToNative("navigateClearStack", { screen: "stock-login" });
+        return true;
+    }
+    return false;
 }
 
 // ─── UI Builders ───────────────────────────────────────────
@@ -80,34 +91,32 @@ function buildSection(title, rows, theme) {
         if (i < rows.length - 1) {
             children.push({
                 type: "Divider",
-                props: { color: theme.border + "15" }
+                props: { color: theme.border }
             });
         }
     }
     return {
         type: "Column",
-        props: { fillMaxWidth: true, padding: { bottom: 16 } },
+        props: { fillMaxWidth: true, padding: { start: 16, end: 16, top: 20, bottom: 8 } },
         children: [
             {
                 type: "Text",
                 props: {
-                    text: title,
-                    fontSize: 12,
-                    fontWeight: "600",
+                    text: title.toUpperCase(),
+                    fontSize: 15,
+                    fontWeight: "700",
                     color: theme.textTertiary,
-                    padding: { start: 16, end: 16, bottom: 8 },
-                    letterSpacing: 0.5
+                    letterSpacing: 1
                 }
             },
+            { type: "Spacer", props: { height: 12 } },
             {
                 type: "Column",
                 props: {
                     fillMaxWidth: true,
                     background: theme.card,
-                    cornerRadius: 12,
-                    borderColor: theme.border + "20",
-                    borderWidth: 1,
-                    margin: { start: 16, end: 16 }
+                    borderRadius: 12,
+                    padding: { start: 16, end: 16, top: 14, bottom: 14 }
                 },
                 children: children
             }
@@ -116,21 +125,25 @@ function buildSection(title, rows, theme) {
 }
 
 function buildSettingRow(label, rightWidget, theme) {
+    if (rightWidget && rightWidget.props && !rightWidget.props.width) {
+        rightWidget.props.width = "wrap";
+    }
     return {
         type: "Row",
         props: {
             fillMaxWidth: true,
-            padding: { start: 14, end: 14, top: 13, bottom: 13 },
-            verticalAlignment: "center"
+            height: 48,
+            crossAlignment: "center",
+            alignment: "spaceBetween"
         },
         children: [
             {
                 type: "Text",
                 props: {
                     text: label,
-                    fontSize: 14,
+                    fontSize: 15,
                     color: theme.textPrimary,
-                    weight: 1
+                    width: "wrap"
                 }
             },
             rightWidget
@@ -141,13 +154,16 @@ function buildSettingRow(label, rightWidget, theme) {
 // ─── Main Render ───────────────────────────────────────────
 
 function render() {
+    if (checkPendingLogout()) return;
     var theme = StockTheme.get();
     var user = AppState.getUserName();
     var email = AppState.get("stock_user_email", "demo@onthefly.app");
+    if (typeof user === "string" && user.charAt(0) === '"') user = user.replace(/^"|"$/g, "");
+    if (typeof email === "string" && email.charAt(0) === '"') email = email.replace(/^"|"$/g, "");
     var initial = user !== "Guest" ? user.charAt(0).toUpperCase() : "U";
     var lang = StockI18n.getLang();
 
-    // Language picker buttons
+    // Language picker
     var langEnBg = lang === "en" ? theme.accent : "transparent";
     var langEnColor = lang === "en" ? "#FFFFFF" : theme.textSecondary;
     var langViBg = lang === "vi" ? theme.accent : "transparent";
@@ -156,16 +172,21 @@ function render() {
     var langPicker = {
         type: "Row",
         props: {
-            cornerRadius: 6,
-            borderColor: theme.border,
-            borderWidth: 1
+            width: "wrap",
+            borderRadius: 6,
+            background: theme.surfaceVariant,
         },
         children: [
             {
                 type: "Box",
                 props: {
                     background: langEnBg,
-                    padding: { horizontal: 10, vertical: 4 },
+                    width: "wrap",
+                    borderRadiusTopLeft: 6,
+                    borderRadiusBottomLeft: 6,
+                    borderRadiusTopRight: 0,
+                    borderRadiusBottomRight: 0,
+                    padding: { horizontal: 14, vertical: 6 },
                     onClick: "onLangEN"
                 },
                 children: [
@@ -174,7 +195,7 @@ function render() {
                         props: {
                             text: "EN",
                             fontSize: 12,
-                            fontWeight: "600",
+                            fontWeight: "700",
                             color: langEnColor
                         }
                     }
@@ -184,7 +205,12 @@ function render() {
                 type: "Box",
                 props: {
                     background: langViBg,
-                    padding: { horizontal: 10, vertical: 4 },
+                    width: "wrap",
+                    borderRadiusTopLeft: 0,
+                    borderRadiusBottomLeft: 0,
+                    borderRadiusTopRight: 6,
+                    borderRadiusBottomRight: 6,
+                    padding: { horizontal: 14, vertical: 6 },
                     onClick: "onLangVI"
                 },
                 children: [
@@ -193,7 +219,7 @@ function render() {
                         props: {
                             text: "VI",
                             fontSize: 12,
-                            fontWeight: "600",
+                            fontWeight: "700",
                             color: langViColor
                         }
                     }
@@ -202,17 +228,17 @@ function render() {
         ]
     };
 
-    // Arrow indicator for navigation rows
+    // Arrow icon for navigation rows
     var arrowRight = {
-        type: "Text",
-        props: { text: "\u2192", color: theme.textTertiary }
+        type: "Icon",
+        props: { name: "arrow_forward", size: 18, color: theme.textTertiary, width: "wrap" }
     };
 
     // Build sections
     var appearanceSection = buildSection(St("appearance"), [
         buildSettingRow(St("dark_mode"), {
             type: "Toggle",
-            props: { id: "darkModeToggle", checked: StockTheme.isDark(), onColor: theme.accent }
+            props: { id: "darkModeToggle", checked: StockTheme.isDark(), activeColor: theme.accent, inactiveColor: theme.surfaceVariant, thumbColor: "#FFFFFF" }
         }, theme),
         buildSettingRow(St("language"), langPicker, theme)
     ], theme);
@@ -220,26 +246,26 @@ function render() {
     var notificationsSection = buildSection(St("notifications"), [
         buildSettingRow(St("push_notif"), {
             type: "Toggle",
-            props: { id: "pushToggle", checked: pushOn, onColor: theme.accent }
+            props: { id: "pushToggle", checked: pushOn, activeColor: theme.accent, inactiveColor: theme.surfaceVariant, thumbColor: "#FFFFFF" }
         }, theme),
         buildSettingRow(St("price_alerts"), {
             type: "Toggle",
-            props: { id: "alertToggle", checked: alertOn, onColor: theme.accent }
+            props: { id: "alertToggle", checked: alertOn, activeColor: theme.accent, inactiveColor: theme.surfaceVariant, thumbColor: "#FFFFFF" }
         }, theme)
     ], theme);
 
     var securitySection = buildSection(St("security"), [
         buildSettingRow(St("change_pass"), {
-            type: "Text",
-            props: { text: "\u2192", color: theme.textTertiary, onClick: "onChangePass" }
+            type: "Icon",
+            props: { name: "arrow_forward", size: 18, color: theme.textTertiary, width: "wrap", onClick: "onChangePass" }
         }, theme),
         buildSettingRow(St("two_factor"), {
-            type: "Text",
-            props: { text: "\u2192", color: theme.textTertiary, onClick: "onTwoFactor" }
+            type: "Icon",
+            props: { name: "arrow_forward", size: 18, color: theme.textTertiary, width: "wrap", onClick: "onTwoFactor" }
         }, theme),
         buildSettingRow(St("biometric"), {
             type: "Toggle",
-            props: { id: "bioToggle", checked: bioOn, onColor: theme.accent }
+            props: { id: "bioToggle", checked: bioOn, activeColor: theme.accent, inactiveColor: theme.surfaceVariant, thumbColor: "#FFFFFF" }
         }, theme)
     ], theme);
 
@@ -250,7 +276,7 @@ function render() {
         }, theme),
         buildSettingRow(St("powered_by"), {
             type: "Text",
-            props: { text: "\u26A1", fontSize: 11, color: theme.accent }
+            props: { text: "\u26A1", fontSize: 13, color: theme.accent }
         }, theme)
     ], theme);
 
@@ -264,15 +290,16 @@ function render() {
                 props: {
                     fillMaxWidth: true,
                     padding: { start: 16, end: 16, top: 4, bottom: 12 },
-                    verticalAlignment: "center"
+                    verticalAlignment: "center",
+                    spacing: 12
                 },
                 children: [
                     {
-                        type: "Text",
+                        type: "Icon",
                         props: {
-                            text: "\u2190",
-                            fontSize: 18,
-                            padding: { end: 12 },
+                            name: "arrow_back",
+                            size: 22,
+                            color: theme.textPrimary,
                             onClick: "onBackClick"
                         }
                     },
@@ -282,8 +309,7 @@ function render() {
                             text: St("account_title"),
                             fontSize: 22,
                             fontWeight: "800",
-                            color: theme.textPrimary,
-                            weight: 1
+                            color: theme.textPrimary
                         }
                     }
                 ]
@@ -294,82 +320,86 @@ function render() {
                 type: "Column",
                 props: { fillMaxWidth: true, weight: 1, scrollable: true },
                 children: [
-                    // Profile card
+                    // Profile card (wrapped in padding Box)
                     {
-                        type: "Row",
-                        props: {
-                            fillMaxWidth: true,
-                            padding: 20,
-                            cornerRadius: 16,
-                            background: theme.card,
-                            borderColor: theme.border + "20",
-                            borderWidth: 1,
-                            margin: { start: 16, end: 16, bottom: 20 },
-                            verticalAlignment: "center",
-                            spacing: 14
-                        },
+                        type: "Box",
+                        props: { padding: { horizontal: 16, bottom: 20 } },
                         children: [
-                            // Avatar circle
                             {
-                                type: "Box",
+                                type: "Row",
                                 props: {
-                                    width: 48,
-                                    height: 48,
-                                    cornerRadius: 24,
-                                    background: theme.accent,
-                                    contentAlignment: "center"
+                                    fillMaxWidth: true,
+                                    padding: 20,
+                                    borderRadius: 14,
+                                    background: theme.card,
+                                    crossAlignment: "center",
+                                    spacing: 14
                                 },
                                 children: [
-                                    {
-                                        type: "Text",
-                                        props: {
-                                            text: initial,
-                                            fontSize: 20,
-                                            fontWeight: "700",
-                                            color: "#FFFFFF"
-                                        }
-                                    }
-                                ]
-                            },
-                            // User info
-                            {
-                                type: "Column",
-                                props: {},
-                                children: [
-                                    {
-                                        type: "Text",
-                                        props: {
-                                            text: user !== "Guest" ? user : "User",
-                                            fontSize: 16,
-                                            fontWeight: "700",
-                                            color: theme.textPrimary
-                                        }
-                                    },
-                                    {
-                                        type: "Text",
-                                        props: {
-                                            text: email,
-                                            fontSize: 12,
-                                            color: theme.textSecondary
-                                        }
-                                    },
+                                    // Avatar circle
                                     {
                                         type: "Box",
                                         props: {
-                                            background: theme.accentDim,
-                                            cornerRadius: 4,
-                                            padding: { horizontal: 6, vertical: 2 },
-                                            margin: { top: 4 }
+                                            width: 48,
+                                            height: 48,
+                                            borderRadius: 24,
+                                            background: theme.accent,
+                                            contentAlignment: "center"
                                         },
                                         children: [
                                             {
                                                 type: "Text",
                                                 props: {
-                                                    text: St("pro_member"),
-                                                    fontSize: 10,
-                                                    fontWeight: "600",
-                                                    color: theme.accent
+                                                    text: initial,
+                                                    fontSize: 20,
+                                                    fontWeight: "700",
+                                                    color: "#FFFFFF"
                                                 }
+                                            }
+                                        ]
+                                    },
+                                    // User info
+                                    {
+                                        type: "Column",
+                                        props: { width: "wrap" },
+                                        children: [
+                                            {
+                                                type: "Text",
+                                                props: {
+                                                    text: user !== "Guest" ? user : "User",
+                                                    fontSize: 16,
+                                                    fontWeight: "700",
+                                                    color: theme.textPrimary
+                                                }
+                                            },
+                                            {
+                                                type: "Text",
+                                                props: {
+                                                    text: email,
+                                                    fontSize: 12,
+                                                    color: theme.textSecondary
+                                                }
+                                            },
+                                            { type: "Spacer", props: { height: 4 } },
+                                            {
+                                                type: "Box",
+                                                props: {
+                                                    width: "wrap",
+                                                    background: "#33" + theme.accent.replace("#", ""),
+                                                    borderRadius: 4,
+                                                    padding: { horizontal: 8, vertical: 2 }
+                                                },
+                                                children: [
+                                                    {
+                                                        type: "Text",
+                                                        props: {
+                                                            text: St("pro_member"),
+                                                            fontSize: 10,
+                                                            fontWeight: "700",
+                                                            color: theme.accent
+                                                        }
+                                                    }
+                                                ]
                                             }
                                         ]
                                     }
@@ -386,21 +416,36 @@ function render() {
 
                     // Sign out button
                     {
-                        type: "Button",
+                        type: "Box",
                         props: {
-                            text: St("sign_out"),
-                            fillMaxWidth: true,
-                            variant: "outlined",
-                            background: theme.negative + "15",
-                            textColor: theme.negative,
-                            borderColor: theme.negative + "30",
-                            fontSize: 14,
-                            fontWeight: "700",
-                            cornerRadius: 10,
-                            padding: 13,
-                            margin: { start: 16, end: 16, bottom: 24 },
-                            onClick: "onSignOut"
-                        }
+                            padding: { horizontal: 16, bottom: 24, top: 4 }
+                        },
+                        children: [
+                            {
+                                type: "Box",
+                                props: {
+                                    fillMaxWidth: true,
+                                    background: StockTheme.isDark() ? "#2A1520" : "#FDE8E8",
+                                    borderRadius: 10,
+                                    borderColor: theme.negative,
+                                    borderWidth: 1,
+                                    padding: { vertical: 14 },
+                                    contentAlignment: "center",
+                                    onClick: "onSignOut"
+                                },
+                                children: [
+                                    {
+                                        type: "Text",
+                                        props: {
+                                            text: St("sign_out"),
+                                            fontSize: 15,
+                                            fontWeight: "700",
+                                            color: theme.negative
+                                        }
+                                    }
+                                ]
+                            }
+                        ]
                     }
                 ]
             },

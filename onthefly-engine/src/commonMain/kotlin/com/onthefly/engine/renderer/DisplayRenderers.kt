@@ -70,7 +70,9 @@ fun RenderText(c: UIComponent, onEvent: (String) -> Unit, onComponentEvent: (Com
         else -> TextOverflow.Ellipsis
     }
 
-    var mod = modifier.applyOpacity(c.props["opacity"])
+    var mod = modifier
+        .applyPadding(c, style)
+        .applyOpacity(c.props["opacity"])
     if (onClick != null || componentId != null) {
         mod = mod.clickable {
             if (componentId != null) onComponentEvent(ComponentEvent(EngineEvent.ON_CLICK, componentId))

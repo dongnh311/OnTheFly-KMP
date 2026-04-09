@@ -13,6 +13,10 @@ function onCreateView() {
     render();
 }
 
+function onVisible() {
+    render();
+}
+
 // ─── Event Handlers ────────────────────────────────────────
 
 function onTextChanged(id, data) {
@@ -33,6 +37,7 @@ function onTextChanged(id, data) {
 }
 
 function onLoginClick() {
+    OnTheFly.sendToNative("hideKeyboard", {});
     var theme = StockTheme.get();
     var hasError = false;
 
@@ -69,7 +74,7 @@ function onLangToggle() {
 }
 
 function onSignUp() {
-    toast(St("signup_link"));
+    toast("Sign up coming soon!");
 }
 
 // ─── UI ────────────────────────────────────────────────────
@@ -88,169 +93,171 @@ function render() {
             paddingBottom: 0
         },
         children: [
-            // Top bar — theme + lang toggles (right-aligned, vertically centered)
+            // Top bar — dark mode + lang toggle (right-aligned)
             {
                 type: "Row",
                 props: {
                     fillMaxWidth: true,
                     alignment: "end",
                     crossAlignment: "center",
-                    spacing: 8
+                    padding: { top: 4, right: 0 },
+                    spacing: 12
                 },
                 children: [
                     {
                         type: "Text",
                         props: {
                             text: StockTheme.isDark() ? "\uD83C\uDF19" : "\u2600\uFE0F",
-                            fontSize: 18,
+                            fontSize: 16,
                             onClick: "onThemeToggle"
                         }
                     },
+                    { type: "Spacer", props: { width: 8 } },
                     {
-                        type: "Button",
+                        type: "Box",
                         props: {
-                            text: lang.toUpperCase(),
-                            variant: "outlined",
-                            fontSize: 11,
-                            fontWeight: "bold",
-                            textColor: theme.accent,
+                            width: "wrap",
                             borderColor: theme.accent,
-                            cornerRadius: 4,
-                            padding: { horizontal: 6, vertical: 2 },
+                            borderWidth: 1.5,
+                            cornerRadius: 6,
+                            padding: { horizontal: 8, vertical: 2 },
                             onClick: "onLangToggle"
+                        },
+                        children: [
+                            {
+                                type: "Text",
+                                props: {
+                                    text: lang.toUpperCase(),
+                                    fontSize: 11,
+                                    fontWeight: "bold",
+                                    color: theme.accent
+                                }
+                            }
+                        ]
+                    }
+                ]
+            },
+
+            // Space above logo
+            { type: "Spacer", props: { weight: 2 } },
+
+            // Logo + Title + Subtitle (centered)
+            {
+                type: "Column",
+                props: {
+                    fillMaxWidth: true,
+                    alignment: "center",
+                    padding: { horizontal: 32 }
+                },
+                children: [
+                    { type: "Text", props: { text: "\uD83D\uDCC8", fontSize: 36 } },
+                    { type: "Spacer", props: { height: 6 } },
+                    {
+                        type: "Text",
+                        props: {
+                            text: St("login_title"),
+                            fontSize: 28,
+                            fontWeight: "bold",
+                            color: theme.accent
+                        }
+                    },
+                    {
+                        type: "Text",
+                        props: {
+                            text: St("login_subtitle"),
+                            fontSize: 13,
+                            color: theme.textSecondary
                         }
                     }
                 ]
             },
 
-            // Center content area (weight: 1 takes remaining space, centers content)
+            { type: "Spacer", props: { weight: 1 } },
+
+            // Form section (compact, left-aligned labels)
             {
-                type: "Box",
-                props: {
-                    weight: 1,
-                    contentAlignment: "center"
-                },
-                children: [{
-                    type: "Column",
-                    props: {
-                        alignment: "center",
-                        padding: { horizontal: 16 }
-                    },
-                    children: [
-                        // Logo emoji
-                        { type: "Text", props: { text: "\uD83D\uDCC8", fontSize: 56 } },
-                        { type: "Spacer", props: { height: 8 } },
-
-                        // App title
-                        {
-                            type: "Text",
-                            props: {
-                                text: St("login_title"),
-                                fontSize: 32,
-                                fontWeight: "bold",
-                                color: theme.accent
-                            }
-                        },
-
-                        // Subtitle
-                        {
-                            type: "Text",
-                            props: {
-                                text: St("login_subtitle"),
-                                fontSize: 13,
-                                color: theme.textSecondary
-                            }
-                        },
-
-                        { type: "Spacer", props: { height: 40 } },
-
-                        // Form section (left-aligned labels)
-                        {
-                            type: "Column",
-                            props: { fillMaxWidth: true },
-                            children: [
-                                // Email label
-                                { type: "Text", props: { text: St("email_label"), fontSize: 12, color: theme.textSecondary, padding: { bottom: 4 } } },
-                                // Email input
-                                {
-                                    type: "TextField",
-                                    props: {
-                                        id: "emailField",
-                                        value: email,
-                                        placeholder: St("email_placeholder"),
-                                        background: theme.inputBg,
-                                        borderColor: emailError ? theme.negative : theme.border,
-                                        textColor: theme.textPrimary,
-                                        placeholderColor: theme.textTertiary,
-                                        cornerRadius: 10,
-                                        padding: { horizontal: 14, vertical: 12 },
-                                        fontSize: 14,
-                                        type: "email"
-                                    }
-                                },
-                                // Email error
-                                { type: "Text", props: { id: "emailError", text: emailError, fontSize: 11, color: theme.negative, visible: emailError !== "", padding: { top: 3 } } },
-
-                                { type: "Spacer", props: { height: 14 } },
-
-                                // Password label
-                                { type: "Text", props: { text: St("password_label"), fontSize: 12, color: theme.textSecondary, padding: { bottom: 4 } } },
-                                // Password input
-                                {
-                                    type: "TextField",
-                                    props: {
-                                        id: "passwordField",
-                                        value: password,
-                                        placeholder: St("password_placeholder"),
-                                        type: "password",
-                                        background: theme.inputBg,
-                                        borderColor: passwordError ? theme.negative : theme.border,
-                                        textColor: theme.textPrimary,
-                                        placeholderColor: theme.textTertiary,
-                                        cornerRadius: 10,
-                                        padding: { horizontal: 14, vertical: 12 },
-                                        fontSize: 14
-                                    }
-                                },
-                                // Password error
-                                { type: "Text", props: { id: "passwordError", text: passwordError, fontSize: 11, color: theme.negative, visible: passwordError !== "", padding: { top: 3 } } },
-
-                                { type: "Spacer", props: { height: 28 } },
-
-                                // Sign In button
-                                {
-                                    type: "Button",
-                                    props: {
-                                        id: "loginBtn",
-                                        text: St("sign_in"),
-                                        width: "fill",
-                                        background: theme.accent,
-                                        textColor: "#FFFFFF",
-                                        fontSize: 15,
-                                        fontWeight: "bold",
-                                        cornerRadius: 10,
-                                        padding: { vertical: 13 },
-                                        onClick: "onLoginClick"
-                                    }
-                                },
-
-                                { type: "Spacer", props: { height: 14 } },
-
-                                // Sign up link
-                                {
-                                    type: "Row",
-                                    props: { fillMaxWidth: true, alignment: "center" },
-                                    children: [
-                                        { type: "Text", props: { text: St("signup_link"), fontSize: 12, color: theme.textSecondary, onClick: "onSignUp" } }
-                                    ]
-                                }
-                            ]
+                type: "Column",
+                props: { fillMaxWidth: true, padding: { horizontal: 32 } },
+                children: [
+                    // Email
+                    { type: "Text", props: { text: St("email_label"), fontSize: 12, color: theme.textSecondary, padding: { bottom: 4 } } },
+                    {
+                        type: "TextField",
+                        props: {
+                            id: "emailField",
+                            value: email,
+                            placeholder: St("email_placeholder"),
+                            background: theme.inputBg,
+                            borderColor: emailError ? theme.negative : theme.border,
+                            focusedBorderColor: emailError ? theme.negative : theme.accent,
+                            textColor: theme.textPrimary,
+                            placeholderColor: theme.textTertiary,
+                            cornerRadius: 10,
+                            padding: { horizontal: 14, vertical: 12 },
+                            fontSize: 14,
+                            type: "email"
                         }
-                    ]
-                }]
+                    },
+                    { type: "Text", props: { id: "emailError", text: emailError, fontSize: 11, color: theme.negative, visible: emailError !== "", padding: { top: 2 } } },
+
+                    { type: "Spacer", props: { height: 16 } },
+
+                    // Password
+                    { type: "Text", props: { text: St("password_label"), fontSize: 12, color: theme.textSecondary, padding: { bottom: 4 } } },
+                    {
+                        type: "TextField",
+                        props: {
+                            id: "passwordField",
+                            value: password,
+                            placeholder: St("password_placeholder"),
+                            type: "password",
+                            background: theme.inputBg,
+                            borderColor: passwordError ? theme.negative : theme.border,
+                            focusedBorderColor: passwordError ? theme.negative : theme.accent,
+                            textColor: theme.textPrimary,
+                            placeholderColor: theme.textTertiary,
+                            cornerRadius: 10,
+                            padding: { horizontal: 14, vertical: 12 },
+                            fontSize: 14
+                        }
+                    },
+                    { type: "Text", props: { id: "passwordError", text: passwordError, fontSize: 11, color: theme.negative, visible: passwordError !== "", padding: { top: 2 } } },
+
+                    { type: "Spacer", props: { height: 16 } },
+
+                    // Sign In button
+                    {
+                        type: "Button",
+                        props: {
+                            id: "loginBtn",
+                            text: St("sign_in"),
+                            width: "fill",
+                            background: theme.accent,
+                            textColor: "#FFFFFF",
+                            fontSize: 16,
+                            fontWeight: "bold",
+                            borderRadius: 10,
+                            padding: { vertical: 14 },
+                            onClick: "onLoginClick"
+                        }
+                    },
+
+                    { type: "Spacer", props: { height: 10 } },
+
+                    // Sign up link
+                    {
+                        type: "Row",
+                        props: { fillMaxWidth: true, alignment: "center" },
+                        children: [
+                            { type: "Text", props: { text: St("signup_link"), fontSize: 12, color: theme.textSecondary, onClick: "onSignUp" } }
+                        ]
+                    }
+                ]
             },
 
-            // Footer — powered by (at bottom, centered)
+            // Bottom spacer + footer
+            { type: "Spacer", props: { weight: 3 } },
+
             {
                 type: "Row",
                 props: {
