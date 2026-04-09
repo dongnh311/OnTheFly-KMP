@@ -31,21 +31,22 @@ function onViewData(data) {
             // Stock not in local data, create stub
             stock = { symbol: data.symbol, name: data.symbol, price: 0, change: 0, pct: 0, open: 0, high: 0, low: 0, vol: "-", cap: "-", pe: 0 };
         }
-        loadWatchlistFromStorage(); // Load latest watchlist for bookmark state
+        loadWatchlistFromStorage();
         bookmarked = isInWatchlist(data.symbol);
+        StockCandleData.fetchReal(data.symbol, selectedRange);
         render();
 
         fetchQuote(data.symbol);
         fetchProfile(data.symbol);
         fetchNewsForSymbol(data.symbol);
-        connectFinnhubWS();
+        connectFinnhubWS("detail");
     }
 }
 
 function onDestroy() {
     if (wsConnected && currentSymbol) {
         unsubscribeTrades(currentSymbol);
-        disconnectFinnhubWS();
+        disconnectFinnhubWS("detail");
         wsConnected = false;
     }
 }
@@ -82,6 +83,11 @@ function onDataReceived(data) {
         render();
     }
 
+    if (data.requestId && data.requestId.indexOf("candle_") === 0) {
+        var result = StockCandleData.parseRealCandles(currentSymbol, selectedRange, data.body);
+        if (result) render();
+    }
+
     if (data.requestId === "news_" + currentSymbol) {
         stock = findStock(currentSymbol);
         render();
@@ -104,6 +110,7 @@ function onRealtimeData(data) {
         for (var i = 0; i < trades.length; i++) {
             if (trades[i].symbol === currentSymbol) {
                 updateStockFromTrade(trades[i]);
+                StockCandleData.updateLatestCandle(trades[i].symbol, trades[i].price, trades[i].volume);
                 stock = findStock(currentSymbol);
                 var up = stock.change >= 0;
                 var theme = StockTheme.get();
@@ -131,7 +138,7 @@ function onWSError(data) {
 function onBackClick() {
     if (wsConnected && currentSymbol) {
         unsubscribeTrades(currentSymbol);
-        disconnectFinnhubWS();
+        disconnectFinnhubWS("detail");
         wsConnected = false;
     }
     goBack();
@@ -160,18 +167,17 @@ function onSellClick() {
 }
 
 // Time range handlers
-function onRange_1D()  { selectedRange = "1D";  render(); }
-function onRange_1W()  { selectedRange = "1W";  render(); }
-function onRange_1M()  { selectedRange = "1M";  render(); }
-function onRange_3M()  { selectedRange = "3M";  render(); }
-function onRange_1Y()  { selectedRange = "1Y";  render(); }
-function onRange_ALL() { selectedRange = "ALL"; render(); }
+function onRange_1D()  { selectedRange = "1D";  StockCandleData.fetchReal(currentSymbol, "1D");  render(); }
+function onRange_1W()  { selectedRange = "1W";  StockCandleData.fetchReal(currentSymbol, "1W");  render(); }
+function onRange_1M()  { selectedRange = "1M";  StockCandleData.fetchReal(currentSymbol, "1M");  render(); }
+function onRange_3M()  { selectedRange = "3M";  StockCandleData.fetchReal(currentSymbol, "3M");  render(); }
+function onRange_1Y()  { selectedRange = "1Y";  StockCandleData.fetchReal(currentSymbol, "1Y");  render(); }
+function onRange_ALL() { selectedRange = "ALL"; StockCandleData.fetchReal(currentSymbol, "ALL"); render(); }
 
 // ─── Line Chart Data ──────────────────────────────────────
 
 function generateLinePoints(stock) {
-    // Generate mock line data from stock price
-    var data = StockCandleData.generate(stock.symbol, selectedRange);
+    var data = StockCandleData.getRealCached(stock.symbol, selectedRange) || StockCandleData.generate(stock.symbol, selectedRange);
     var points = [];
     for (var i = 0; i < data.candles.length; i++) {
         points.push(data.candles[i].c);

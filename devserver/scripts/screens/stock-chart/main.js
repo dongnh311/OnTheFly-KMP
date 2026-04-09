@@ -5,15 +5,66 @@
 var selectedSymbol = "AAPL";
 var selectedRange = "1M";
 var selectedIndicator = "MA (7,25,99)";
+var wsConnected = false;
 
 // ─── Lifecycle ─────────────────────────────────────────────
 
 function onCreateView() {
+    StockCandleData.fetchReal(selectedSymbol, selectedRange);
     render();
+    connectFinnhubWS("chart");
 }
 
 function onVisible() {
     render();
+}
+
+function onDestroy() {
+    if (wsConnected) {
+        unsubscribeTrades(selectedSymbol);
+        disconnectFinnhubWS("chart");
+        wsConnected = false;
+    }
+}
+
+// ─── WebSocket Handlers ───────────────────────────────────
+
+function onWSConnected(data) {
+    wsConnected = true;
+    subscribeTrades(selectedSymbol);
+}
+
+function onRealtimeData(data) {
+    if (!data || !data.message) return;
+    var trades = parseFinnhubWSMessage(data.message);
+    if (trades) {
+        for (var i = 0; i < trades.length; i++) {
+            if (trades[i].symbol === selectedSymbol) {
+                updateStockFromTrade(trades[i]);
+                StockCandleData.updateLatestCandle(trades[i].symbol, trades[i].price, trades[i].volume);
+            }
+        }
+        render();
+    }
+}
+
+function onWSDisconnected(data) { wsConnected = false; }
+function onWSError(data) { wsConnected = false; }
+
+// ─── API Response Handler ─────────────────────────────────
+
+function onDataReceived(data) {
+    if (data.error) return;
+    // Handle candle response
+    if (data.requestId && data.requestId.indexOf("candle_") === 0) {
+        var parts = data.requestId.split("_");
+        var sym = parts[1];
+        var res = parts[2];
+        // Find which range this resolution maps to
+        var range = selectedRange;
+        var result = StockCandleData.parseRealCandles(sym, range, data.body);
+        if (result) render();
+    }
 }
 
 // ─── Navigation ────────────────────────────────────────────
@@ -28,11 +79,15 @@ function onNavTab_news()      { OnTheFly.sendToNative("navigateReplace", { scree
 
 function onClick(id, data) {
     if (id && id.indexOf("sym_") === 0) {
+        if (wsConnected) unsubscribeTrades(selectedSymbol);
         selectedSymbol = id.substring(4);
+        if (wsConnected) subscribeTrades(selectedSymbol);
+        StockCandleData.fetchReal(selectedSymbol, selectedRange);
         render();
     }
     if (id && id.indexOf("range_") === 0) {
         selectedRange = id.substring(6);
+        StockCandleData.fetchReal(selectedSymbol, selectedRange);
         render();
     }
     if (id && id.indexOf("ind_") === 0) {
@@ -123,7 +178,7 @@ function render() {
     var stock = findStock(selectedSymbol);
     if (!stock) stock = StockData.stocks[0];
     var up = stock.change >= 0;
-    var chartData = StockCandleData.generate(selectedSymbol, selectedRange);
+    var chartData = StockCandleData.getRealCached(selectedSymbol, selectedRange) || StockCandleData.generate(selectedSymbol, selectedRange);
 
     OnTheFly.setUI({
         type: "Column",

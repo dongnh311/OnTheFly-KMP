@@ -59,25 +59,60 @@ function fetchIndices() {
     }
 }
 
+function fetchCandles(symbol, resolution, fromTs, toTs) {
+    OnTheFly.sendToNative("sendRequest", {
+        id: "candle_" + symbol + "_" + resolution,
+        url: StockAPI.finnhub.base + "/stock/candle?symbol=" + symbol +
+             "&resolution=" + resolution +
+             "&from=" + fromTs + "&to=" + toTs +
+             "&token=" + StockAPI.finnhub.key,
+        method: "GET"
+    });
+}
+
+// ─── Price Flash Tracking ─────────────────────────────────
+
+var _priceFlash = {}; // { symbol: "up"|"down"|"same"|null }
+
+function setPriceFlash(symbol, direction) {
+    _priceFlash[symbol] = direction;
+}
+
+function getPriceFlash(symbol) {
+    return _priceFlash[symbol] || null;
+}
+
+function clearPriceFlash(symbol) {
+    _priceFlash[symbol] = null;
+}
+
+function clearAllPriceFlash() {
+    _priceFlash = {};
+}
+
 // ─── Finnhub WebSocket ────────────────────────────────────
 
-function connectFinnhubWS() {
+var _wsId = null;
+
+function connectFinnhubWS(screenId) {
+    _wsId = "finnhub_" + (screenId || "default");
     OnTheFly.connectWS(
         StockAPI.finnhub.ws + "?token=" + StockAPI.finnhub.key,
-        { id: "finnhub", autoReconnect: true, maxReconnectAttempts: 5, reconnectDelay: 2000 }
+        { id: _wsId, autoReconnect: true, maxReconnectAttempts: 5, reconnectDelay: 2000 }
     );
 }
 
 function subscribeTrades(symbol) {
-    OnTheFly.sendWS(JSON.stringify({ type: "subscribe", symbol: symbol }), "finnhub");
+    if (_wsId) OnTheFly.sendWS(JSON.stringify({ type: "subscribe", symbol: symbol }), _wsId);
 }
 
 function unsubscribeTrades(symbol) {
-    OnTheFly.sendWS(JSON.stringify({ type: "unsubscribe", symbol: symbol }), "finnhub");
+    if (_wsId) OnTheFly.sendWS(JSON.stringify({ type: "unsubscribe", symbol: symbol }), _wsId);
 }
 
 function disconnectFinnhubWS() {
-    OnTheFly.closeWS("finnhub");
+    if (_wsId) OnTheFly.closeWS(_wsId);
+    _wsId = null;
 }
 
 // ─── Marketaux API Helpers ────────────────────────────────
@@ -164,6 +199,7 @@ function parseFinnhubWSMessage(messageStr) {
 function updateStockFromTrade(trade) {
     var stock = findStock(trade.symbol);
     if (stock) {
+        var oldPrice = stock.price;
         stock.price = trade.price;
         stock.change = trade.price - stock.open;
         if (stock.open > 0) {
@@ -171,6 +207,14 @@ function updateStockFromTrade(trade) {
         }
         if (trade.price > stock.high) stock.high = trade.price;
         if (trade.price < stock.low) stock.low = trade.price;
+        // Track flash direction
+        if (trade.price > oldPrice) {
+            setPriceFlash(trade.symbol, "up");
+        } else if (trade.price < oldPrice) {
+            setPriceFlash(trade.symbol, "down");
+        } else {
+            setPriceFlash(trade.symbol, "same");
+        }
     }
 }
 

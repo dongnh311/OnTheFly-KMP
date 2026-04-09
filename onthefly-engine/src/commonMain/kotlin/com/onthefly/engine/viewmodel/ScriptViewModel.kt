@@ -263,7 +263,7 @@ class ScriptViewModel(
     }
 
     fun startAutoReload() {
-        // Try WebSocket push first
+        // Try WebSocket push for instant reload
         DevServerSource.startWsListener(viewModelScope) {
             viewModelScope.launch {
                 updateManager.updateFromDevServer(currentBundleName)
@@ -271,11 +271,9 @@ class ScriptViewModel(
             }
         }
 
-        // Start fallback polling only after WS has had time to connect
+        // Always run polling as backup (WS can drop silently)
         viewModelScope.launch {
-            delay(3000)
-            if (DevServerSource.useWebSocket) return@launch
-            // WS failed — fall back to polling
+            delay(3000) // Give WS time to connect first
             while (true) {
                 delay(2000)
                 if (!isInitialized) continue

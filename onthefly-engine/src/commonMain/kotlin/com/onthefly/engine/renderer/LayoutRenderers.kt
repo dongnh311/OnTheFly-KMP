@@ -20,6 +20,11 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
@@ -45,8 +50,27 @@ fun RenderColumn(
     val componentId = c.propString("id")
     val borderRadius = c.resolveBorderRadius(style)
     val bg = c.resolveBackground(style)
+    val flashBg = c.propColor("flashBackground")
+    val flashDuration = c.propInt("flashDuration", 500)
 
     if (!visible) return
+
+    // Flash animation
+    var flashVisible by remember { mutableStateOf(false) }
+    var flashColorState by remember { mutableStateOf(Color.Transparent) }
+    LaunchedEffect(flashBg) {
+        if (flashBg != null && flashBg != Color.Unspecified) {
+            flashColorState = flashBg
+            flashVisible = true
+            kotlinx.coroutines.delay(flashDuration.toLong())
+            flashVisible = false
+        }
+    }
+    val animatedFlash = androidx.compose.animation.animateColorAsState(
+        targetValue = if (flashVisible) flashColorState else Color.Transparent,
+        animationSpec = androidx.compose.animation.core.tween(durationMillis = if (flashVisible) 50 else 300),
+        label = "flash"
+    )
 
     val shape = c.resolveShape()
     var mod = modifier
@@ -56,6 +80,7 @@ fun RenderColumn(
 
     if (borderRadius > 0) mod = mod.clip(shape)
     if (bg != null) mod = mod.background(bg, shape)
+    if (flashBg != null) mod = mod.background(animatedFlash.value, shape)
     mod = mod.applyBorder(c, style, borderRadius)
     mod = mod.applyPadding(c, style)
 
@@ -165,9 +190,32 @@ fun RenderBox(
     val componentId = c.propString("id")
     val borderRadius = c.resolveBorderRadius(style)
     val bg = c.resolveBackground(style)
+    val flashBg = c.propColor("flashBackground")
+    val flashDuration = c.propInt("flashDuration", 500)
     val contentAlignment = resolveContentAlignment(c.propString("contentAlignment"))
 
     if (!visible) return
+
+    // Flash animation: show color then fade to transparent
+    var flashVisible by remember { mutableStateOf(false) }
+    var flashColor by remember { mutableStateOf(Color.Transparent) }
+
+    LaunchedEffect(flashBg) {
+        if (flashBg != null && flashBg != Color.Unspecified) {
+            flashColor = flashBg
+            flashVisible = true
+            kotlinx.coroutines.delay(flashDuration.toLong())
+            flashVisible = false
+        }
+    }
+
+    val animatedFlash = androidx.compose.animation.animateColorAsState(
+        targetValue = if (flashVisible) flashColor else Color.Transparent,
+        animationSpec = androidx.compose.animation.core.tween(
+            durationMillis = if (flashVisible) 50 else 300
+        ),
+        label = "flash"
+    )
 
     val shape = c.resolveShape()
     var mod = modifier
@@ -177,6 +225,7 @@ fun RenderBox(
 
     if (borderRadius > 0) mod = mod.clip(shape)
     if (bg != null) mod = mod.background(bg, shape)
+    if (flashBg != null) mod = mod.background(animatedFlash.value, shape)
     mod = mod.applyBorder(c, style, borderRadius)
     mod = mod.applyPadding(c, style)
 

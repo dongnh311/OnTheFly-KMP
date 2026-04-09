@@ -5,15 +5,49 @@
 var quotesLoaded = 0;
 var quotesTotal = 0;
 var confirmSymbol = null;
+var wsConnected = false;
 
 // ─── Lifecycle ─────────────────────────────────────────────
 
 function onCreateView() {
-    // Load watchlist from persistent storage for current user
     loadWatchlistFromStorage();
     render();
     fetchWatchlistQuotes();
+    connectFinnhubWS("watchlist");
 }
+
+function onDestroy() {
+    if (wsConnected) {
+        var stocks = getWatchlistStocks();
+        for (var i = 0; i < stocks.length; i++) {
+            unsubscribeTrades(stocks[i].symbol);
+        }
+        disconnectFinnhubWS("watchlist");
+        wsConnected = false;
+    }
+}
+
+function onWSConnected(data) {
+    wsConnected = true;
+    var stocks = getWatchlistStocks();
+    for (var i = 0; i < stocks.length; i++) {
+        subscribeTrades(stocks[i].symbol);
+    }
+}
+
+function onRealtimeData(data) {
+    if (!data || !data.message) return;
+    var trades = parseFinnhubWSMessage(data.message);
+    if (trades) {
+        for (var i = 0; i < trades.length; i++) {
+            updateStockFromTrade(trades[i]);
+        }
+        render();
+    }
+}
+
+function onWSDisconnected(data) { wsConnected = false; }
+function onWSError(data) { wsConnected = false; }
 
 function onVisible() {
     resetWatchlistCache();
@@ -138,15 +172,8 @@ function buildStockRow(stock, theme) {
                     { type: "Text", props: { text: stock.name, fontSize: 12, color: theme.textSecondary, maxLines: 1 } }
                 ]
             },
-            // Right: price + change
-            {
-                type: "Column",
-                props: { alignment: "end", width: "wrap", spacing: 2 },
-                children: [
-                    { type: "Text", props: { text: stockPriceText(stock.price), fontSize: 15, fontWeight: "700", color: theme.textPrimary } },
-                    { type: "Text", props: { text: (up ? "+" : "") + stock.change.toFixed(2) + " (" + fmtPct(stock.pct) + ")", fontSize: 12, fontWeight: "600", color: up ? theme.positive : theme.negative } }
-                ]
-            },
+            // Right: price + change (with flash)
+            buildFlashPriceColumn(stock, theme),
             { type: "Spacer", props: { width: 10 } },
             // Remove button (small circular X)
             {

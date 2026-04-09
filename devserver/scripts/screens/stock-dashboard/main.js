@@ -5,6 +5,7 @@
 var quotesLoaded = 0;
 var quotesTotal = 0;
 var dataReady = false;
+var wsConnected = false;
 
 // ─── Lifecycle ─────────────────────────────────────────────
 
@@ -19,6 +20,7 @@ function onCreateView() {
     quotesLoaded = 0;
     fetchQuotes(symbols);
     fetchNews();
+    connectFinnhubWS("dashboard");
 }
 
 function onVisible() {
@@ -27,6 +29,50 @@ function onVisible() {
         render();
     }
 }
+
+function onDestroy() {
+    if (wsConnected) {
+        for (var i = 0; i < StockData.stocks.length; i++) {
+            unsubscribeTrades(StockData.stocks[i].symbol);
+        }
+        disconnectFinnhubWS("dashboard");
+        wsConnected = false;
+    }
+}
+
+// ─── WebSocket Handlers ───────────────────────────────────
+
+var _tradeCount = 0;
+
+function onWSConnected(data) {
+    wsConnected = true;
+    OnTheFly.log("[Dashboard] WS Connected");
+    for (var i = 0; i < StockData.stocks.length; i++) {
+        subscribeTrades(StockData.stocks[i].symbol);
+    }
+}
+
+function onRealtimeData(data) {
+    if (!data || !data.message) return;
+    var trades = parseFinnhubWSMessage(data.message);
+    if (trades) {
+        for (var i = 0; i < trades.length; i++) {
+            updateStockFromTrade(trades[i]);
+            _tradeCount++;
+            if (_tradeCount % 20 === 1) {
+                var s = findStock(trades[i].symbol);
+                var chg = s ? s.change.toFixed(2) : "?";
+                var pct = s ? s.pct.toFixed(2) + "%" : "?";
+                OnTheFly.log("[RT] #" + _tradeCount + " " + trades[i].symbol + " $" + trades[i].price + " chg:" + chg + " " + pct);
+            }
+        }
+        recalcPortfolio();
+        render();
+    }
+}
+
+function onWSDisconnected(data) { wsConnected = false; }
+function onWSError(data) { wsConnected = false; }
 
 // ─── API Response Handler ─────────────────────────────────
 
@@ -319,14 +365,12 @@ function buildTrendingCards(theme) {
 }
 
 function buildStockRow(stock, theme) {
-    var up = stock.change >= 0;
-    var changeSign = up ? "+" : "";
     return {
         type: "Row",
         props: {
             fillMaxWidth: true,
             padding: { start: 16, end: 16, top: 12, bottom: 12 },
-            verticalAlignment: "center",
+            crossAlignment: "center",
             onClick: "onStockTap_" + stock.symbol
         },
         children: [
@@ -334,48 +378,11 @@ function buildStockRow(stock, theme) {
                 type: "Column",
                 props: { weight: 1 },
                 children: [
-                    {
-                        type: "Text",
-                        props: {
-                            text: stock.symbol,
-                            fontSize: 15,
-                            fontWeight: "700",
-                            color: theme.textPrimary
-                        }
-                    },
-                    {
-                        type: "Text",
-                        props: {
-                            text: stock.name,
-                            fontSize: 12,
-                            color: theme.textSecondary
-                        }
-                    }
+                    { type: "Text", props: { text: stock.symbol, fontSize: 15, fontWeight: "700", color: theme.textPrimary } },
+                    { type: "Text", props: { text: stock.name, fontSize: 12, color: theme.textSecondary } }
                 ]
             },
-            {
-                type: "Column",
-                props: { alignment: "end", width: "wrap" },
-                children: [
-                    {
-                        type: "Text",
-                        props: {
-                            text: stockPriceText(stock.price),
-                            fontSize: 15,
-                            fontWeight: "600",
-                            color: theme.textPrimary
-                        }
-                    },
-                    {
-                        type: "Text",
-                        props: {
-                            text: changeSign + stock.change.toFixed(2) + " (" + fmtPct(stock.pct) + ")",
-                            fontSize: 12,
-                            color: up ? theme.positive : theme.negative
-                        }
-                    }
-                ]
-            }
+            buildFlashPriceColumn(stock, theme)
         ]
     };
 }

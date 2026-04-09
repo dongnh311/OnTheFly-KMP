@@ -256,7 +256,7 @@ private fun DrawScope.drawChartContent(
             val isUp = cd.close >= cd.open
             val barH = (cd.volume / volumeMax) * volumeChartHeight * 0.85f
             drawRect(
-                color = if (isUp) upColor.copy(alpha = 0.4f) else downColor.copy(alpha = 0.4f),
+                color = if (isUp) upColor.copy(alpha = 0.7f) else downColor.copy(alpha = 0.7f),
                 topLeft = Offset(x - candleBodyWidth / 2f, volumeChartTop + volumeChartHeight - barH),
                 size = Size(candleBodyWidth, barH)
             )

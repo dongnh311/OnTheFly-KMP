@@ -345,9 +345,9 @@ class ScriptChangeHandler(FileSystemEventHandler):
     def on_any_event(self, event):
         if event.is_directory:
             return
-        # Debounce: ignore events within 500ms for same file
+        # Debounce: ignore events within 200ms for same file
         now = time.time()
-        if now - self.last_event < 0.5 and event.src_path == self.last_path:
+        if now - self.last_event < 0.2 and event.src_path == self.last_path:
             return
         self.last_event = now
         self.last_path = event.src_path
