@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -18,6 +19,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.LaunchedEffect
@@ -490,7 +492,7 @@ fun RenderSearchBar(c: UIComponent, onEvent: (String) -> Unit, onComponentEvent:
         modifier = modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        OutlinedTextField(
+        BasicTextField(
             value = value,
             onValueChange = { newValue ->
                 if (onChanged != null) {
@@ -503,24 +505,8 @@ fun RenderSearchBar(c: UIComponent, onEvent: (String) -> Unit, onComponentEvent:
                     )
                 }
             },
-            modifier = Modifier.weight(1f),
-            placeholder = { Text(placeholder) },
-            leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
-            trailingIcon = if (value.isNotEmpty()) {
-                {
-                    IconButton(onClick = {
-                        onComponentEvent(
-                            ComponentEvent(
-                                EngineEvent.ON_TEXT_CHANGED,
-                                componentId,
-                                "{\"value\": \"\"}"
-                            )
-                        )
-                    }) {
-                        Icon(Icons.Default.Clear, contentDescription = "Clear")
-                    }
-                }
-            } else null,
+            modifier = Modifier.weight(1f).height(40.dp),
+            singleLine = true,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
             keyboardActions = KeyboardActions(
                 onSearch = {
@@ -535,8 +521,37 @@ fun RenderSearchBar(c: UIComponent, onEvent: (String) -> Unit, onComponentEvent:
                     }
                 }
             ),
-            singleLine = true,
-            shape = RoundedCornerShape(24.dp)
+            decorationBox = { innerTextField ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(24.dp))
+                        .padding(horizontal = 12.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(Icons.Default.Search, contentDescription = "Search", modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.width(8.dp))
+                    Box(modifier = Modifier.weight(1f)) {
+                        if (value.isEmpty()) {
+                            Text(placeholder, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
+                        }
+                        innerTextField()
+                    }
+                    if (value.isNotEmpty()) {
+                        IconButton(onClick = {
+                            onComponentEvent(
+                                ComponentEvent(
+                                    EngineEvent.ON_TEXT_CHANGED,
+                                    componentId,
+                                    "{\"value\": \"\"}"
+                                )
+                            )
+                        }, modifier = Modifier.size(20.dp)) {
+                            Icon(Icons.Default.Clear, contentDescription = "Clear", modifier = Modifier.size(16.dp))
+                        }
+                    }
+                }
+            }
         )
         if (showCancel) {
             Spacer(Modifier.width(8.dp))

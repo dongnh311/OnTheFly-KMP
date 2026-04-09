@@ -135,7 +135,7 @@ function buildStockRow(stock, theme) {
                 props: { alignment: "end", width: "wrap" },
                 children: [
                     { type: "Text", props: { text: stockPriceText(stock.price), fontSize: 15, fontWeight: "700", color: theme.textPrimary } },
-                    { type: "Text", props: { text: (stock.change >= 0 ? "+" : "") + stock.change.toFixed(2) + " (" + fmtPct(stock.pct) + ")", fontSize: 12, fontWeight: "600", color: up ? theme.positive : theme.negative } }
+                    { type: "Text", props: { text: (stock.change >= 0 ? "+" : "") + stock.change.toFixed(2) + " (" + fmtPct(stock.pct) + ")", fontSize: 12, fontWeight: "600", color: stock.change > 0 ? theme.positive : (stock.change < 0 ? theme.negative : theme.warning) } }
                 ]
             }
         ]

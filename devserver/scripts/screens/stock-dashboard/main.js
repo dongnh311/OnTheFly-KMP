@@ -190,7 +190,7 @@ function buildTopBar(theme) {
 function buildPortfolioCard(theme) {
     var portfolio = StockData.portfolio;
     var up = portfolio.dayChange >= 0;
-    var changeColor = up ? theme.positive : theme.negative;
+    var changeColor = portfolio.dayChange > 0 ? theme.positive : (portfolio.dayChange < 0 ? theme.negative : theme.warning);
     var changeSign = up ? "+" : "";
     var badgeBg = "#33" + changeColor.replace("#", "");
 
@@ -351,7 +351,7 @@ function buildTrendingCards(theme) {
                     props: {
                         text: fmtPct(s.pct),
                         fontSize: 11,
-                        color: up ? theme.positive : theme.negative
+                        color: s.change > 0 ? theme.positive : (s.change < 0 ? theme.negative : theme.warning)
                     }
                 }
             ]

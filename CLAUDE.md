@@ -87,6 +87,22 @@ Script bundles live in `devserver/scripts/screens/` — each bundle has `manifes
 
 The `copyScriptsToAssets` Gradle task (in `composeApp/build.gradle.kts`) copies scripts into Android assets on every build.
 
+## UI/View Change Rule — Props-First in Kotlin
+
+**IMPORTANT:** When modifying any UI/view-related feature, always prioritize adding it as props in Kotlin renderer (.kt), NOT as logic in JavaScript (.js). JS code should only pass prop values — all rendering logic lives in Kotlin Compose.
+
+**Principle:** Kotlin renderers own the rendering behavior. JS scripts declare *what* to show via props, Kotlin decides *how* to render it.
+
+**Examples:**
+
+- **Text color based on price change:** Add props `priceColorEnabled` (Boolean), `upColor`, `holdColor`, `downColor` to the Kotlin renderer. JS just sets `priceColorEnabled: true` and the colors — Kotlin handles the color logic.
+- **Flash animation based on price change:** Add props `flashEnabled` (Boolean), `flashUpColor`, `flashHoldColor`, `flashDownColor` to the Kotlin renderer. JS sets `flashEnabled: true` with colors — Kotlin handles the flash animation lifecycle.
+- **Any conditional styling:** If a visual behavior depends on a condition (e.g., positive/negative value), the condition check and style application belong in the Kotlin renderer, controlled by declarative props from JS.
+
+**Why:** This keeps JS scripts thin and declarative, avoids duplicating rendering logic across screens, and ensures consistent behavior across all platforms (Android/iOS/Desktop).
+
+**IMPORTANT:** Whenever you **add, remove, or modify** props, events, native actions, or JS API functions, you **MUST** update `BRIDGE_API_REFERENCE.md` in the project root to reflect the changes. This file is the single source of truth for all bridge capabilities.
+
 ## Key Technical Details
 
 - **Kotlin 2.1.10**, **Compose Multiplatform 1.7.3**, **AGP 8.7.3**, **Gradle 8.11.1**

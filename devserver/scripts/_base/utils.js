@@ -89,36 +89,26 @@ function goBack() {
 
 // ─── Price Flash Helpers ──────────────────────────────────
 
-function getFlashColors(symbol, theme) {
-    var flash = getPriceFlash(symbol);
-    if (!flash) return { textColor: null, bgColor: null };
-    if (flash === "up") return { textColor: theme.positive, bgColor: "#1A" + theme.positive.replace("#", "") };
-    if (flash === "down") return { textColor: theme.negative, bgColor: "#1A" + theme.negative.replace("#", "") };
-    if (flash === "same") return { textColor: theme.warning, bgColor: "#1A" + theme.warning.replace("#", "") };
-    return { textColor: null, bgColor: null };
-}
-
 function buildFlashPriceColumn(stock, theme) {
-    var up = stock.change >= 0;
-    var changeSign = up ? "+" : "";
-    var flash = getFlashColors(stock.symbol, theme);
-    var priceColor = flash.textColor || theme.textPrimary;
-    var changeColor = flash.textColor || (up ? theme.positive : theme.negative);
+    var changeSign = stock.change >= 0 ? "+" : "";
+    var changeColor = stock.change > 0 ? theme.positive : (stock.change < 0 ? theme.negative : theme.warning);
+    var hasFlash = !!getPriceFlash(stock.symbol);
+    var flashBg = hasFlash ? ("#1A" + changeColor.replace("#", "")) : undefined;
 
-    if (flash.bgColor) clearPriceFlash(stock.symbol);
+    if (hasFlash) clearPriceFlash(stock.symbol);
 
     return {
         type: "Column",
         props: {
             alignment: "end",
             width: "wrap",
-            flashBackground: flash.bgColor || undefined,
+            flashBackground: flashBg,
             flashDuration: 500,
             borderRadius: 4,
             padding: { horizontal: 4, vertical: 2 }
         },
         children: [
-            { type: "Text", props: { text: stockPriceText(stock.price), fontSize: 15, fontWeight: "700", color: priceColor } },
+            { type: "Text", props: { text: stockPriceText(stock.price), fontSize: 15, fontWeight: "700", color: changeColor } },
             { type: "Text", props: { text: changeSign + stock.change.toFixed(2) + " (" + fmtPct(stock.pct) + ")", fontSize: 12, fontWeight: "600", color: changeColor } }
         ]
     };
@@ -129,7 +119,7 @@ function buildFlashPriceColumn(stock, theme) {
 function changeColor(num) {
     if (num > 0) return "#27AE60";
     if (num < 0) return "#E74C3C";
-    return "#999999";
+    return "#F59E0B";
 }
 
 function changeSign(num) {

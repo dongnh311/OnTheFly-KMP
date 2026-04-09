@@ -117,7 +117,7 @@ function onRealtimeData(data) {
                 OnTheFly.update("priceText", { text: stockPriceText(stock.price) });
                 OnTheFly.update("changeText", {
                     text: stockChangeArrow(stock),
-                    color: up ? theme.positive : theme.negative
+                    color: stock.change > 0 ? theme.positive : (stock.change < 0 ? theme.negative : theme.warning)
                 });
             }
         }
@@ -352,7 +352,7 @@ function render() {
                                     text: stockChangeArrow(stock),
                                     fontSize: 15,
                                     fontWeight: "600",
-                                    color: up ? theme.positive : theme.negative
+                                    color: stock.change > 0 ? theme.positive : (stock.change < 0 ? theme.negative : theme.warning)
                                 }
                             }
                         ]
@@ -368,7 +368,7 @@ function render() {
                                 props: {
                                     height: 140,
                                     points: generateLinePoints(stock),
-                                    lineColor: up ? theme.positive : theme.negative,
+                                    lineColor: stock.change > 0 ? theme.positive : (stock.change < 0 ? theme.negative : theme.warning),
                                     background: theme.surfaceVariant,
                                     fillAlpha: 0.25,
                                     lineWidth: 2,

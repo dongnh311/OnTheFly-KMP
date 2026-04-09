@@ -236,7 +236,7 @@ function render() {
                         props: { padding: { start: 16, end: 16, bottom: 8 }, crossAlignment: "end", spacing: 6 },
                         children: [
                             { type: "Text", props: { text: stockPriceText(stock.price), fontSize: 28, fontWeight: "800", color: theme.textPrimary } },
-                            { type: "Text", props: { text: (up ? "+" : "") + stock.change.toFixed(2) + " (" + fmtPct(stock.pct) + ")", fontSize: 13, fontWeight: "600", color: up ? theme.positive : theme.negative, padding: { bottom: 3 } } }
+                            { type: "Text", props: { text: (up ? "+" : "") + stock.change.toFixed(2) + " (" + fmtPct(stock.pct) + ")", fontSize: 13, fontWeight: "600", color: stock.change > 0 ? theme.positive : (stock.change < 0 ? theme.negative : theme.warning), padding: { bottom: 3 } } }
                         ]
                     },
 

@@ -149,6 +149,7 @@ function parseFinnhubQuote(symbol, body) {
         high: body.h || 0,
         low: body.l || 0,
         open: body.o || 0,
+        prevClose: body.pc || 0,
         vol: existing ? existing.vol : "N/A",
         cap: existing ? existing.cap : "N/A",
         pe: existing ? existing.pe : 0
@@ -201,9 +202,10 @@ function updateStockFromTrade(trade) {
     if (stock) {
         var oldPrice = stock.price;
         stock.price = trade.price;
-        stock.change = trade.price - stock.open;
-        if (stock.open > 0) {
-            stock.pct = ((trade.price - stock.open) / stock.open) * 100;
+        var base = stock.prevClose > 0 ? stock.prevClose : stock.open;
+        stock.change = trade.price - base;
+        if (base > 0) {
+            stock.pct = ((trade.price - base) / base) * 100;
         }
         if (trade.price > stock.high) stock.high = trade.price;
         if (trade.price < stock.low) stock.low = trade.price;
@@ -249,14 +251,14 @@ function parseMarketauxNews(body) {
 
 var StockData = {
     stocks: [
-        { symbol: "AAPL",  name: "Apple Inc.",       price: 189.84, change: 2.35,   pct: 1.25,  open: 187.49, high: 190.21, low: 186.80, vol: "52.3M", cap: "2.95T", pe: 31.2 },
-        { symbol: "TSLA",  name: "Tesla, Inc.",      price: 248.42, change: -5.18,  pct: -2.04, open: 253.60, high: 255.10, low: 246.30, vol: "98.7M", cap: "790B",  pe: 62.8 },
-        { symbol: "NVDA",  name: "NVIDIA Corp.",     price: 875.28, change: 12.45,  pct: 1.44,  open: 862.83, high: 880.50, low: 860.15, vol: "41.2M", cap: "2.16T", pe: 72.5 },
-        { symbol: "MSFT",  name: "Microsoft Corp.",  price: 415.56, change: 3.22,   pct: 0.78,  open: 412.34, high: 417.80, low: 411.50, vol: "22.1M", cap: "3.09T", pe: 37.1 },
-        { symbol: "GOOGL", name: "Alphabet Inc.",    price: 155.72, change: -1.38,  pct: -0.88, open: 157.10, high: 158.40, low: 154.20, vol: "28.5M", cap: "1.93T", pe: 25.3 },
-        { symbol: "AMZN",  name: "Amazon.com Inc.",  price: 185.07, change: 4.52,   pct: 2.50,  open: 180.55, high: 186.30, low: 179.90, vol: "55.8M", cap: "1.93T", pe: 58.4 },
-        { symbol: "META",  name: "Meta Platforms",   price: 505.95, change: 8.30,   pct: 1.67,  open: 497.65, high: 508.20, low: 495.80, vol: "18.3M", cap: "1.30T", pe: 33.7 },
-        { symbol: "AMD",   name: "Advanced Micro",   price: 178.32, change: -2.14,  pct: -1.19, open: 180.46, high: 181.90, low: 176.50, vol: "62.4M", cap: "288B",  pe: 46.2 }
+        { symbol: "AAPL",  name: "Apple Inc.",       price: 189.84, change: 2.35,   pct: 1.25,  open: 187.49, high: 190.21, low: 186.80, prevClose: 187.49, vol: "52.3M", cap: "2.95T", pe: 31.2 },
+        { symbol: "TSLA",  name: "Tesla, Inc.",      price: 248.42, change: -5.18,  pct: -2.04, open: 253.60, high: 255.10, low: 246.30, prevClose: 253.60, vol: "98.7M", cap: "790B",  pe: 62.8 },
+        { symbol: "NVDA",  name: "NVIDIA Corp.",     price: 875.28, change: 12.45,  pct: 1.44,  open: 862.83, high: 880.50, low: 860.15, prevClose: 862.83, vol: "41.2M", cap: "2.16T", pe: 72.5 },
+        { symbol: "MSFT",  name: "Microsoft Corp.",  price: 415.56, change: 3.22,   pct: 0.78,  open: 412.34, high: 417.80, low: 411.50, prevClose: 412.34, vol: "22.1M", cap: "3.09T", pe: 37.1 },
+        { symbol: "GOOGL", name: "Alphabet Inc.",    price: 155.72, change: -1.38,  pct: -0.88, open: 157.10, high: 158.40, low: 154.20, prevClose: 157.10, vol: "28.5M", cap: "1.93T", pe: 25.3 },
+        { symbol: "AMZN",  name: "Amazon.com Inc.",  price: 185.07, change: 4.52,   pct: 2.50,  open: 180.55, high: 186.30, low: 179.90, prevClose: 180.55, vol: "55.8M", cap: "1.93T", pe: 58.4 },
+        { symbol: "META",  name: "Meta Platforms",   price: 505.95, change: 8.30,   pct: 1.67,  open: 497.65, high: 508.20, low: 495.80, prevClose: 497.65, vol: "18.3M", cap: "1.30T", pe: 33.7 },
+        { symbol: "AMD",   name: "Advanced Micro",   price: 178.32, change: -2.14,  pct: -1.19, open: 180.46, high: 181.90, low: 176.50, prevClose: 180.46, vol: "62.4M", cap: "288B",  pe: 46.2 }
     ],
 
     news: [

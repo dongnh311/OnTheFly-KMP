@@ -55,10 +55,11 @@ fun RenderColumn(
 
     if (!visible) return
 
-    // Flash animation
+    // Flash animation — each recomposition with a non-null flashBg triggers a fresh cycle
     var flashVisible by remember { mutableStateOf(false) }
     var flashColorState by remember { mutableStateOf(Color.Transparent) }
-    LaunchedEffect(flashBg) {
+    val flashKey = c.propString("flashBackground")
+    LaunchedEffect(flashKey, c.props) {
         if (flashBg != null && flashBg != Color.Unspecified) {
             flashColorState = flashBg
             flashVisible = true
@@ -196,11 +197,11 @@ fun RenderBox(
 
     if (!visible) return
 
-    // Flash animation: show color then fade to transparent
+    // Flash animation — each recomposition with a non-null flashBg triggers a fresh cycle
     var flashVisible by remember { mutableStateOf(false) }
     var flashColor by remember { mutableStateOf(Color.Transparent) }
-
-    LaunchedEffect(flashBg) {
+    val flashKey = c.propString("flashBackground")
+    LaunchedEffect(flashKey, c.props) {
         if (flashBg != null && flashBg != Color.Unspecified) {
             flashColor = flashBg
             flashVisible = true
