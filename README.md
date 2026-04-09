@@ -1,14 +1,16 @@
 # OnTheFly KMP
 
-**Dynamic UI Engine** for Android, iOS and Desktop — renders native Compose widgets from JavaScript scripts at runtime via the **QuickJS** engine.
+**Dynamic UI Engine** for Android, iOS and Desktop — renders native Compose widgets from JavaScript scripts at runtime via the **QuickJS** engine (powered by **Rust** native bridge).
 
 Zero WebView, zero HTML — all UI is native Jetpack Compose / Compose Multiplatform driven entirely by JavaScript.
 
 ```
-JavaScript defines UI → QuickJS executes (C) → UIComponent tree (Kotlin) → Compose renders native → User interactions flow back to JS
+JavaScript defines UI → QuickJS executes (Rust) → UIComponent tree (Kotlin) → Compose renders native → User interactions flow back to JS
 ```
 
 ## Screenshots
+
+### Engine Demo (Basic Components)
 
 | Android | iOS |
 |:---:|:---:|
@@ -16,6 +18,28 @@ JavaScript defines UI → QuickJS executes (C) → UIComponent tree (Kotlin) →
 | Pixel 8 Pro (API 34) | iPhone 16 Pro (iOS 18) |
 
 > Same JS bundle, native UI on both platforms — powered by QuickJS engine.
+
+### Stock Trading App Demo
+
+A full-featured stock trading demo app built entirely with OnTheFly JS scripts — no native code per screen. Features real-time price updates via Finnhub WebSocket, candlestick charts with MA indicators, portfolio tracking, search, watchlist, and news feed.
+
+| Dashboard | Candlestick Chart | Stock Detail |
+|:---:|:---:|:---:|
+| <img src="screenshots/stock_dashboard.png" width="250"/> | <img src="screenshots/stock_chart.png" width="250"/> | <img src="screenshots/stock_detail.png" width="250"/> |
+| Portfolio, trending stocks, top movers | OHLCV candles, MA7/25/99, volume bars | Price, line chart, OHLC stats, buy/sell |
+
+| Search | News |
+|:---:|:---:|
+| <img src="screenshots/stock_search.png" width="250"/> | <img src="screenshots/stock_news.png" width="250"/> |
+| Search stocks, recent & popular | Breaking & latest market news |
+
+**Key highlights:**
+- **100% JS-driven** — all 9+ screens are JavaScript bundles, zero platform-specific UI code
+- **Real-time data** — Finnhub WebSocket for live price updates with flash animations
+- **Candlestick chart** — Custom Canvas renderer with MA lines, volume bars, horizontal scroll, price highlight
+- **Cross-screen state** — Shared store for watchlist, user preferences, dark mode
+- **i18n** — English & Vietnamese language support
+- **Dark/Light theme** — Toggle via shared state, all screens react instantly
 
 ## Architecture
 
@@ -47,7 +71,8 @@ onthefly-engine (library)          composeApp (sample app)
 | Navigation | Compose Navigation | 2.8.0-alpha12 |
 | Networking | Ktor Client + WebSockets | 2.3.12 |
 | Image Loading | Coil 3 (KMP) | 3.1.0 |
-| JS Engine | QuickJS (embedded C) | 2025-09-13 |
+| JS Engine | QuickJS (embedded via Rust bridge) | 2025-09-13 |
+| Native Bridge | Rust (cdylib/staticlib) | 2021 edition |
 | Lifecycle | AndroidX Lifecycle | 2.8.4 |
 | Build | Gradle 8.11.1, AGP 8.7.3 | - |
 | Android Min SDK | 24 (Android 7.0) | Target: 36 |
@@ -109,7 +134,7 @@ fun OnTheFlyScreen(
 )
 ```
 
-## UI Components (40+)
+## UI Components (40+ types)
 
 ### Layout
 | Component | Description |
@@ -175,6 +200,12 @@ fun OnTheFlyScreen(
 | `WebView` | Web content (placeholder — needs platform SDK) |
 | `MapView` | Map display (placeholder — needs platform SDK) |
 | `VideoPlayer` | Video playback (placeholder — needs platform SDK) |
+
+### Charts
+| Component | Description |
+|---|---|
+| `CandlestickChart` | OHLCV candlestick chart with MA7/25/99 lines, volume bars, horizontal scroll, price highlight, grid |
+| `LineChart` | Simple line chart with gradient fill, auto-scaled Y axis |
 
 ## Engine Features
 
@@ -336,12 +367,15 @@ OnTheFly-KMP/
 │       ├── iosMain/                    MainViewController.kt
 │       └── desktopMain/                Main.kt
 │
-├── native/                             C/C++ QuickJS bridges
+├── native/                             Rust QuickJS bridge (+ legacy C/C++)
+│   └── rust/                           Cargo workspace: engine.rs, jni_bridge.rs, ios_bridge.rs
 ├── devserver/                          Dev server + JS script bundles
 │   ├── scripts/
 │   │   ├── _base/, _libs/              Shared utilities and state
 │   │   ├── languages/                  i18n (en.json, vi.json)
-│   │   └── screens/                    home, demo-app, api-demo, websocket-demo, etc.
+│   │   └── screens/                    home, demo-app, api-demo, websocket-demo,
+│   │                                   stock-dashboard, stock-chart, stock-detail,
+│   │                                   stock-search, stock-watchlist, stock-news, etc.
 │   └── server.py                       HTTP + WebSocket push + file watcher
 └── iosApp/                             Xcode project wrapper
 ```
@@ -394,15 +428,22 @@ OnTheFly-KMP/
 ### Desktop
 
 ```bash
-cd native && mkdir -p build && cd build && cmake .. && make  # one-time
+cd native/rust && ./build_desktop.sh  # one-time (builds Rust native lib)
 ./gradlew :composeApp:run
 ```
 
 ### iOS
 
 ```bash
-cd native/ios && ./build_ios.sh  # one-time
+cd native/rust && ./build_ios.sh  # one-time (builds Rust static lib for arm64/x86_64/sim)
 # Open iosApp/iosApp.xcodeproj in Xcode
+```
+
+### Android Native (Rust)
+
+```bash
+cd native/rust && ./build_android.sh  # builds .so for arm64-v8a, armeabi-v7a, x86_64
+# Output: onthefly-engine/src/androidMain/jniLibs/
 ```
 
 ### Tests
@@ -440,3 +481,5 @@ python server.py
 ## Migrated From
 
 This project was migrated from [OnTheFly-Android](https://github.com/dongnh311/OnTheFly-Android) (single-platform Android) to Kotlin Multiplatform, retaining 100% of the logic and JS bundles while adding iOS and Desktop support.
+
+The native bridge was migrated from C/C++ to **Rust**, providing per-context thread-safe state management, unified codebase across all 3 platforms, and compiler-enforced memory safety.
