@@ -389,3 +389,82 @@ private fun formatDate(timestamp: Long): String {
     val mName = if (month < 12) monthNames[month] else "Dec"
     return "$mName ${remaining + 1}"
 }
+
+// ═══════════════════════════════════════════════════════════
+//  LineChart — Simple line chart with gradient fill
+// ═══════════════════════════════════════════════════════════
+
+@Composable
+fun RenderLineChart(
+    c: UIComponent,
+    modifier: Modifier
+) {
+    val visible = c.propBool("visible", true)
+    if (!visible) return
+
+    val chartHeight = c.propInt("height", 120)
+    val bgColor = c.propColor("background") ?: Color(0xFF1F2937)
+    val lineColor = c.propColor("lineColor") ?: Color(0xFF00D4AA)
+    val fillAlpha = c.propFloat("fillAlpha", 0.3f)
+    val lineWidth = c.propFloat("lineWidth", 2f)
+    val borderRadius = c.propInt("borderRadius", 14)
+
+    @Suppress("UNCHECKED_CAST")
+    val rawPoints = c.props["points"] as? List<Number> ?: emptyList()
+    val points = remember(rawPoints) { rawPoints.map { it.toFloat() } }
+
+    val shape = RoundedCornerShape(borderRadius.dp)
+
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(chartHeight.dp)
+            .clip(shape)
+            .background(bgColor, shape)
+    ) {
+        if (points.size < 2) return@Box
+
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val w = size.width
+            val h = size.height
+            val padding = 8.dp.toPx()
+
+            val minVal = points.min()
+            val maxVal = points.max()
+            val range = if (maxVal > minVal) maxVal - minVal else 1f
+
+            fun xAt(i: Int) = padding + (w - padding * 2) * i / (points.size - 1)
+            fun yAt(v: Float) = padding + (h - padding * 2) * (1f - (v - minVal) / range)
+
+            // Gradient fill path
+            val fillPath = Path().apply {
+                moveTo(xAt(0), yAt(points[0]))
+                for (i in 1 until points.size) lineTo(xAt(i), yAt(points[i]))
+                lineTo(xAt(points.size - 1), h)
+                lineTo(xAt(0), h)
+                close()
+            }
+
+            drawPath(
+                path = fillPath,
+                brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                    colors = listOf(lineColor.copy(alpha = fillAlpha), lineColor.copy(alpha = 0.02f)),
+                    startY = 0f,
+                    endY = h
+                )
+            )
+
+            // Line
+            val linePath = Path().apply {
+                moveTo(xAt(0), yAt(points[0]))
+                for (i in 1 until points.size) lineTo(xAt(i), yAt(points[i]))
+            }
+
+            drawPath(
+                path = linePath,
+                color = lineColor,
+                style = Stroke(width = lineWidth.dp.toPx(), cap = StrokeCap.Round)
+            )
+        }
+    }
+}

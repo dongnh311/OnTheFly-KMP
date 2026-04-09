@@ -95,7 +95,7 @@ fun RenderTextField(c: UIComponent, onComponentEvent: (ComponentEvent) -> Unit, 
     val bgColor = c.propColor("background")
     val borderColor = c.propColor("borderColor")
     val focusedBorderColor = c.propColor("focusedBorderColor")
-    val cornerRadius = c.propInt("cornerRadius", 0).let { if (it > 0) it else c.propInt("borderRadius", 8) }
+    val cornerRadius = c.propInt("cornerRadius", 0).let { if (it > 0) it else c.propInt("borderRadius", 0) }
 
     val keyboardType = when (type) {
         "email" -> KeyboardType.Email
@@ -283,7 +283,7 @@ fun RenderToggle(c: UIComponent, onComponentEvent: (ComponentEvent) -> Unit, mod
     val visible = c.propBool("visible", true)
     if (!visible) return
 
-    val scale = c.propFloat("scale", 0.85f)
+    val scale = c.propFloat("scale", 1f)
     val borderColor = c.propColor("borderColor")
     val hasCustomColors = activeColor != null || inactiveColor != null || thumbColor != null
     val switchColors = if (hasCustomColors) {
@@ -293,7 +293,7 @@ fun RenderToggle(c: UIComponent, onComponentEvent: (ComponentEvent) -> Unit, mod
             checkedThumbColor = thumbColor ?: Color.White,
             checkedBorderColor = activeColor ?: Color.Transparent,
             uncheckedThumbColor = thumbColor ?: Color.White,
-            uncheckedBorderColor = borderColor ?: Color(0xFF4B5563)
+            uncheckedBorderColor = borderColor ?: SwitchDefaults.colors().uncheckedBorderColor
         )
     } else {
         SwitchDefaults.colors()

@@ -144,13 +144,14 @@ function render() {
                         type: "Box",
                         props: {
                             width: "wrap",
-                            background: theme.accent,
+                            borderColor: theme.accent,
+                            borderWidth: 1,
                             borderRadius: 16,
-                            padding: { horizontal: 12, vertical: 6 },
+                            padding: { horizontal: 12, vertical: 5 },
                             onClick: "onIndicatorsClick"
                         },
                         children: [
-                            { type: "Text", props: { text: "\u25C7 " + St("indicators"), fontSize: 11, fontWeight: "600", color: "#FFFFFF" } }
+                            { type: "Text", props: { text: "\u25C7 " + St("indicators"), fontSize: 11, fontWeight: "600", color: theme.accent } }
                         ]
                     }
                 ]
@@ -261,9 +262,7 @@ function render() {
                                 type: "Row",
                                 props: {
                                     fillMaxWidth: true,
-                                    background: theme.card,
-                                    borderRadius: 10,
-                                    padding: { horizontal: 8, vertical: 12 }
+                                    padding: { horizontal: 8, vertical: 8 }
                                 },
                                 children: [
                                     buildStatCell(St("open_short"), stockPriceText(stock.open), theme),

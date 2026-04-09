@@ -240,21 +240,66 @@ function findStock(symbol) {
     return null;
 }
 
+// ─── Watchlist (persistent per-account storage) ───────────
+
+var _watchlistCache = null;
+
+function _watchlistKey() {
+    var user = AppState.getUserName();
+    return "watchlist_" + (user !== "Guest" ? user : "default");
+}
+
 function getWatchlist() {
+    if (_watchlistCache !== null) return _watchlistCache;
     var saved = AppState.get("stock_watchlist", null);
-    if (saved) return saved;
-    var defaults = ["AAPL", "TSLA", "NVDA", "MSFT"];
-    AppState.set("stock_watchlist", defaults);
-    return defaults;
+    if (saved) {
+        // Handle both array and JSON string (shared store serializes as string)
+        if (typeof saved === "string") {
+            try { saved = JSON.parse(saved); } catch(e) { saved = null; }
+        }
+        if (saved && typeof saved === "object" && saved.length !== undefined) {
+            _watchlistCache = saved;
+            return _watchlistCache;
+        }
+    }
+    _watchlistCache = [];
+    return _watchlistCache;
+}
+
+function _saveWatchlist(list) {
+    _watchlistCache = list;
+    AppState.set("stock_watchlist", list);
+    // Persist to local storage (survives app restart)
+    OnTheFly.sendToNative("setStorage", { key: _watchlistKey(), value: JSON.stringify(list) });
+}
+
+function loadWatchlistFromStorage() {
+    // Request from persistent storage for current user
+    OnTheFly.sendToNative("getStorage", { key: _watchlistKey() });
+}
+
+function handleWatchlistStorageResponse(value) {
+    // Called when storage response arrives
+    if (value && value !== "null") {
+        try {
+            var parsed = JSON.parse(value);
+            if (parsed && typeof parsed === "object" && parsed.length !== undefined) {
+                _watchlistCache = parsed;
+                AppState.set("stock_watchlist", parsed);
+                return true;
+            }
+        } catch(e) { }
+    }
+    return false;
 }
 
 function addToWatchlist(symbol) {
-    var list = getWatchlist();
+    var list = getWatchlist().slice(); // copy
     for (var i = 0; i < list.length; i++) {
         if (list[i] === symbol) return;
     }
     list.push(symbol);
-    AppState.set("stock_watchlist", list);
+    _saveWatchlist(list);
 }
 
 function removeFromWatchlist(symbol) {
@@ -263,7 +308,7 @@ function removeFromWatchlist(symbol) {
     for (var i = 0; i < list.length; i++) {
         if (list[i] !== symbol) newList.push(list[i]);
     }
-    AppState.set("stock_watchlist", newList);
+    _saveWatchlist(newList);
 }
 
 function isInWatchlist(symbol) {
@@ -282,6 +327,10 @@ function getWatchlistStocks() {
         if (s) result.push(s);
     }
     return result;
+}
+
+function resetWatchlistCache() {
+    _watchlistCache = null;
 }
 
 function searchStocks(query) {

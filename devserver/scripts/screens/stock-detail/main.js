@@ -16,6 +16,8 @@ function onCreateView() {
 
 function onVisible() {
     if (currentSymbol) {
+        resetWatchlistCache();
+        bookmarked = isInWatchlist(currentSymbol);
         render();
     }
 }
@@ -29,6 +31,7 @@ function onViewData(data) {
             // Stock not in local data, create stub
             stock = { symbol: data.symbol, name: data.symbol, price: 0, change: 0, pct: 0, open: 0, high: 0, low: 0, vol: "-", cap: "-", pe: 0 };
         }
+        loadWatchlistFromStorage(); // Load latest watchlist for bookmark state
         bookmarked = isInWatchlist(data.symbol);
         render();
 
@@ -52,6 +55,15 @@ function onDestroy() {
 function onDataReceived(data) {
     if (data.error) {
         OnTheFly.log("Detail API error: " + data.error);
+        return;
+    }
+
+    // Handle watchlist storage response
+    if (data.type === "storage" && data.key && data.key.indexOf("watchlist_") === 0) {
+        if (handleWatchlistStorageResponse(data.value) && currentSymbol) {
+            bookmarked = isInWatchlist(currentSymbol);
+            render();
+        }
         return;
     }
 
@@ -154,6 +166,18 @@ function onRange_1M()  { selectedRange = "1M";  render(); }
 function onRange_3M()  { selectedRange = "3M";  render(); }
 function onRange_1Y()  { selectedRange = "1Y";  render(); }
 function onRange_ALL() { selectedRange = "ALL"; render(); }
+
+// ─── Line Chart Data ──────────────────────────────────────
+
+function generateLinePoints(stock) {
+    // Generate mock line data from stock price
+    var data = StockCandleData.generate(stock.symbol, selectedRange);
+    var points = [];
+    for (var i = 0; i < data.candles.length; i++) {
+        points.push(data.candles[i].c);
+    }
+    return points;
+}
 
 // ─── UI Builders ───────────────────────────────────────────
 
@@ -269,13 +293,23 @@ function render() {
                         }
                     },
                     {
-                        type: "Text",
+                        type: "Box",
                         props: {
-                            text: bookmarked ? "\u2B50" : "\u2606",
-                            fontSize: 20,
-                            color: bookmarked ? theme.warning : theme.textTertiary,
+                            width: 32,
+                            height: 32,
+                            contentAlignment: "center",
                             onClick: "onBookmarkToggle"
-                        }
+                        },
+                        children: [
+                            {
+                                type: "Text",
+                                props: {
+                                    text: bookmarked ? "\u2B50" : "\u2606",
+                                    fontSize: 20,
+                                    color: bookmarked ? theme.warning : theme.textTertiary
+                                }
+                            }
+                        ]
                     }
                 ]
             },
@@ -318,23 +352,22 @@ function render() {
                         ]
                     },
 
-                    // Chart placeholder
+                    // Line chart
                     {
                         type: "Box",
                         props: { padding: { horizontal: 16, bottom: 12 } },
                         children: [
                             {
-                                type: "Box",
+                                type: "LineChart",
                                 props: {
-                                    fillMaxWidth: true,
-                                    height: 120,
+                                    height: 140,
+                                    points: generateLinePoints(stock),
+                                    lineColor: up ? theme.positive : theme.negative,
                                     background: theme.surfaceVariant,
-                                    borderRadius: 14,
-                                    contentAlignment: "center"
-                                },
-                                children: [
-                                    { type: "Text", props: { text: "\uD83D\uDCC8 Chart", fontSize: 14, color: theme.textTertiary } }
-                                ]
+                                    fillAlpha: 0.25,
+                                    lineWidth: 2,
+                                    borderRadius: 14
+                                }
                             }
                         ]
                     },
@@ -375,43 +408,44 @@ function render() {
                         ]
                     },
 
-                    // Buy + Sell buttons
+                ]
+            },
+
+            // Buy + Sell buttons (pinned to bottom)
+            {
+                type: "Row",
+                props: {
+                    fillMaxWidth: true,
+                    spacing: 10,
+                    padding: { start: 16, end: 16, top: 8, bottom: 16 }
+                },
+                children: [
                     {
-                        type: "Row",
+                        type: "Box",
                         props: {
-                            fillMaxWidth: true,
-                            spacing: 10,
-                            padding: { start: 16, end: 16, bottom: 24 }
+                            weight: 1,
+                            background: theme.positive,
+                            borderRadius: 10,
+                            padding: { vertical: 14 },
+                            contentAlignment: "center",
+                            onClick: "onBuyClick"
                         },
                         children: [
-                            {
-                                type: "Box",
-                                props: {
-                                    weight: 1,
-                                    background: theme.positive,
-                                    borderRadius: 10,
-                                    padding: { vertical: 14 },
-                                    contentAlignment: "center",
-                                    onClick: "onBuyClick"
-                                },
-                                children: [
-                                    { type: "Text", props: { text: St("buy"), fontSize: 15, fontWeight: "700", color: "#FFFFFF" } }
-                                ]
-                            },
-                            {
-                                type: "Box",
-                                props: {
-                                    weight: 1,
-                                    background: theme.negative,
-                                    borderRadius: 10,
-                                    padding: { vertical: 14 },
-                                    contentAlignment: "center",
-                                    onClick: "onSellClick"
-                                },
-                                children: [
-                                    { type: "Text", props: { text: St("sell"), fontSize: 15, fontWeight: "700", color: "#FFFFFF" } }
-                                ]
-                            }
+                            { type: "Text", props: { text: St("buy"), fontSize: 15, fontWeight: "700", color: "#FFFFFF" } }
+                        ]
+                    },
+                    {
+                        type: "Box",
+                        props: {
+                            weight: 1,
+                            background: theme.negative,
+                            borderRadius: 10,
+                            padding: { vertical: 14 },
+                            contentAlignment: "center",
+                            onClick: "onSellClick"
+                        },
+                        children: [
+                            { type: "Text", props: { text: St("sell"), fontSize: 15, fontWeight: "700", color: "#FFFFFF" } }
                         ]
                     }
                 ]

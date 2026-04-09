@@ -133,9 +133,9 @@ fun RenderBottomNavBar(
 ) {
     val componentId = c.propString("id") ?: ""
     val selected = c.propInt("selected", 0)
-    val bgColor = c.propColor("background") ?: Color.White
+    val bgColor = c.propColor("background") ?: Color.Unspecified
     val selectedColor = c.propColor("selectedColor") ?: MaterialTheme.colorScheme.primary
-    val unselectedColor = c.propColor("unselectedColor") ?: Color(0xFF757575)
+    val unselectedColor = c.propColor("unselectedColor") ?: Color.Unspecified
     val showLabels = c.propBool("showLabels", true)
 
     @Suppress("UNCHECKED_CAST")

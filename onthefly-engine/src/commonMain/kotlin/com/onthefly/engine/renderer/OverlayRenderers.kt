@@ -58,7 +58,7 @@ fun RenderBottomSheet(
     modifier: Modifier
 ) {
     val visible = c.propBool("visible")
-    val bgColor = c.propColor("background") ?: Color.White
+    val bgColor = c.propColor("background") ?: Color.Unspecified
     val borderRadius = c.propInt("borderRadius", 16)
     val showHandle = c.propBool("showHandle", true)
     val dismissOnClickOutside = c.propBool("dismissOnClickOutside", true)
@@ -129,9 +129,9 @@ fun RenderSnackbar(
     val message = c.propString("message") ?: ""
     val actionText = c.propString("actionText")
     val duration = c.propInt("duration", 3000)
-    val bgColor = c.propColor("background") ?: Color(0xFF323232)
-    val textColor = c.propColor("textColor") ?: Color.White
-    val actionColor = c.propColor("actionColor") ?: Color(0xFFBB86FC)
+    val bgColor = c.propColor("background") ?: Color.Unspecified
+    val textColor = c.propColor("textColor") ?: Color.Unspecified
+    val actionColor = c.propColor("actionColor") ?: Color.Unspecified
     val position = c.propString("position") ?: "bottom"
     val onAction = c.propString("onAction")
     val onDismiss = c.propString("onDismiss")
@@ -217,8 +217,8 @@ fun RenderTooltip(
     modifier: Modifier
 ) {
     val text = c.propString("text") ?: ""
-    val bgColor = c.propColor("background") ?: Color(0xFF616161)
-    val textColor = c.propColor("textColor") ?: Color.White
+    val bgColor = c.propColor("background") ?: Color.Unspecified
+    val textColor = c.propColor("textColor") ?: Color.Unspecified
 
     @Suppress("UNCHECKED_CAST")
     val childMap = c.props["child"] as? Map<String, Any>
@@ -243,8 +243,8 @@ fun RenderTooltip(
 @Composable
 fun RenderBadge(c: UIComponent, modifier: Modifier) {
     val count = c.propInt("count", 0)
-    val bgColor = c.propColor("color") ?: Color.Red
-    val textColor = c.propColor("textColor") ?: Color.White
+    val bgColor = c.propColor("color") ?: Color.Unspecified
+    val textColor = c.propColor("textColor") ?: Color.Unspecified
     val visible = c.propBool("visible", true)
     if (!visible) return
 
@@ -278,7 +278,7 @@ fun RenderAvatar(
 ) {
     val name = c.propString("name")
     val size = c.propInt("size", 40)
-    val bgColor = c.propColor("background") ?: Color(0xFFE0E0E0)
+    val bgColor = c.propColor("background") ?: Color.Unspecified
     val borderWidth = c.propInt("borderWidth", 0)
     val borderColor = c.propColor("borderColor")
     val onClick = c.propString("onClick")
@@ -324,7 +324,7 @@ fun RenderProgressBar(c: UIComponent, modifier: Modifier) {
     val progress = c.propFloat("progress", 0f)
     val type = c.propString("type") ?: "linear"
     val color = c.propColor("color") ?: MaterialTheme.colorScheme.primary
-    val trackColor = c.propColor("trackColor") ?: Color(0xFFE0E0E0)
+    val trackColor = c.propColor("trackColor") ?: Color.Unspecified
     val size = c.propInt("size", 4)
     val indeterminate = c.propBool("indeterminate")
     val visible = c.propBool("visible", true)
@@ -378,9 +378,9 @@ fun RenderChip(
     val text = c.propString("text") ?: ""
     val selected = c.propBool("selected")
     val iconName = c.propString("icon")
-    val bg = c.propColor("background") ?: Color(0xFFF0F0F0)
-    val selectedBg = c.propColor("selectedBackground") ?: Color(0xFF2196F3)
-    val textColor = c.propColor("textColor") ?: Color(0xFF333333)
+    val bg = c.propColor("background") ?: Color.Unspecified
+    val selectedBg = c.propColor("selectedBackground") ?: Color.Unspecified
+    val textColor = c.propColor("textColor") ?: Color.Unspecified
     val selectedTextColor = c.propColor("selectedTextColor") ?: Color.White
     val borderRadius = c.propInt("borderRadius", 20)
     val closable = c.propBool("closable")

@@ -142,7 +142,7 @@ fun RenderImage(c: UIComponent, onEvent: (String) -> Unit, onComponentEvent: (Co
 fun RenderIcon(c: UIComponent, onEvent: (String) -> Unit, onComponentEvent: (ComponentEvent) -> Unit, modifier: Modifier) {
     val name = c.propString("name") ?: "help"
     val size = c.propInt("size", 24)
-    val color = c.propColor("color") ?: Color.Black
+    val color = c.propColor("color") ?: Color.Unspecified
     val onClick = c.propString("onClick")
     val componentId = c.propString("id")
     val visible = c.propBool("visible", true)
@@ -170,7 +170,7 @@ fun RenderIcon(c: UIComponent, onEvent: (String) -> Unit, onComponentEvent: (Com
 fun RenderIconButton(c: UIComponent, onEvent: (String) -> Unit, onComponentEvent: (ComponentEvent) -> Unit, modifier: Modifier) {
     val iconName = c.propString("icon") ?: "help"
     val iconSize = c.propInt("iconSize", 24)
-    val color = c.propColor("color") ?: Color.Black
+    val color = c.propColor("color") ?: Color.Unspecified
     val enabled = c.propBool("enabled", true)
     val onClick = c.propString("onClick")
     val componentId = c.propString("id")

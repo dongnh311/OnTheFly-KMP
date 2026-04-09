@@ -59,6 +59,7 @@ function onLoginClick() {
     var userName = email.split("@")[0];
     AppState.login(userName);
     AppState.set("stock_user_email", email);
+    resetWatchlistCache(); // Reset cache so new user loads their own watchlist
     OnTheFly.sendToNative("navigateClearStack", { screen: "stock-dashboard" });
 }
 
@@ -193,7 +194,7 @@ function render() {
                             textColor: theme.textPrimary,
                             placeholderColor: theme.textTertiary,
                             cornerRadius: 10,
-                            padding: { horizontal: 14, vertical: 12 },
+                            padding: { horizontal: 14, vertical: 8 },
                             fontSize: 14,
                             type: "email"
                         }
@@ -217,7 +218,7 @@ function render() {
                             textColor: theme.textPrimary,
                             placeholderColor: theme.textTertiary,
                             cornerRadius: 10,
-                            padding: { horizontal: 14, vertical: 12 },
+                            padding: { horizontal: 14, vertical: 8 },
                             fontSize: 14
                         }
                     },

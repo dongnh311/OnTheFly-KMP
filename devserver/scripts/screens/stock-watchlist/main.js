@@ -9,7 +9,20 @@ var confirmSymbol = null;
 // ─── Lifecycle ─────────────────────────────────────────────
 
 function onCreateView() {
+    // Load watchlist from persistent storage for current user
+    loadWatchlistFromStorage();
     render();
+    fetchWatchlistQuotes();
+}
+
+function onVisible() {
+    resetWatchlistCache();
+    loadWatchlistFromStorage(); // Re-load from persistent storage (shared memory is stale across engines)
+    render();
+    fetchWatchlistQuotes();
+}
+
+function fetchWatchlistQuotes() {
     var stocks = getWatchlistStocks();
     var symbols = [];
     for (var i = 0; i < stocks.length; i++) {
@@ -22,10 +35,6 @@ function onCreateView() {
     }
 }
 
-function onVisible() {
-    render();
-}
-
 // ─── API Response Handler ─────────────────────────────────
 
 function onDataReceived(data) {
@@ -33,6 +42,16 @@ function onDataReceived(data) {
         OnTheFly.log("Watchlist API error: " + data.error);
         return;
     }
+
+    // Handle storage response (watchlist load)
+    if (data.type === "storage" && data.key && data.key.indexOf("watchlist_") === 0) {
+        if (handleWatchlistStorageResponse(data.value)) {
+            render();
+            fetchWatchlistQuotes();
+        }
+        return;
+    }
+
     if (data.requestId && data.requestId.indexOf("quote_") === 0) {
         var symbol = data.requestId.substring(6);
         var parsed = parseFinnhubQuote(symbol, data.body);
@@ -84,12 +103,12 @@ function onRemoveStock_NFLX()  { confirmSymbol = "NFLX";  OnTheFly.update("remov
 function onRemoveStock_AMD()   { confirmSymbol = "AMD";   OnTheFly.update("removeDialog", { visible: true }); }
 
 function onConfirmRemove() {
-    OnTheFly.update("removeDialog", { visible: false });
+    // Don't call OnTheFly.update() here - it conflicts with render() in ConfirmDialog callback
     if (confirmSymbol) {
         removeFromWatchlist(confirmSymbol);
         confirmSymbol = null;
-        render();
     }
+    render();
 }
 
 function onCancelRemove() {
@@ -157,7 +176,6 @@ function buildEmptyState(theme) {
             padding: { top: 40, bottom: 40 }
         },
         children: [
-            { type: "Text", props: { text: "\u2B50", fontSize: 40, padding: { bottom: 8 } } },
             { type: "Text", props: { text: St("watchlist_empty"), fontSize: 14, color: theme.textSecondary } }
         ]
     };

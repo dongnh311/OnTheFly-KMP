@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.runtime.key
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
@@ -74,19 +73,8 @@ fun RenderColumn(
         verticalArrangement = if (spacing > 0) Arrangement.spacedBy(spacing.dp) else Arrangement.Top
     ) {
         c.children.forEach { child ->
-            val childId = child.propString("id")
             val w = (child.props["weight"] as? Number)?.toFloat()
-            if (childId != null) {
-                key(childId) {
-                    if (w != null && w > 0f) {
-                        Box(modifier = Modifier.weight(w)) {
-                            DynamicRenderer(child, onEvent, onComponentEvent)
-                        }
-                    } else {
-                        DynamicRenderer(child, onEvent, onComponentEvent)
-                    }
-                }
-            } else if (w != null && w > 0f) {
+            if (w != null && w > 0f) {
                 Box(modifier = Modifier.weight(w)) {
                     DynamicRenderer(child, onEvent, onComponentEvent)
                 }
@@ -152,19 +140,8 @@ fun RenderRow(
         horizontalArrangement = horizontalArrangement
     ) {
         c.children.forEach { child ->
-            val childId = child.propString("id")
             val w = (child.props["weight"] as? Number)?.toFloat()
-            if (childId != null) {
-                key(childId) {
-                    if (w != null && w > 0f) {
-                        Box(modifier = Modifier.weight(w)) {
-                            DynamicRenderer(child, onEvent, onComponentEvent)
-                        }
-                    } else {
-                        DynamicRenderer(child, onEvent, onComponentEvent)
-                    }
-                }
-            } else if (w != null && w > 0f) {
+            if (w != null && w > 0f) {
                 Box(modifier = Modifier.weight(w)) {
                     DynamicRenderer(child, onEvent, onComponentEvent)
                 }
@@ -230,7 +207,7 @@ fun RenderSpacer(c: UIComponent, modifier: Modifier) {
 
 @Composable
 fun RenderDivider(c: UIComponent, modifier: Modifier) {
-    val color = c.propColor("color") ?: Color(0xFFE0E0E0)
+    val color = c.propColor("color") ?: Color.Unspecified
     val thickness = c.propInt("thickness", 1)
     val marginH = c.propInt("marginHorizontal")
     val marginV = c.propInt("marginVertical")

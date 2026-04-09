@@ -22,7 +22,17 @@ fun DynamicRenderer(
     val enterAnim = parseAnimationConfig(component.props["enterAnimation"])
     val exitAnim = parseAnimationConfig(component.props["exitAnimation"])
 
-    key(id ?: component.hashCode()) {
+    if (id != null) {
+        key(id) {
+            if (enterAnim != null || exitAnim != null) {
+                AnimatedWrapper(enterAnimation = enterAnim, exitAnimation = exitAnim) {
+                    RenderComponent(component, onEvent, onComponentEvent, modifier)
+                }
+            } else {
+                RenderComponent(component, onEvent, onComponentEvent, modifier)
+            }
+        }
+    } else {
         if (enterAnim != null || exitAnim != null) {
             AnimatedWrapper(enterAnimation = enterAnim, exitAnimation = exitAnim) {
                 RenderComponent(component, onEvent, onComponentEvent, modifier)
@@ -100,5 +110,6 @@ private fun RenderComponent(
 
         // Charts
         "CandlestickChart" -> RenderCandlestickChart(component, onEvent, onComponentEvent, modifier)
+        "LineChart" -> RenderLineChart(component, modifier)
     }
 }
