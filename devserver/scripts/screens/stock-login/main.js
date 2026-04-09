@@ -4,8 +4,8 @@
 
 var email = "";
 var password = "";
-var emailError = "";
-var passwordError = "";
+var emailError = false;
+var passwordError = false;
 
 // ─── Lifecycle ─────────────────────────────────────────────
 
@@ -23,14 +23,14 @@ function onTextChanged(id, data) {
     if (id === "emailField") {
         email = data.value;
         if (emailError) {
-            emailError = "";
+            emailError = false;
             render();
         }
     }
     if (id === "passwordField") {
         password = data.value;
         if (passwordError) {
-            passwordError = "";
+            passwordError = false;
             render();
         }
     }
@@ -42,14 +42,14 @@ function onLoginClick() {
     var hasError = false;
 
     if (!email || email.trim() === "") {
-        emailError = St("email_required");
-        OnTheFly.update("emailError", { visible: true, text: emailError });
+        emailError = true;
+        OnTheFly.update("emailError", { visible: true, text: St("email_required") });
         OnTheFly.update("emailField", { borderColor: theme.negative });
         hasError = true;
     }
     if (!password || password.trim() === "") {
-        passwordError = St("password_required");
-        OnTheFly.update("passwordError", { visible: true, text: passwordError });
+        passwordError = true;
+        OnTheFly.update("passwordError", { visible: true, text: St("password_required") });
         OnTheFly.update("passwordField", { borderColor: theme.negative });
         hasError = true;
     }
@@ -198,7 +198,7 @@ function render() {
                             type: "email"
                         }
                     },
-                    { type: "Text", props: { id: "emailError", text: emailError, fontSize: 11, color: theme.negative, visible: emailError !== "", padding: { top: 2 } } },
+                    { type: "Text", props: { id: "emailError", text: emailError ? St("email_required") : "", fontSize: 11, color: theme.negative, visible: emailError, padding: { top: 2 } } },
 
                     { type: "Spacer", props: { height: 16 } },
 
@@ -221,7 +221,7 @@ function render() {
                             fontSize: 14
                         }
                     },
-                    { type: "Text", props: { id: "passwordError", text: passwordError, fontSize: 11, color: theme.negative, visible: passwordError !== "", padding: { top: 2 } } },
+                    { type: "Text", props: { id: "passwordError", text: passwordError ? St("password_required") : "", fontSize: 11, color: theme.negative, visible: passwordError, padding: { top: 2 } } },
 
                     { type: "Spacer", props: { height: 16 } },
 

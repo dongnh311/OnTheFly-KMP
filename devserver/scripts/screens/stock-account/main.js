@@ -52,11 +52,11 @@ function onLangVI() {
 }
 
 function onChangePass() {
-    toast("Coming soon");
+    toast("Change password coming soon");
 }
 
 function onTwoFactor() {
-    toast("Coming soon");
+    toast("2FA setup coming soon");
 }
 
 var pendingLogout = false;
