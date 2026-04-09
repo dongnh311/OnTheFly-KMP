@@ -107,6 +107,7 @@ fun RenderCandlestickChart(
     val ma99 = remember(c.props["ma99"]) { parseMA(c.props["ma99"]) }
 
     val textMeasurer = rememberTextMeasurer()
+    val density = androidx.compose.ui.platform.LocalDensity.current.density
 
     var outerMod = modifier.fillMaxWidth()
     outerMod = if (fillHeight) outerMod.fillMaxSize() else outerMod.height(if (chartHeight > 0) chartHeight.dp else 250.dp)
@@ -128,10 +129,6 @@ fun RenderCandlestickChart(
     priceMin -= pricePad
     priceMax += pricePad
 
-    // Last candle price for highlight
-    val lastPrice = candles.last().close
-    val lastIsUp = candles.last().close >= candles.last().open
-
     // Scrollable chart width
     val rightMarginDp = 58
     val chartContentWidthDp = candles.size * candleWidthDp
@@ -141,6 +138,18 @@ fun RenderCandlestickChart(
     LaunchedEffect(candles.size) {
         scrollState.scrollTo(scrollState.maxValue)
     }
+
+    // Calculate last visible candle based on scroll position
+    val scrollOffset = scrollState.value
+    val totalContentPx = chartContentWidthDp * density // approx
+    val candleStepPx = if (candles.isNotEmpty()) totalContentPx / candles.size else 1f
+    val lastVisibleIndex = min(
+        candles.size - 1,
+        ((scrollOffset + scrollState.viewportSize) / max(candleStepPx, 1f)).toInt()
+    ).coerceIn(0, candles.size - 1)
+    val visibleCandle = candles[lastVisibleIndex]
+    val visiblePrice = visibleCandle.close
+    val visibleIsUp = visibleCandle.close >= visibleCandle.open
 
     Box(modifier = outerMod) {
         Row(modifier = Modifier.fillMaxSize()) {
@@ -178,9 +187,9 @@ fun RenderCandlestickChart(
             ) {
                 drawYAxis(
                     priceMin = priceMin, priceMax = priceMax,
-                    lastPrice = lastPrice, lastIsUp = lastIsUp,
+                    lastPrice = visiblePrice, lastIsUp = visibleIsUp,
                     gridColor = gridColor, textColor = textColor,
-                    accentColor = if (lastIsUp) upColor else downColor,
+                    accentColor = if (visibleIsUp) upColor else downColor,
                     showGrid = showGrid, showVolume = showVolume,
                     volumeRatio = volumeRatio, textMeasurer = textMeasurer
                 )
