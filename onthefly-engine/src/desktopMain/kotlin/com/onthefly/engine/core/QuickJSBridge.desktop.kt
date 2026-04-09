@@ -6,15 +6,18 @@ actual class QuickJSBridge actual constructor() {
         init {
             val os = System.getProperty("os.name").lowercase()
             val libName = when {
-                os.contains("mac") -> "libonthefly-engine.dylib"
-                os.contains("win") -> "onthefly-engine.dll"
-                else -> "libonthefly-engine.so"
+                os.contains("mac") -> "libonthefly_engine.dylib"
+                os.contains("win") -> "onthefly_engine.dll"
+                else -> "libonthefly_engine.so"
             }
 
             val searchPaths = listOfNotNull(
                 System.getProperty("compose.application.resources.dir"),
                 System.getProperty("onthefly.native.dir"),
-                // Look relative to working directory
+                // Rust build output
+                "native/rust/target/release",
+                "../native/rust/target/release",
+                // Legacy C++ build (fallback)
                 "native/build",
                 "../native/build",
             )
@@ -31,7 +34,7 @@ actual class QuickJSBridge actual constructor() {
 
             if (!loaded) {
                 // Last resort: try java.library.path
-                System.loadLibrary("onthefly-engine")
+                System.loadLibrary("onthefly_engine")
             }
         }
     }

@@ -31,17 +31,15 @@ kotlin {
                     val targetName = iosTarget.name
                     compilerOpts(
                         "-I${rootProject.projectDir}/native/ios",
-                        "-I${rootProject.projectDir}/native/quickjs",
-                        "-DCONFIG_VERSION=\"2025-09-13\"",
-                        "-DCONFIG_BIGNUM", "-D_GNU_SOURCE"
                     )
-                    extraOpts("-libraryPath", "${rootProject.projectDir}/native/ios/build/$targetName")
+                    // Rust-built static library
+                    extraOpts("-libraryPath", "${rootProject.projectDir}/native/rust/ios_libs/$targetName")
                 }
             }
         }
         iosTarget.binaries.all {
             val targetName = iosTarget.name
-            linkerOpts("-L${rootProject.projectDir}/native/ios/build/$targetName", "-lonthefly_ios")
+            linkerOpts("-L${rootProject.projectDir}/native/rust/ios_libs/$targetName", "-lonthefly_engine")
         }
     }
 
@@ -98,12 +96,9 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    externalNativeBuild {
-        cmake {
-            path = file("src/androidMain/cpp/CMakeLists.txt")
-            version = "3.22.1"
-        }
-    }
+    // Native library built by Rust (see native/rust/build_android.sh)
+    // Pre-built .so files go in src/androidMain/jniLibs/{abi}/
+    sourceSets["main"].jniLibs.srcDirs("src/androidMain/jniLibs")
 }
 
 publishing {

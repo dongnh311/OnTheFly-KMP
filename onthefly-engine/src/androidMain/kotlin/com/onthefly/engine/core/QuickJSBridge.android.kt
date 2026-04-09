@@ -4,7 +4,7 @@ actual class QuickJSBridge actual constructor() {
 
     companion object {
         init {
-            System.loadLibrary("onthefly-engine")
+            System.loadLibrary("onthefly_engine")
         }
     }
 
