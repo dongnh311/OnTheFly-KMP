@@ -313,7 +313,7 @@ function buildTrendingCards(theme) {
     }
     return {
         type: "Row",
-        props: { scrollable: true, padding: { start: 16, end: 16 }, spacing: 10 },
+        props: { id: "trending_scroll", scrollable: true, padding: { start: 16, end: 16 }, spacing: 10 },
         children: items
     };
 }
@@ -418,7 +418,7 @@ function render() {
             buildTopBar(theme),
             {
                 type: "Column",
-                props: { fillMaxWidth: true, weight: 1, scrollable: true },
+                props: { id: "dashboard_scroll", fillMaxWidth: true, weight: 1, scrollable: true },
                 children: scrollContent
             },
             buildStockBottomNav("dashboard", theme)

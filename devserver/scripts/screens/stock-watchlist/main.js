@@ -226,7 +226,7 @@ function render() {
             // Scrollable stock list
             {
                 type: "Column",
-                props: { fillMaxWidth: true, weight: 1, scrollable: true },
+                props: { id: "watchlist_scroll", fillMaxWidth: true, weight: 1, scrollable: true },
                 children: scrollContent
             },
 

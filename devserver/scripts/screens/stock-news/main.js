@@ -235,6 +235,7 @@ function render() {
             {
                 type: "Column",
                 props: {
+                    id: "news_scroll",
                     fillMaxWidth: true,
                     weight: 1,
                     scrollable: true,

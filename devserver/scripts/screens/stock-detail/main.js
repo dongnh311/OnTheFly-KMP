@@ -283,7 +283,7 @@ function render() {
             // ── Scrollable content ──
             {
                 type: "Column",
-                props: { fillMaxWidth: true, weight: 1, scrollable: true },
+                props: { id: "detail_scroll", fillMaxWidth: true, weight: 1, scrollable: true },
                 children: [
                     // Price centered
                     {

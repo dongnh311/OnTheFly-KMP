@@ -318,7 +318,7 @@ function render() {
             // Scrollable content
             {
                 type: "Column",
-                props: { fillMaxWidth: true, weight: 1, scrollable: true },
+                props: { id: "account_scroll", fillMaxWidth: true, weight: 1, scrollable: true },
                 children: [
                     // Profile card (wrapped in padding Box)
                     {
