@@ -123,6 +123,7 @@ function render() {
     var stock = findStock(selectedSymbol);
     if (!stock) stock = StockData.stocks[0];
     var up = stock.change >= 0;
+    var chartData = StockCandleData.generate(selectedSymbol, selectedRange);
 
     OnTheFly.setUI({
         type: "Column",
@@ -198,54 +199,57 @@ function render() {
                         ]
                     },
 
-                    // MA indicator values
+                    // MA indicator values (computed)
                     {
                         type: "Row",
                         props: { padding: { start: 16, end: 16, bottom: 8 }, spacing: 8 },
                         children: [
                             { type: "Text", props: { text: "MA7", fontSize: 11, fontWeight: "600", color: theme.accent } },
-                            { type: "Text", props: { text: "187.52", fontSize: 11, color: theme.textSecondary } },
+                            { type: "Text", props: { text: "" + StockCandleData.getLatestMA(chartData.ma7), fontSize: 11, color: theme.textSecondary } },
                             { type: "Text", props: { text: "MA25", fontSize: 11, fontWeight: "600", color: "#E8B84B" } },
-                            { type: "Text", props: { text: "184.30", fontSize: 11, color: theme.textSecondary } },
+                            { type: "Text", props: { text: "" + StockCandleData.getLatestMA(chartData.ma25), fontSize: 11, color: theme.textSecondary } },
                             { type: "Text", props: { text: "MA99", fontSize: 11, fontWeight: "600", color: "#B84BE8" } },
-                            { type: "Text", props: { text: "178.65", fontSize: 11, color: theme.textSecondary } }
+                            { type: "Text", props: { text: "" + StockCandleData.getLatestMA(chartData.ma99), fontSize: 11, color: theme.textSecondary } }
                         ]
                     },
 
-                    // Chart placeholder
+                    // Candlestick Chart
                     {
                         type: "Box",
-                        props: { padding: { horizontal: 16, bottom: 12 } },
+                        props: { padding: { horizontal: 16, bottom: 4 } },
                         children: [
                             {
-                                type: "Box",
+                                type: "CandlestickChart",
                                 props: {
-                                    fillMaxWidth: true,
-                                    height: 250,
+                                    height: 280,
+                                    candles: chartData.candles,
+                                    ma7: chartData.ma7,
+                                    ma25: chartData.ma25,
+                                    ma99: chartData.ma99,
+                                    upColor: theme.positive,
+                                    downColor: theme.negative,
+                                    ma7Color: theme.accent,
+                                    ma25Color: "#E8B84B",
+                                    ma99Color: "#B84BE8",
+                                    gridColor: theme.border,
+                                    textColor: theme.textTertiary,
                                     background: theme.surfaceVariant,
-                                    borderRadius: 8,
-                                    contentAlignment: "center"
-                                },
-                                children: [
-                                    { type: "Text", props: { text: "\uD83D\uDCC8 Candlestick Chart\n(Coming soon)", fontSize: 14, color: theme.textTertiary, textAlign: "center" } }
-                                ]
+                                    showGrid: true,
+                                    showVolume: true,
+                                    volumeHeightRatio: 0.18,
+                                    borderRadius: 8
+                                }
                             }
                         ]
                     },
 
-                    // Volume placeholder
+                    // Volume label
                     {
-                        type: "Box",
-                        props: { padding: { horizontal: 16, bottom: 16 } },
+                        type: "Row",
+                        props: { padding: { start: 16, end: 16, top: 4, bottom: 12 }, crossAlignment: "center", spacing: 4 },
                         children: [
-                            {
-                                type: "Row",
-                                props: { crossAlignment: "center", spacing: 4 },
-                                children: [
-                                    { type: "Text", props: { text: "Vol", fontSize: 11, color: theme.textTertiary } },
-                                    { type: "Text", props: { text: stock.vol, fontSize: 13, fontWeight: "600", color: theme.textPrimary } }
-                                ]
-                            }
+                            { type: "Text", props: { text: "Vol", fontSize: 11, color: theme.textTertiary } },
+                            { type: "Text", props: { text: stock.vol, fontSize: 13, fontWeight: "600", color: theme.textPrimary } }
                         ]
                     },
 

@@ -97,5 +97,8 @@ private fun RenderComponent(
         "WebView" -> RenderWebView(component, modifier)
         "MapView" -> RenderMapView(component, modifier)
         "VideoPlayer" -> RenderVideoPlayer(component, modifier)
+
+        // Charts
+        "CandlestickChart" -> RenderCandlestickChart(component, onEvent, onComponentEvent, modifier)
     }
 }
