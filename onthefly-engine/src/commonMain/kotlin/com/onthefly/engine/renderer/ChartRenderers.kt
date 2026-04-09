@@ -2,14 +2,20 @@ package com.onthefly.engine.renderer
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
@@ -24,7 +30,6 @@ import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.rememberTextMeasurer
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.onthefly.engine.model.UIComponent
@@ -82,7 +87,7 @@ fun RenderCandlestickChart(
 
     val chartHeight = c.propInt("height", 0)
     val fillHeight = c.propBool("fillHeight")
-    val bgColor = c.propColor("background") ?: Color(0xFF1F2937)
+    val bgColor = c.propColor("background")
     val upColor = c.propColor("upColor") ?: Color(0xFF10B981)
     val downColor = c.propColor("downColor") ?: Color(0xFFEF4444)
     val ma7Color = c.propColor("ma7Color") ?: Color(0xFF00D4AA)
@@ -90,82 +95,126 @@ fun RenderCandlestickChart(
     val ma99Color = c.propColor("ma99Color") ?: Color(0xFFB84BE8)
     val gridColor = c.propColor("gridColor") ?: Color(0xFF374151)
     val textColor = c.propColor("textColor") ?: Color(0xFF6B7280)
+    val accentColor = c.propColor("upColor") ?: Color(0xFF10B981)
     val showGrid = c.propBool("showGrid", true)
     val showVolume = c.propBool("showVolume", true)
     val volumeRatio = c.propFloat("volumeHeightRatio", 0.2f)
-    val borderRadius = c.propInt("borderRadius", 8)
+    val candleWidthDp = c.propInt("candleWidth", 10)
 
     val candles = remember(c.props["candles"]) { parseCandles(c.props["candles"]) }
     val ma7 = remember(c.props["ma7"]) { parseMA(c.props["ma7"]) }
     val ma25 = remember(c.props["ma25"]) { parseMA(c.props["ma25"]) }
     val ma99 = remember(c.props["ma99"]) { parseMA(c.props["ma99"]) }
 
-    val shape = RoundedCornerShape(borderRadius.dp)
     val textMeasurer = rememberTextMeasurer()
 
-    var mod = modifier.fillMaxWidth()
-    mod = if (fillHeight) mod.fillMaxSize() else mod.height(if (chartHeight > 0) chartHeight.dp else 250.dp)
-    mod = mod.clip(shape).background(bgColor, shape)
+    var outerMod = modifier.fillMaxWidth()
+    outerMod = if (fillHeight) outerMod.fillMaxSize() else outerMod.height(if (chartHeight > 0) chartHeight.dp else 250.dp)
+    if (bgColor != null) outerMod = outerMod.background(bgColor)
 
-    Box(modifier = mod) {
-        if (candles.isEmpty()) return@Box
+    if (candles.isEmpty()) {
+        Box(modifier = outerMod)
+        return
+    }
 
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            drawChart(
-                candles = candles,
-                ma7 = ma7, ma25 = ma25, ma99 = ma99,
-                upColor = upColor, downColor = downColor,
-                ma7Color = ma7Color, ma25Color = ma25Color, ma99Color = ma99Color,
-                gridColor = gridColor, textColor = textColor,
-                showGrid = showGrid, showVolume = showVolume,
-                volumeRatio = volumeRatio, textMeasurer = textMeasurer
-            )
+    // Price range for Y axis
+    var priceMin = Float.MAX_VALUE
+    var priceMax = Float.MIN_VALUE
+    for (cd in candles) {
+        if (cd.low < priceMin) priceMin = cd.low
+        if (cd.high > priceMax) priceMax = cd.high
+    }
+    val pricePad = (priceMax - priceMin) * 0.05f
+    priceMin -= pricePad
+    priceMax += pricePad
+
+    // Last candle price for highlight
+    val lastPrice = candles.last().close
+    val lastIsUp = candles.last().close >= candles.last().open
+
+    // Scrollable chart width
+    val rightMarginDp = 58
+    val chartContentWidthDp = candles.size * candleWidthDp
+
+    // Scroll state - scroll to end (latest candles)
+    val scrollState = rememberScrollState()
+    LaunchedEffect(candles.size) {
+        scrollState.scrollTo(scrollState.maxValue)
+    }
+
+    Box(modifier = outerMod) {
+        Row(modifier = Modifier.fillMaxSize()) {
+            // Scrollable chart area
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .horizontalScroll(scrollState)
+            ) {
+                Canvas(
+                    modifier = Modifier
+                        .width(chartContentWidthDp.dp)
+                        .fillMaxHeight()
+                ) {
+                    drawChartContent(
+                        candles = candles,
+                        ma7 = ma7, ma25 = ma25, ma99 = ma99,
+                        upColor = upColor, downColor = downColor,
+                        ma7Color = ma7Color, ma25Color = ma25Color, ma99Color = ma99Color,
+                        gridColor = gridColor, textColor = textColor,
+                        showGrid = showGrid, showVolume = showVolume,
+                        volumeRatio = volumeRatio,
+                        priceMin = priceMin, priceMax = priceMax,
+                        textMeasurer = textMeasurer
+                    )
+                }
+            }
+
+            // Fixed Y-axis + price highlight
+            Canvas(
+                modifier = Modifier
+                    .width(rightMarginDp.dp)
+                    .fillMaxHeight()
+            ) {
+                drawYAxis(
+                    priceMin = priceMin, priceMax = priceMax,
+                    lastPrice = lastPrice, lastIsUp = lastIsUp,
+                    gridColor = gridColor, textColor = textColor,
+                    accentColor = if (lastIsUp) upColor else downColor,
+                    showGrid = showGrid, showVolume = showVolume,
+                    volumeRatio = volumeRatio, textMeasurer = textMeasurer
+                )
+            }
         }
     }
 }
 
-// ─── Drawing Logic ─────────────────────────────────────────
+// ─── Chart Content (scrollable area) ───────────────────────
 
-private fun DrawScope.drawChart(
+private fun DrawScope.drawChartContent(
     candles: List<CandleData>,
     ma7: List<MAPoint>, ma25: List<MAPoint>, ma99: List<MAPoint>,
     upColor: Color, downColor: Color,
     ma7Color: Color, ma25Color: Color, ma99Color: Color,
     gridColor: Color, textColor: Color,
     showGrid: Boolean, showVolume: Boolean,
-    volumeRatio: Float, textMeasurer: TextMeasurer
+    volumeRatio: Float, priceMin: Float, priceMax: Float,
+    textMeasurer: TextMeasurer
 ) {
     val w = size.width
     val h = size.height
-    val rightMargin = 55.dp.toPx()
     val bottomMargin = 18.dp.toPx()
     val topMargin = 4.dp.toPx()
-    val chartWidth = w - rightMargin
     val availableHeight = h - topMargin - bottomMargin
-
     val priceChartHeight = if (showVolume) availableHeight * (1f - volumeRatio) else availableHeight
     val volumeChartTop = topMargin + priceChartHeight
     val volumeChartHeight = if (showVolume) availableHeight * volumeRatio else 0f
-
-    // Price range
-    var priceMin = Float.MAX_VALUE
-    var priceMax = Float.MIN_VALUE
-    for (c in candles) {
-        if (c.low < priceMin) priceMin = c.low
-        if (c.high > priceMax) priceMax = c.high
-    }
-    val pricePad = (priceMax - priceMin) * 0.05f
-    priceMin -= pricePad
-    priceMax += pricePad
     val priceRange = priceMax - priceMin
 
-    // Volume range
     var volumeMax = 0f
-    for (c in candles) {
-        if (c.volume > volumeMax) volumeMax = c.volume
-    }
+    for (cd in candles) { if (cd.volume > volumeMax) volumeMax = cd.volume }
 
-    val candleStep = chartWidth / candles.size
+    val candleStep = w / candles.size
     val candleBodyWidth = candleStep * 0.65f
     val wickWidth = 1.2.dp.toPx()
 
@@ -175,155 +224,141 @@ private fun DrawScope.drawChart(
     fun indexToX(index: Int): Float =
         index * candleStep + candleStep / 2f
 
-    // ── 1. Grid lines ──
+    // Grid
     if (showGrid) {
-        val gridLines = 5
         val dashEffect = PathEffect.dashPathEffect(floatArrayOf(4.dp.toPx(), 4.dp.toPx()))
-
-        for (i in 0..gridLines) {
-            val y = topMargin + priceChartHeight * i / gridLines
-            drawLine(
-                color = gridColor.copy(alpha = 0.25f),
-                start = Offset(0f, y),
-                end = Offset(chartWidth, y),
-                strokeWidth = 0.5.dp.toPx(),
-                pathEffect = dashEffect
-            )
-
-            // Price label on Y axis
-            val price = priceMax - (priceMax - priceMin) * i / gridLines
-            val label = formatPrice(price)
-            val textResult = textMeasurer.measure(
-                text = label,
-                style = TextStyle(fontSize = 9.sp, color = textColor)
-            )
-            drawText(
-                textResult,
-                topLeft = Offset(chartWidth + 4.dp.toPx(), y - textResult.size.height / 2f)
-            )
+        for (i in 0..5) {
+            val y = topMargin + priceChartHeight * i / 5
+            drawLine(gridColor.copy(alpha = 0.2f), Offset(0f, y), Offset(w, y), 0.5.dp.toPx(), pathEffect = dashEffect)
         }
-
-        // Vertical grid lines
         val vLines = min(6, candles.size)
         for (i in 1 until vLines) {
             val idx = candles.size * i / vLines
             val x = indexToX(idx)
-            drawLine(
-                color = gridColor.copy(alpha = 0.15f),
-                start = Offset(x, topMargin),
-                end = Offset(x, topMargin + priceChartHeight),
-                strokeWidth = 0.5.dp.toPx(),
-                pathEffect = dashEffect
-            )
+            drawLine(gridColor.copy(alpha = 0.12f), Offset(x, topMargin), Offset(x, topMargin + priceChartHeight), 0.5.dp.toPx(), pathEffect = dashEffect)
         }
     }
 
-    // ── 2. Volume bars ──
+    // Volume bars
     if (showVolume && volumeMax > 0f) {
         for (i in candles.indices) {
-            val candle = candles[i]
+            val cd = candles[i]
             val x = indexToX(i)
-            val isUp = candle.close >= candle.open
-            val barHeight = (candle.volume / volumeMax) * volumeChartHeight * 0.85f
-            val color = if (isUp) upColor.copy(alpha = 0.4f) else downColor.copy(alpha = 0.4f)
-
+            val isUp = cd.close >= cd.open
+            val barH = (cd.volume / volumeMax) * volumeChartHeight * 0.85f
             drawRect(
-                color = color,
-                topLeft = Offset(x - candleBodyWidth / 2f, volumeChartTop + volumeChartHeight - barHeight),
-                size = Size(candleBodyWidth, barHeight)
+                color = if (isUp) upColor.copy(alpha = 0.4f) else downColor.copy(alpha = 0.4f),
+                topLeft = Offset(x - candleBodyWidth / 2f, volumeChartTop + volumeChartHeight - barH),
+                size = Size(candleBodyWidth, barH)
             )
         }
     }
 
-    // ── 3. Candlestick wicks ──
+    // Wicks
     for (i in candles.indices) {
-        val candle = candles[i]
+        val cd = candles[i]
         val x = indexToX(i)
-        val isUp = candle.close >= candle.open
-        val color = if (isUp) upColor else downColor
-
-        // Wick (high to low)
-        drawLine(
-            color = color,
-            start = Offset(x, priceToY(candle.high)),
-            end = Offset(x, priceToY(candle.low)),
-            strokeWidth = wickWidth,
-            cap = StrokeCap.Round
-        )
+        val color = if (cd.close >= cd.open) upColor else downColor
+        drawLine(color, Offset(x, priceToY(cd.high)), Offset(x, priceToY(cd.low)), wickWidth, cap = StrokeCap.Round)
     }
 
-    // ── 4. Candlestick bodies ──
+    // Bodies
     for (i in candles.indices) {
-        val candle = candles[i]
+        val cd = candles[i]
         val x = indexToX(i)
-        val isUp = candle.close >= candle.open
-        val color = if (isUp) upColor else downColor
-
-        val bodyTop = priceToY(max(candle.open, candle.close))
-        val bodyBottom = priceToY(min(candle.open, candle.close))
-        val bodyHeight = max(bodyBottom - bodyTop, 1.dp.toPx())
-
-        drawRect(
-            color = color,
-            topLeft = Offset(x - candleBodyWidth / 2f, bodyTop),
-            size = Size(candleBodyWidth, bodyHeight)
-        )
+        val color = if (cd.close >= cd.open) upColor else downColor
+        val bodyTop = priceToY(max(cd.open, cd.close))
+        val bodyBottom = priceToY(min(cd.open, cd.close))
+        drawRect(color, Offset(x - candleBodyWidth / 2f, bodyTop), Size(candleBodyWidth, max(bodyBottom - bodyTop, 1.dp.toPx())))
     }
 
-    // ── 5. MA lines ──
-    drawMALine(ma7, candles, ma7Color, priceToY = ::priceToY, indexToX = ::indexToX)
-    drawMALine(ma25, candles, ma25Color, priceToY = ::priceToY, indexToX = ::indexToX)
-    drawMALine(ma99, candles, ma99Color, priceToY = ::priceToY, indexToX = ::indexToX)
+    // MA lines
+    drawMALine(ma7, candles, ma7Color, ::priceToY, ::indexToX)
+    drawMALine(ma25, candles, ma25Color, ::priceToY, ::indexToX)
+    drawMALine(ma99, candles, ma99Color, ::priceToY, ::indexToX)
 
-    // ── 6. X-axis date labels ──
+    // X-axis date labels
     val labelCount = min(5, candles.size)
     for (i in 0 until labelCount) {
         val idx = if (labelCount <= 1) 0 else candles.size * i / (labelCount - 1)
         val safeIdx = min(idx, candles.size - 1)
         val x = indexToX(safeIdx)
         val label = formatDate(candles[safeIdx].timestamp)
-        val textResult = textMeasurer.measure(
-            text = label,
-            style = TextStyle(fontSize = 8.sp, color = textColor)
-        )
-        drawText(
-            textResult,
-            topLeft = Offset(x - textResult.size.width / 2f, h - bottomMargin + 2.dp.toPx())
-        )
+        val tr = textMeasurer.measure(label, TextStyle(fontSize = 8.sp, color = textColor))
+        drawText(tr, topLeft = Offset(x - tr.size.width / 2f, h - bottomMargin + 2.dp.toPx()))
     }
 }
 
+// ─── Y-Axis (fixed right panel) ────────────────────────────
+
+private fun DrawScope.drawYAxis(
+    priceMin: Float, priceMax: Float,
+    lastPrice: Float, lastIsUp: Boolean,
+    gridColor: Color, textColor: Color, accentColor: Color,
+    showGrid: Boolean, showVolume: Boolean,
+    volumeRatio: Float, textMeasurer: TextMeasurer
+) {
+    val h = size.height
+    val w = size.width
+    val topMargin = 4.dp.toPx()
+    val bottomMargin = 18.dp.toPx()
+    val availableHeight = h - topMargin - bottomMargin
+    val priceChartHeight = if (showVolume) availableHeight * (1f - volumeRatio) else availableHeight
+    val priceRange = priceMax - priceMin
+
+    fun priceToY(price: Float): Float =
+        topMargin + priceChartHeight * (1f - (price - priceMin) / priceRange)
+
+    // Price labels at grid lines
+    for (i in 0..5) {
+        val price = priceMax - (priceMax - priceMin) * i / 5
+        val y = topMargin + priceChartHeight * i / 5
+        val label = formatPrice(price)
+        val tr = textMeasurer.measure(label, TextStyle(fontSize = 9.sp, color = textColor))
+        drawText(tr, topLeft = Offset(4.dp.toPx(), y - tr.size.height / 2f))
+    }
+
+    // Price highlight box for last candle
+    val lastY = priceToY(lastPrice)
+    val boxH = 18.dp.toPx()
+    val boxW = w - 2.dp.toPx()
+
+    // Dashed line across
+    drawLine(
+        color = accentColor.copy(alpha = 0.6f),
+        start = Offset(0f, lastY),
+        end = Offset(0f, lastY),
+        strokeWidth = 0.5.dp.toPx()
+    )
+
+    // Price box
+    drawRect(
+        color = accentColor,
+        topLeft = Offset(1.dp.toPx(), lastY - boxH / 2f),
+        size = Size(boxW, boxH)
+    )
+
+    // Price text in box
+    val priceLabel = formatPrice(lastPrice)
+    val priceTr = textMeasurer.measure(priceLabel, TextStyle(fontSize = 9.sp, color = Color.White))
+    drawText(priceTr, topLeft = Offset((w - priceTr.size.width) / 2f, lastY - priceTr.size.height / 2f))
+}
+
+// ─── Helpers ───────────────────────────────────────────────
+
 private fun DrawScope.drawMALine(
-    maPoints: List<MAPoint>,
-    candles: List<CandleData>,
-    color: Color,
-    priceToY: (Float) -> Float,
-    indexToX: (Int) -> Float
+    maPoints: List<MAPoint>, candles: List<CandleData>, color: Color,
+    priceToY: (Float) -> Float, indexToX: (Int) -> Float
 ) {
     if (maPoints.size < 2) return
-
     val path = Path()
-    var started = false
-
-    // MA points correspond to candles starting from (period-1)
     val offset = candles.size - maPoints.size
-
     for (i in maPoints.indices) {
         val x = indexToX(i + offset)
         val y = priceToY(maPoints[i].value)
-        if (!started) {
-            path.moveTo(x, y)
-            started = true
-        } else {
-            path.lineTo(x, y)
-        }
+        if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
     }
-
-    drawPath(
-        path = path,
-        color = color,
-        style = Stroke(width = 1.2.dp.toPx(), cap = StrokeCap.Round)
-    )
+    drawPath(path, color, style = Stroke(width = 1.2.dp.toPx(), cap = StrokeCap.Round))
 }
 
 private fun formatPrice(price: Float): String {
@@ -332,9 +367,7 @@ private fun formatPrice(price: Float): String {
 }
 
 private fun formatDate(timestamp: Long): String {
-    // Simple date formatting without external deps
     val totalDays = timestamp / 86400
-    val year = 1970 + (totalDays / 365.25).toInt()
     val dayOfYear = (totalDays % 365.25).toInt()
     val months = intArrayOf(31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31)
     var month = 0
@@ -345,6 +378,5 @@ private fun formatDate(timestamp: Long): String {
     }
     val monthNames = arrayOf("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
     val mName = if (month < 12) monthNames[month] else "Dec"
-    val day = remaining + 1
-    return "$mName $day"
+    return "$mName ${remaining + 1}"
 }

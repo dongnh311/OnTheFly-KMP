@@ -233,11 +233,10 @@ function render() {
                                     ma99Color: "#B84BE8",
                                     gridColor: theme.border,
                                     textColor: theme.textTertiary,
-                                    background: theme.surfaceVariant,
                                     showGrid: true,
                                     showVolume: true,
                                     volumeHeightRatio: 0.18,
-                                    borderRadius: 8
+                                    candleWidth: 12
                                 }
                             }
                         ]
