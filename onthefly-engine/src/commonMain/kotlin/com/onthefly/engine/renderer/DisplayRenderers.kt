@@ -3,6 +3,7 @@ package com.onthefly.engine.renderer
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -16,16 +17,22 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
-import coil3.compose.AsyncImage
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil3.compose.AsyncImage
 import com.onthefly.engine.model.EngineEvent
 import com.onthefly.engine.model.UIComponent
 import com.onthefly.engine.style.parseFontWeight
@@ -80,13 +87,101 @@ fun RenderText(c: UIComponent, onEvent: (String) -> Unit, onComponentEvent: (Com
         }
     }
 
-    Text(
-        text = text,
-        style = textStyle,
-        modifier = mod,
-        maxLines = maxLines ?: Int.MAX_VALUE,
-        overflow = textOverflow
-    )
+    val selectable = c.propBool("selectable")
+    val htmlText = c.propBool("html")
+
+    val content: @Composable () -> Unit = {
+        if (htmlText) {
+            Text(
+                text = parseSimpleHtml(text),
+                style = textStyle,
+                modifier = mod,
+                maxLines = maxLines ?: Int.MAX_VALUE,
+                overflow = textOverflow
+            )
+        } else {
+            Text(
+                text = text,
+                style = textStyle,
+                modifier = mod,
+                maxLines = maxLines ?: Int.MAX_VALUE,
+                overflow = textOverflow
+            )
+        }
+    }
+
+    if (selectable) {
+        SelectionContainer { content() }
+    } else {
+        content()
+    }
+}
+
+/**
+ * Parse simple HTML tags: <b>, <i>, <u>, <s>, <br>, <font color="...">.
+ * Lightweight parser — not a full HTML engine.
+ */
+private fun parseSimpleHtml(html: String): AnnotatedString {
+    return buildAnnotatedString {
+        var i = 0
+        val styleStack = mutableListOf<SpanStyle>()
+
+        while (i < html.length) {
+            if (html[i] == '<') {
+                val end = html.indexOf('>', i)
+                if (end == -1) { append(html[i]); i++; continue }
+                val tag = html.substring(i + 1, end).trim().lowercase()
+                i = end + 1
+
+                when {
+                    tag == "b" || tag == "strong" -> {
+                        val s = SpanStyle(fontWeight = FontWeight.Bold)
+                        styleStack.add(s)
+                        pushStyle(s)
+                    }
+                    tag == "i" || tag == "em" -> {
+                        val s = SpanStyle(fontStyle = FontStyle.Italic)
+                        styleStack.add(s)
+                        pushStyle(s)
+                    }
+                    tag == "u" -> {
+                        val s = SpanStyle(textDecoration = TextDecoration.Underline)
+                        styleStack.add(s)
+                        pushStyle(s)
+                    }
+                    tag == "s" || tag == "strike" || tag == "del" -> {
+                        val s = SpanStyle(textDecoration = TextDecoration.LineThrough)
+                        styleStack.add(s)
+                        pushStyle(s)
+                    }
+                    tag == "br" || tag == "br/" || tag == "br /" -> {
+                        append("\n")
+                    }
+                    tag.startsWith("font") -> {
+                        val colorMatch = Regex("""color\s*=\s*["']([^"']+)["']""").find(tag)
+                        val sizeMatch = Regex("""size\s*=\s*["']([^"']+)["']""").find(tag)
+                        val color = colorMatch?.groupValues?.get(1)?.toComposeColor()
+                        val size = sizeMatch?.groupValues?.get(1)?.toIntOrNull()
+                        val s = SpanStyle(
+                            color = color ?: Color.Unspecified,
+                            fontSize = size?.sp ?: androidx.compose.ui.unit.TextUnit.Unspecified
+                        )
+                        styleStack.add(s)
+                        pushStyle(s)
+                    }
+                    tag.startsWith("/") -> {
+                        if (styleStack.isNotEmpty()) {
+                            styleStack.removeAt(styleStack.lastIndex)
+                            pop()
+                        }
+                    }
+                }
+            } else {
+                append(html[i])
+                i++
+            }
+        }
+    }
 }
 
 @Composable
@@ -119,12 +214,15 @@ fun RenderImage(c: UIComponent, onEvent: (String) -> Unit, onComponentEvent: (Co
         }
     }
 
+    val tintColor = c.propColor("tintColor")
+
     if (url != null) {
         AsyncImage(
             model = url,
             contentDescription = c.propString("contentDescription"),
             modifier = mod,
-            contentScale = contentScale
+            contentScale = contentScale,
+            colorFilter = tintColor?.let { ColorFilter.tint(it) }
         )
     } else {
         androidx.compose.foundation.layout.Box(

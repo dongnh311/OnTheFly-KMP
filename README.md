@@ -139,9 +139,9 @@ fun OnTheFlyScreen(
 ### Layout
 | Component | Description |
 |---|---|
-| `Column` | Vertical layout (padding, spacing, alignment, scrollable, border, opacity, onClick) |
-| `Row` | Horizontal layout (spaceBetween, spaceAround, spaceEvenly, scrollable) |
-| `Box` | Stack/overlay container (contentAlignment: topStart...bottomEnd) |
+| `Column` | Vertical layout (padding, spacing, alignment, scrollable, border, opacity, gradient, transform, onClick) |
+| `Row` | Horizontal layout (spaceBetween, spaceAround, spaceEvenly, scrollable, gradient, transform) |
+| `Box` | Stack/overlay container (contentAlignment, gradient, transform, clipToBounds) |
 | `Card` | Elevated container with shadow, borderRadius |
 | `Spacer` | Fixed width/height spacer |
 | `Divider` | Horizontal line separator |
@@ -152,9 +152,9 @@ fun OnTheFlyScreen(
 ### Display
 | Component | Description |
 |---|---|
-| `Text` | Styled text (fontSize, fontWeight, fontStyle, maxLines, textDecoration, lineHeight) |
+| `Text` | Styled text (fontSize, fontWeight, fontStyle, maxLines, textDecoration, lineHeight, selectable, html) |
 | `RichText` | Multiple styled spans with click handlers |
-| `Image` | Remote image loading via Coil 3 (contentScale, borderRadius) |
+| `Image` | Remote image loading via Coil 3 (contentScale, borderRadius, tintColor) |
 | `Icon` | Material icons (50+ mapped: home, settings, search, favorite, etc.) |
 | `Badge` | Notification dot or count badge |
 | `Avatar` | Circular avatar with initials fallback |
@@ -163,7 +163,7 @@ fun OnTheFlyScreen(
 ### Input
 | Component | Description |
 |---|---|
-| `Button` | Filled/outlined/text variants, loading spinner, leading icon |
+| `Button` | Filled/outlined/text variants, loading spinner, leading icon, disabledColor |
 | `IconButton` | Circular icon-only button |
 | `TextField` | Label, placeholder, type (text/password/email/number/phone/multiline), error, icons |
 | `Toggle` / `Switch` | On/off switch with label |

@@ -39,6 +39,8 @@ Complete reference of all views, props, events, and functions available in the J
 | `scrollable` | Boolean | false | Enable vertical scrolling |
 | `flashBackground` | Color | — | Flash animation background color |
 | `flashDuration` | Int | 500 | Flash animation duration (ms) |
+| `backgroundGradient` | Array | — | Color array for gradient, e.g. `["#FF0000", "#0000FF"]` |
+| `gradientDirection` | String | "vertical" | `"vertical"`, `"horizontal"`, `"diagonal"` |
 | `onClick` | String | — | JS function name to call on click |
 | `children[].weight` | Float | — | Flex weight for child inside Column |
 
@@ -49,6 +51,8 @@ Complete reference of all views, props, events, and functions available in the J
 | `alignment` | String | "start" | Horizontal arrangement: `"start"`, `"center"`, `"end"`, `"spaceBetween"`, `"spaceAround"`, `"spaceEvenly"` |
 | `crossAlignment` | String | "top" | Vertical alignment: `"top"`, `"center"`, `"bottom"` |
 | `scrollable` | Boolean | false | Enable horizontal scrolling |
+| `backgroundGradient` | Array | — | Color array for gradient |
+| `gradientDirection` | String | "vertical" | `"vertical"`, `"horizontal"`, `"diagonal"` |
 | `onClick` | String | — | JS function name to call on click |
 | `children[].weight` | Float | — | Flex weight for child inside Row |
 
@@ -58,6 +62,8 @@ Complete reference of all views, props, events, and functions available in the J
 | `contentAlignment` | String | "topStart" | 9-point: `"topStart"`, `"topCenter"`, `"topEnd"`, `"centerStart"`, `"center"`, `"centerEnd"`, `"bottomStart"`, `"bottomCenter"`, `"bottomEnd"` |
 | `flashBackground` | Color | — | Flash animation background color |
 | `flashDuration` | Int | 500 | Flash animation duration (ms) |
+| `backgroundGradient` | Array | — | Color array for gradient |
+| `gradientDirection` | String | "vertical" | `"vertical"`, `"horizontal"`, `"diagonal"` |
 | `onClick` | String | — | JS function name to call on click |
 
 #### `Spacer`
@@ -99,6 +105,8 @@ Complete reference of all views, props, events, and functions available in the J
 | `lineHeight` | Float | — | Line height (sp) |
 | `letterSpacing` | Float | — | Letter spacing (sp) |
 | `textDecoration` | String | — | `"underline"`, `"lineThrough"` |
+| `selectable` | Boolean | false | Allow user to select/copy text |
+| `html` | Boolean | false | Parse simple HTML: `<b>`, `<i>`, `<u>`, `<s>`, `<br>`, `<font color="..." size="...">` |
 | `onClick` | String | — | JS function name to call on click |
 
 #### `Image`
@@ -107,6 +115,7 @@ Complete reference of all views, props, events, and functions available in the J
 | `url` | String | — | Image URL |
 | `contentScale` | String | "fit" | `"fill"`, `"crop"`, `"inside"`, `"none"`, `"fit"` |
 | `borderRadius` | Int | 0 | Corner radius (dp) |
+| `tintColor` | Color | — | Color filter/tint overlay |
 | `contentDescription` | String | — | Accessibility description |
 | `onClick` | String | — | JS function name to call on click |
 
@@ -167,6 +176,8 @@ Complete reference of all views, props, events, and functions available in the J
 | `loading` | Boolean | false | Show loading spinner |
 | `background` | Color | — | Background color |
 | `textColor` | Color | — | Label text color |
+| `disabledColor` | Color | — | Background color when disabled |
+| `disabledTextColor` | Color | — | Text color when disabled |
 | `onClick` | String | — | JS function name |
 
 **Events:** `onClick`
@@ -542,11 +553,21 @@ These props are available on most components:
 | `borderWidth` | Int | 0 | Border width (dp) |
 | `borderColor` | Color | — | Border color |
 | `padding` | Int/Object | 0 | Uniform or `{ top, bottom, start, end, horizontal, vertical }` |
+| `minWidth` | Int | — | Minimum width constraint (dp) |
+| `maxWidth` | Int | — | Maximum width constraint (dp) |
+| `minHeight` | Int | — | Minimum height constraint (dp) |
+| `maxHeight` | Int | — | Maximum height constraint (dp) |
+| `rotation` | Float | — | Rotation in degrees |
+| `scaleX` | Float | — | Horizontal scale (1.0 = 100%) |
+| `scaleY` | Float | — | Vertical scale (1.0 = 100%) |
+| `translateX` | Float | — | Horizontal translation (dp) |
+| `translateY` | Float | — | Vertical translation (dp) |
+| `clipToBounds` | Boolean | false | Clip children that overflow bounds |
 | `enterAnimation` | Object | — | Enter animation config |
 | `exitAnimation` | Object | — | Exit animation config |
 
 **Border shape per corner:**
-`borderTopStartRadius`, `borderTopEndRadius`, `borderBottomStartRadius`, `borderBottomEndRadius`
+`borderRadiusTopLeft`, `borderRadiusTopRight`, `borderRadiusBottomLeft`, `borderRadiusBottomRight`
 
 ---
 

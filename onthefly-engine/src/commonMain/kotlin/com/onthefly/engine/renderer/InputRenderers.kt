@@ -204,6 +204,8 @@ fun RenderButton(
 
     val bgColor = c.propColor("background") ?: style?.backgroundComposeColor()?.takeIf { it != Color.Unspecified }
     val textColor = c.propColor("textColor") ?: style?.textComposeColor()?.takeIf { it != Color.Unspecified }
+    val disabledBgColor = c.propColor("disabledColor")
+    val disabledTxtColor = c.propColor("disabledTextColor")
     val borderRadius = c.resolveBorderRadius(style).let { if (it == 0) 8 else it }
     val shape = RoundedCornerShape(borderRadius.dp)
 
@@ -256,11 +258,12 @@ fun RenderButton(
             ) { buttonContent() }
         }
         else -> { // "filled", "tonal"
-            val colors = if (bgColor != null) {
-                ButtonDefaults.buttonColors(containerColor = bgColor)
-            } else {
-                ButtonDefaults.buttonColors()
-            }
+            val colors = ButtonDefaults.buttonColors(
+                containerColor = bgColor ?: ButtonDefaults.buttonColors().containerColor,
+                contentColor = textColor ?: ButtonDefaults.buttonColors().contentColor,
+                disabledContainerColor = disabledBgColor ?: ButtonDefaults.buttonColors().disabledContainerColor,
+                disabledContentColor = disabledTxtColor ?: ButtonDefaults.buttonColors().disabledContentColor
+            )
             Button(
                 onClick = onClickAction,
                 modifier = mod,

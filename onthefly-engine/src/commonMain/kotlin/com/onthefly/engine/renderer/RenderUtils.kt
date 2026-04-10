@@ -5,15 +5,20 @@ import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
@@ -210,6 +215,73 @@ fun Modifier.applyMinTouchTarget(isClickable: Boolean): Modifier {
     return if (isClickable) {
         this.then(Modifier.defaultMinSize(minWidth = 48.dp, minHeight = 48.dp))
     } else this
+}
+
+// ── Size constraints ──────────────────────────────────────────
+
+fun Modifier.applySizeConstraints(c: UIComponent): Modifier {
+    var mod = this
+    val minW = (c.props["minWidth"] as? Number)?.toInt()
+    val maxW = (c.props["maxWidth"] as? Number)?.toInt()
+    if (minW != null || maxW != null) {
+        mod = mod.widthIn(
+            min = minW?.dp ?: 0.dp,
+            max = maxW?.dp ?: androidx.compose.ui.unit.Dp.Unspecified
+        )
+    }
+    val minH = (c.props["minHeight"] as? Number)?.toInt()
+    val maxH = (c.props["maxHeight"] as? Number)?.toInt()
+    if (minH != null || maxH != null) {
+        mod = mod.heightIn(
+            min = minH?.dp ?: 0.dp,
+            max = maxH?.dp ?: androidx.compose.ui.unit.Dp.Unspecified
+        )
+    }
+    return mod
+}
+
+// ── Transform (rotation, scale, translate) ────────────────────
+
+fun Modifier.applyTransform(c: UIComponent): Modifier {
+    val rotation = (c.props["rotation"] as? Number)?.toFloat()
+    val scaleX = (c.props["scaleX"] as? Number)?.toFloat()
+    val scaleY = (c.props["scaleY"] as? Number)?.toFloat()
+    val translateX = (c.props["translateX"] as? Number)?.toFloat()
+    val translateY = (c.props["translateY"] as? Number)?.toFloat()
+
+    if (rotation == null && scaleX == null && scaleY == null && translateX == null && translateY == null) {
+        return this
+    }
+
+    return this.graphicsLayer {
+        if (rotation != null) rotationZ = rotation
+        if (scaleX != null) this.scaleX = scaleX
+        if (scaleY != null) this.scaleY = scaleY
+        if (translateX != null) this.translationX = translateX * density
+        if (translateY != null) this.translationY = translateY * density
+    }
+}
+
+// ── Background gradient ───────────────────────────────────────
+
+@Suppress("UNCHECKED_CAST")
+fun UIComponent.resolveBackgroundBrush(): Brush? {
+    val colors = props["backgroundGradient"] as? List<*> ?: return null
+    val composeColors = colors.mapNotNull { (it as? String)?.toComposeColor() }
+    if (composeColors.size < 2) return null
+
+    return when (props["gradientDirection"] as? String) {
+        "horizontal" -> Brush.horizontalGradient(composeColors)
+        "diagonal" -> Brush.linearGradient(composeColors)
+        else -> Brush.verticalGradient(composeColors) // default vertical
+    }
+}
+
+// ── Clip to bounds ────────────────────────────────────────────
+
+fun Modifier.applyClipToBounds(c: UIComponent): Modifier {
+    val clipToBounds = c.props["clipToBounds"] as? Boolean ?: return this
+    return if (clipToBounds) this.clip(c.resolveShape()) else this
 }
 
 fun resolveContentAlignment(value: String?): Alignment = when (value) {

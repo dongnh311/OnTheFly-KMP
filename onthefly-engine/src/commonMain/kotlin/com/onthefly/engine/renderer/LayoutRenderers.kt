@@ -34,6 +34,17 @@ import com.onthefly.engine.model.EngineEvent
 import com.onthefly.engine.model.UIComponent
 import com.onthefly.engine.style.toComposeColor
 
+/**
+ * Apply common modifier chain: size constraints → transform → clip.
+ * Call after width/height/opacity and before background/border/padding.
+ */
+private fun Modifier.applyCommonExtras(c: UIComponent): Modifier {
+    return this
+        .applySizeConstraints(c)
+        .applyTransform(c)
+        .applyClipToBounds(c)
+}
+
 @Composable
 fun RenderColumn(
     c: UIComponent,
@@ -74,13 +85,16 @@ fun RenderColumn(
     )
 
     val shape = c.resolveShape()
+    val gradientBrush = c.resolveBackgroundBrush()
     var mod = modifier
         .applyWidth(c.props["width"] ?: style?.width ?: "fill")
         .applyHeight(c.props["height"] ?: style?.height)
         .applyOpacity(c.props["opacity"] ?: style?.opacity)
+        .applyCommonExtras(c)
 
     if (borderRadius > 0) mod = mod.clip(shape)
-    if (bg != null) mod = mod.background(bg, shape)
+    if (gradientBrush != null) mod = mod.background(gradientBrush, shape)
+    else if (bg != null) mod = mod.background(bg, shape)
     if (flashBg != null) mod = mod.background(animatedFlash.value, shape)
     mod = mod.applyBorder(c, style, borderRadius)
     mod = mod.applyPadding(c, style)
@@ -142,13 +156,16 @@ fun RenderRow(
     val verticalAlignment = resolveVerticalAlignment(crossAlignment)
 
     val shape = c.resolveShape()
+    val gradientBrush = c.resolveBackgroundBrush()
     var mod = modifier
         .applyWidth(c.props["width"] ?: style?.width ?: "fill")
         .applyHeight(c.props["height"] ?: style?.height)
         .applyOpacity(c.props["opacity"] ?: style?.opacity)
+        .applyCommonExtras(c)
 
     if (borderRadius > 0) mod = mod.clip(shape)
-    if (bg != null) mod = mod.background(bg, shape)
+    if (gradientBrush != null) mod = mod.background(gradientBrush, shape)
+    else if (bg != null) mod = mod.background(bg, shape)
     mod = mod.applyBorder(c, style, borderRadius)
     mod = mod.applyPadding(c, style)
 
@@ -219,13 +236,16 @@ fun RenderBox(
     )
 
     val shape = c.resolveShape()
+    val gradientBrush = c.resolveBackgroundBrush()
     var mod = modifier
         .applyWidth(c.props["width"] ?: "fill")
         .applyHeight(c.props["height"])
         .applyOpacity(c.props["opacity"])
+        .applyCommonExtras(c)
 
     if (borderRadius > 0) mod = mod.clip(shape)
-    if (bg != null) mod = mod.background(bg, shape)
+    if (gradientBrush != null) mod = mod.background(gradientBrush, shape)
+    else if (bg != null) mod = mod.background(bg, shape)
     if (flashBg != null) mod = mod.background(animatedFlash.value, shape)
     mod = mod.applyBorder(c, style, borderRadius)
     mod = mod.applyPadding(c, style)
