@@ -92,6 +92,7 @@ ASSETS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)),
 
 
 SPECIAL_DIRS = {'_base', '_libs', 'languages'}
+APP_ID = 'com.onthefly.app'
 
 
 def resolve_bundle_dir(scripts_dir, bundle_name):
@@ -592,7 +593,6 @@ def cmd_validate(scripts_dir, bundle_filter=None):
 # ═══════════════════════════════════════════════════════════
 
 def cmd_deploy(scripts_dir, bundle_filter=None):
-    assets_dir = os.path.abspath(ASSETS_DIR)
     bundles = list_all_bundles(scripts_dir)
     if bundle_filter:
         bundles = [b for b in bundles if b == bundle_filter]
@@ -607,21 +607,73 @@ def cmd_deploy(scripts_dir, bundle_filter=None):
             print(f'  \033[31m✗\033[0m {b}/ failed validation. Run: python server.py validate')
             return
 
-    os.makedirs(assets_dir, exist_ok=True)
     version_src = os.path.join(scripts_dir, 'version.json')
+    deployed_targets = []
+
+    # ─── Android: copy to assets ───────────────────────
+    android_assets = os.path.abspath(ASSETS_DIR)
+    has_android = False
+    try:
+        result = subprocess.run(['adb', 'devices'], capture_output=True, text=True, timeout=3)
+        has_android = any(line.strip().endswith('device') for line in result.stdout.strip().split('\n')[1:])
+    except Exception:
+        pass
+
+    os.makedirs(android_assets, exist_ok=True)
     if os.path.isfile(version_src):
-        shutil.copy2(version_src, os.path.join(assets_dir, 'version.json'))
+        shutil.copy2(version_src, os.path.join(android_assets, 'version.json'))
+    for b in bundles:
+        src = resolve_bundle_dir(scripts_dir, b)
+        dst = os.path.join(android_assets, b)
+        if os.path.exists(dst): shutil.rmtree(dst)
+        shutil.copytree(src, dst)
+    deployed_targets.append(f'Android assets ({len(bundles)} bundles)')
+
+    # ─── iOS: copy to DerivedData app bundle (if exists) ──
+    ios_app_scripts = None
+    derived_data = os.path.expanduser('~/Library/Developer/Xcode/DerivedData')
+    if os.path.isdir(derived_data):
+        for d in os.listdir(derived_data):
+            if d.startswith('iosApp-'):
+                candidate = os.path.join(derived_data, d, 'Build/Products/Debug-iphonesimulator/iosApp.app/scripts')
+                app_path = os.path.join(derived_data, d, 'Build/Products/Debug-iphonesimulator/iosApp.app')
+                if os.path.isdir(app_path):
+                    ios_app_scripts = candidate
+                    break
+
+    if ios_app_scripts:
+        if os.path.exists(ios_app_scripts):
+            shutil.rmtree(ios_app_scripts)
+        os.makedirs(ios_app_scripts, exist_ok=True)
+        if os.path.isfile(version_src):
+            shutil.copy2(version_src, os.path.join(ios_app_scripts, 'version.json'))
+        # Copy special dirs
+        for dir_name in ['_base', '_libs', 'languages']:
+            src_dir = os.path.join(scripts_dir, dir_name)
+            if os.path.isdir(src_dir):
+                shutil.copytree(src_dir, os.path.join(ios_app_scripts, dir_name))
+        # Copy screen bundles (flattened)
+        for b in bundles:
+            if b.startswith('_') or b == 'languages':
+                continue
+            src = resolve_bundle_dir(scripts_dir, b)
+            shutil.copytree(src, os.path.join(ios_app_scripts, b))
+        deployed_targets.append('iOS app bundle')
+
+    # ─── Desktop: scripts are read from devserver directly in dev mode ──
+    deployed_targets.append('Desktop (reads from devserver)')
 
     print('')
     for b in bundles:
-        src = resolve_bundle_dir(scripts_dir, b)
-        dst = os.path.join(assets_dir, b)  # flatten: screens/home → assets/home
-        if os.path.exists(dst): shutil.rmtree(dst)
-        shutil.copytree(src, dst)
-        n = len(os.listdir(dst))
-        print(f'  \033[32m✓\033[0m {b}/ ({n} files)')
+        print(f'  \033[32m✓\033[0m {b}/')
+    print(f'\n  Deployed to: {", ".join(deployed_targets)}')
 
-    print(f'\n  Deployed {len(bundles)} bundle(s) → {assets_dir}\n')
+    # Auto-reload connected devices
+    alive = get_connected_devices()
+    if alive:
+        bump_version()
+        print(f'  \033[33m↻\033[0m Pushed reload to {len(alive)} device(s)')
+    print('')
 
 
 # ═══════════════════════════════════════════════════════════
@@ -772,23 +824,153 @@ class DevHandler(http.server.BaseHTTPRequestHandler):
 #  Interactive Terminal
 # ═══════════════════════════════════════════════════════════
 
+def _find_ios_simulator():
+    """Find currently booted iOS simulator. Returns (udid, name) or (None, None)."""
+    try:
+        import json as _json
+        result = subprocess.run(['xcrun', 'simctl', 'list', 'devices', 'booted', '-j'],
+                                 capture_output=True, text=True)
+        data = _json.loads(result.stdout)
+        for runtime, devs in data.get('devices', {}).items():
+            for d in devs:
+                if d.get('state') == 'Booted':
+                    return d['udid'], d['name']
+    except Exception:
+        pass
+    return None, None
+
+
+def _boot_ios_simulator():
+    """Boot the first available iPhone simulator. Returns (udid, name) or (None, None)."""
+    try:
+        import json as _json
+        result = subprocess.run(['xcrun', 'simctl', 'list', 'devices', 'available', '-j'],
+                                 capture_output=True, text=True, timeout=5)
+        data = _json.loads(result.stdout)
+        for runtime, devs in data.get('devices', {}).items():
+            if 'iOS' not in runtime:
+                continue
+            for d in devs:
+                if 'iPhone' in d.get('name', ''):
+                    name = d['name']
+                    udid = d['udid']
+                    subprocess.run(['xcrun', 'simctl', 'boot', udid], capture_output=True, timeout=15)
+                    subprocess.Popen(['open', '-a', 'Simulator'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    return udid, name
+    except Exception:
+        pass
+    return None, None
+
+
+def _xcode_build_ios(sim_id, sim_name):
+    """Build iOS app via xcodebuild. Returns (return_code, app_path)."""
+    dest = f'platform=iOS Simulator,id={sim_id}' if sim_id != 'booted' else f'platform=iOS Simulator,name={sim_name}'
+    build_dir = os.path.abspath('../build/ios_build')
+    ret = subprocess.Popen(['xcodebuild', '-project', 'iosApp/iosApp.xcodeproj',
+                             '-scheme', 'iosApp', '-configuration', 'Debug',
+                             '-destination', dest, '-sdk', 'iphonesimulator',
+                             f'SYMROOT={build_dir}'], cwd='..').wait()
+    app_path = f'{build_dir}/Debug-iphonesimulator/iosApp.app'
+    if ret == 0 and os.path.isdir(app_path):
+        return ret, app_path
+    return ret, None
+
+
+def _install_launch_ios(sim_id, app_path):
+    """Install and launch app on iOS simulator."""
+    subprocess.run(['xcrun', 'simctl', 'terminate', sim_id, APP_ID], capture_output=True)
+    subprocess.run(['xcrun', 'simctl', 'install', sim_id, app_path], timeout=30)
+    subprocess.run(['xcrun', 'simctl', 'launch', sim_id, APP_ID], timeout=10)
+
+
+def _cmd_create_bundle(scripts_dir, name):
+    """Scaffold a new script bundle."""
+    bundle_dir = os.path.join(scripts_dir, 'screens', name)
+    if os.path.exists(bundle_dir):
+        print(f'  \033[31m✗\033[0m Bundle already exists: {name}/')
+        return
+    os.makedirs(bundle_dir)
+    manifest = {"name": name.replace('-', ' ').title(), "version": "1.0.0", "entry": "main.js"}
+    with open(os.path.join(bundle_dir, 'manifest.json'), 'w') as f:
+        json.dump(manifest, f, indent=2)
+    with open(os.path.join(bundle_dir, 'main.js'), 'w') as f:
+        f.write(f'// {name} screen\n\nfunction onCreateView() {{\n    render();\n}}\n\n'
+                f'function render() {{\n    var theme = StockTheme.get();\n\n'
+                f'    OnTheFly.setUI(\n        Column({{ background: theme.primary, fillMaxWidth: true }}, [\n'
+                f'            Text({{ text: "{name}", fontSize: 24, fontWeight: "bold", color: theme.textPrimary }})\n'
+                f'        ])\n    );\n}}\n\nrender();\n')
+    with open(os.path.join(bundle_dir, 'theme.js'), 'w') as f:
+        f.write(f'// Theme for {name}\n')
+    print(f'  \033[32m✓\033[0m Created bundle: screens/{name}/')
+    print(f'    manifest.json, main.js, theme.js')
+
+
+def _cmd_bundle_size(scripts_dir):
+    """Show bundle size breakdown."""
+    bundles = list_all_bundles(scripts_dir)
+    total = 0
+    print('')
+    print(f'  \033[1mBundle Sizes\033[0m')
+    print('  ───────────────────────────────────────')
+    rows = []
+    for b in bundles:
+        bd = resolve_bundle_dir(scripts_dir, b)
+        size = 0
+        if os.path.isdir(bd):
+            for f in os.listdir(bd):
+                fp = os.path.join(bd, f)
+                if os.path.isfile(fp):
+                    size += os.path.getsize(fp)
+        total += size
+        rows.append((b, size))
+    rows.sort(key=lambda x: -x[1])
+    for b, size in rows:
+        bar = '█' * max(1, int(size / max(r[1] for r in rows) * 20)) if rows else ''
+        if size > 10240:
+            sz = f'{size // 1024}KB'
+        else:
+            sz = f'{size}B'
+        print(f'  {sz:>8}  {bar:<20}  {b}')
+    print('  ───────────────────────────────────────')
+    print(f'  Total: {total // 1024}KB ({len(bundles)} bundles)')
+    print('')
+
+
 def interactive_loop(scripts_dir):
     """Run in background thread. Reads commands from stdin."""
     HELP = """
   \033[1mCommands:\033[0m
+    ──────── Run ──────────────────────────
     ra, run android        Launch Android Emulator build
     ri, run ios            Launch iOS Simulator build
     rd, run desktop        Launch Desktop app
+
+    ──────── Build & Kill ─────────────────
     ba, build android      Clean rebuild + install + launch Android
+    bi, build ios          Clean rebuild + install + launch iOS
+    bd, build desktop      Clean rebuild + launch Desktop
     ka, kill               Kill all emulators and processes
+
+    ─────── Connection ────────────────────
     s, status              Server status + connected devices
     c, clients             List connected devices
+
+    ─────── Dev Mode ──────────────────────
     v, validate [bundle]   Validate JS syntax
-    d, deploy [bundle]     Copy scripts → Android assets
-    br, build-release      Build release zip (validate + zip → releases/)
-    rs, release-server     Start/stop release server (port 8082)
+    d, deploy [bundle]     Deploy scripts → Android assets + iOS bundle
     l, list                List bundles
     r, reload              Bump version (force app reload)
+
+    ──────── Release ──────────────────────
+    br, build-release      Build release zip (validate + sign + zip)
+    rs, release-server     Start/stop release server (port 8082)
+
+    ──────── Bundle Tools ─────────────────
+    new [name]             Create new bundle scaffold
+    size                   Show bundle size breakdown
+    uninstall              Uninstall app from all devices
+
+    ──────── Other ────────────────────────
     clear                  Clear screen
     h, help                Show this help
     q, quit                Stop server
@@ -825,43 +1007,110 @@ def interactive_loop(scripts_dir):
 
         elif cmd in ('ra', 'run') and (arg == 'android' or cmd == 'ra'):
             print('  🚀 Launching on Android Emulator...')
-            subprocess.Popen(['./gradlew', ':composeApp:installDebug', '--no-configuration-cache'], cwd='..').wait()
-            subprocess.Popen(['adb', 'shell', 'monkey', '-p', 'com.onthefly.app', '-c', 'android.intent.category.LAUNCHER', '1'])
+            ret = subprocess.Popen(['./gradlew', ':composeApp:installDebug', '--no-configuration-cache'], cwd='..').wait()
+            if ret == 0:
+                subprocess.Popen(['adb', 'shell', 'am', 'force-stop', APP_ID], stderr=subprocess.DEVNULL).wait()
+                subprocess.Popen(['adb', 'shell', 'monkey', '-p', APP_ID, '-c', 'android.intent.category.LAUNCHER', '1'],
+                                  stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                print('  \033[32m✓\033[0m Android app launched!')
+            else:
+                print('  \033[31m✗\033[0m Build failed!')
 
         elif cmd in ('ba', 'build') and (arg == 'android' or cmd == 'ba'):
             print('  🔨 Clean rebuild + install Android...')
-            ret = subprocess.Popen(['./gradlew', ':onthefly-engine:clean', ':composeApp:clean', ':composeApp:assembleDebug', '--no-configuration-cache'], cwd='..').wait()
+            ret = subprocess.Popen(['./gradlew', ':onthefly-engine:clean', ':composeApp:clean',
+                                     ':composeApp:assembleDebug', '--no-configuration-cache'], cwd='..').wait()
             if ret == 0:
-                print('  📦 Installing APK...')
-                subprocess.Popen(['adb', 'install', '-r', 'composeApp/build/outputs/apk/debug/composeApp-debug.apk'], cwd='..').wait()
-                print('  🚀 Launching app...')
-                subprocess.Popen(['adb', 'shell', 'am', 'force-stop', 'com.onthefly.app']).wait()
-                subprocess.Popen(['adb', 'shell', 'monkey', '-p', 'com.onthefly.app', '-c', 'android.intent.category.LAUNCHER', '1'])
-                print('  \033[32m✓\033[0m Build + install + launch complete!')
+                apk = os.path.abspath('../composeApp/build/outputs/apk/debug/composeApp-debug.apk')
+                if not os.path.isfile(apk):
+                    print(f'  \033[31m✗\033[0m APK not found: {apk}')
+                else:
+                    print('  📦 Installing APK...')
+                    subprocess.Popen(['adb', 'install', '-r', apk]).wait()
+                    print('  🚀 Launching app...')
+                    subprocess.Popen(['adb', 'shell', 'am', 'force-stop', APP_ID]).wait()
+                    subprocess.Popen(['adb', 'shell', 'monkey', '-p', APP_ID, '-c', 'android.intent.category.LAUNCHER', '1'],
+                                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    print('  \033[32m✓\033[0m Build + install + launch complete!')
             else:
                 print('  \033[31m✗\033[0m Build failed!')
-            
+
+        elif cmd in ('bi', 'build') and (arg == 'ios' or cmd == 'bi'):
+            print('  🍎 Clean rebuild + install + launch iOS...')
+            sim_id, sim_name = _find_ios_simulator()
+            if not sim_id:
+                sim_id, sim_name = _boot_ios_simulator()
+            if not sim_id:
+                print('  \033[31m✗\033[0m No iOS Simulator available')
+                continue
+            print(f'  Simulator: {sim_name}')
+            ret = subprocess.Popen(['./gradlew', ':onthefly-engine:clean',
+                                     ':onthefly-engine:linkDebugFrameworkIosSimulatorArm64',
+                                     '--no-configuration-cache'], cwd='..').wait()
+            if ret != 0:
+                print('  \033[31m✗\033[0m Framework build failed!')
+                continue
+            ret, app_path = _xcode_build_ios(sim_id, sim_name)
+            if ret == 0 and app_path:
+                _install_launch_ios(sim_id, app_path)
+                print('  \033[32m✓\033[0m Build + install + launch iOS complete!')
+            else:
+                print('  \033[31m✗\033[0m iOS build failed!')
+
+        elif cmd in ('bd', 'build') and (arg == 'desktop' or cmd == 'bd'):
+            print('  💻 Clean rebuild + launch Desktop...')
+            ret = subprocess.Popen(['./gradlew', ':onthefly-engine:clean', ':composeApp:clean',
+                                     ':composeApp:run', '--no-configuration-cache'], cwd='..').wait()
+            if ret == 0:
+                print('  \033[32m✓\033[0m Desktop build + launch complete!')
+            else:
+                print('  \033[31m✗\033[0m Desktop build failed!')
+
         elif cmd in ('ri', 'run') and (arg == 'ios' or cmd == 'ri'):
             print('  🍎 Launching on iOS Simulator...')
-            subprocess.Popen(['xcrun', 'simctl', 'boot', 'iPhone 15'], stderr=subprocess.DEVNULL)
-            subprocess.Popen(['xcodebuild', '-project', 'iosApp/iosApp.xcodeproj', '-scheme', 'iosApp', '-configuration', 'Debug', '-destination', 'platform=iOS Simulator,name=iPhone 15', '-sdk', 'iphonesimulator', f'SYMROOT={os.path.abspath("../build/ios_build")}'], cwd='..').wait()
-            subprocess.Popen(['xcrun', 'simctl', 'install', 'booted', '../build/ios_build/Debug-iphonesimulator/iosApp.app'])
-            subprocess.Popen(['xcrun', 'simctl', 'launch', 'booted', 'com.onthefly.app'])
+            sim_id, sim_name = _find_ios_simulator()
+            if not sim_id:
+                sim_id, sim_name = _boot_ios_simulator()
+            if not sim_id:
+                print('  \033[31m✗\033[0m No iOS Simulator available')
+                continue
+            print(f'  Simulator: {sim_name}')
+            ret, app_path = _xcode_build_ios(sim_id, sim_name)
+            if ret == 0 and app_path:
+                _install_launch_ios(sim_id, app_path)
+                print('  \033[32m✓\033[0m iOS app launched!')
+            else:
+                print('  \033[31m✗\033[0m iOS build failed!')
 
         elif cmd in ('rd', 'run') and (arg == 'desktop' or cmd == 'rd'):
             print('  💻 Launching Desktop App...')
-            subprocess.Popen(['./gradlew', ':composeApp:run'], cwd='..')
+            subprocess.Popen(['./gradlew', ':composeApp:run', '--no-configuration-cache'], cwd='..')
 
         elif cmd in ('ka', 'kill'):
             print('  🛑 Stopping emulators and processes...')
-            subprocess.Popen(['adb', 'devices'], stdout=subprocess.PIPE).communicate() # warm up adb
-            os.system('''
-                adb devices | grep '^emulator' | cut -f1 | while read line; do adb -s $line emu kill; done 2>/dev/null
-                xcrun simctl shutdown all 2>/dev/null
-                pkill -f "composeApp" 2>/dev/null
-                pkill -f "qemu-system" 2>/dev/null
-            ''')
-            print('  ✓ Done!')
+            subprocess.run(['adb', 'shell', 'am', 'force-stop', APP_ID],
+                            capture_output=True, timeout=5)
+            subprocess.run(['xcrun', 'simctl', 'terminate', 'booted', APP_ID],
+                            capture_output=True, timeout=5)
+            subprocess.run(['xcrun', 'simctl', 'shutdown', 'all'],
+                            capture_output=True, timeout=10)
+            for proc_name in ['composeApp', 'qemu-system']:
+                subprocess.run(['pkill', '-f', proc_name], capture_output=True)
+            print('  \033[32m✓\033[0m Done!')
+
+        elif cmd in ('uninstall',):
+            print('  🗑️  Uninstalling app from all devices...')
+            subprocess.run(['adb', 'uninstall', APP_ID], capture_output=True, timeout=10)
+            sim_id, _ = _find_ios_simulator()
+            if sim_id:
+                subprocess.run(['xcrun', 'simctl', 'uninstall', sim_id, APP_ID], capture_output=True, timeout=10)
+            print('  \033[32m✓\033[0m Done!')
+
+        elif cmd in ('new', 'create') and arg:
+            _cmd_create_bundle(scripts_dir, arg)
+
+        elif cmd in ('size', 'bundle-size'):
+            _cmd_bundle_size(scripts_dir)
 
         elif cmd in ('br', 'build-release'):
             cmd_build_release(scripts_dir)
@@ -878,14 +1127,29 @@ def interactive_loop(scripts_dir):
 
         elif cmd in ('l', 'list', 'ls'):
             bundles = list_all_bundles(scripts_dir)
+            total_errors = 0
             print('')
             for b in bundles:
                 bd = resolve_bundle_dir(scripts_dir, b)
                 files = os.listdir(bd) if os.path.isdir(bd) else []
-                bv = get_bundle_version(b)
-                mod = f'  (modified)' if bv else ''
+                ok, results = validate_bundle(scripts_dir, b)
                 prefix = '  _/' if b.startswith('_') else '  screens/'
-                print(f'{prefix}{b}/ ({len(files)} files){mod}')
+                if ok:
+                    print(f'  \033[32m✓\033[0m {prefix}{b}/ ({len(files)} files)')
+                else:
+                    err_files = [fn for fn, fok, errs in results if not fok]
+                    total_errors += len(err_files)
+                    print(f'  \033[31m✗\033[0m {prefix}{b}/ ({len(files)} files) — {len(err_files)} error(s)')
+                    for fn, fok, errs in results:
+                        if not fok:
+                            print(f'      \033[31m{fn}\033[0m')
+                            for e in errs:
+                                print(f'        {e}')
+            print('')
+            if total_errors > 0:
+                print(f'  \033[31m{total_errors} file(s) with errors\033[0m')
+            else:
+                print(f'  \033[32mAll {len(bundles)} bundle(s) valid ✓\033[0m')
             print('')
 
         elif cmd in ('r', 'reload'):
@@ -899,6 +1163,36 @@ def interactive_loop(scripts_dir):
 
         else:
             print(f'  Unknown command: {cmd}. Type "help".')
+
+
+def _detect_external_devices():
+    """Detect Android emulators and iOS simulators outside dev server connections."""
+    devices = []
+
+    # Check Android emulator via adb
+    try:
+        result = subprocess.run(['adb', 'devices'], capture_output=True, text=True, timeout=3)
+        for line in result.stdout.strip().split('\n')[1:]:
+            if line.strip().endswith('device'):
+                serial = line.split()[0]
+                devices.append(('Android Emulator', serial, '● running'))
+    except Exception:
+        pass
+
+    # Check iOS Simulator
+    sim_id, sim_name = _find_ios_simulator()
+    if sim_id:
+        # Check if our app is installed
+        try:
+            result = subprocess.run(['xcrun', 'simctl', 'listapps', sim_id],
+                                     capture_output=True, text=True, timeout=5)
+            has_app = 'com.onthefly.app' in result.stdout
+        except Exception:
+            has_app = False
+        status = '● app installed' if has_app else '○ no app'
+        devices.append((f'iOS Simulator ({sim_name})', sim_id[:12], status))
+
+    return devices
 
 
 def cmd_status(scripts_dir):
@@ -915,8 +1209,9 @@ def cmd_status(scripts_dir):
     print(f'  Watcher:     {"watchdog" if HAS_WATCHDOG else "polling fallback"}')
     print(f'  Validation:  {"✓ OK" if g_last_change_valid else "✗ ERRORS (not pushing)"}')
     print('  ───────────────────────────────────────')
-    print(f'  \033[1mDevices:\033[0m {len(alive)} connected, {len(all_devs)} total')
 
+    # Dev server connected devices
+    print(f'  \033[1mDev Server Devices:\033[0m {len(alive)} connected')
     if all_devs:
         for ip, dev in all_devs:
             icon = dev.status_icon()
@@ -924,7 +1219,14 @@ def cmd_status(scripts_dir):
             reloads = f'  reloads: {dev.reload_count}' if dev.reload_count > 0 else ''
             print(f'    {icon} {dev.platform:<16} {ip:<20} {status}{reloads}')
     else:
-        print('    \033[90m(no devices seen yet)\033[0m')
+        print('    \033[90m(no devices polling dev server)\033[0m')
+
+    # External devices (emulators / simulators)
+    ext_devices = _detect_external_devices()
+    if ext_devices:
+        print(f'  \033[1mEmulators/Simulators:\033[0m {len(ext_devices)} detected')
+        for name, serial, status in ext_devices:
+            print(f'    {status}  {name:<30} {serial}')
 
     print('')
 
@@ -968,8 +1270,46 @@ RELEASE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'releases
 RELEASE_PORT = 8082
 
 
+def sign_bundle(bundle_dir):
+    """Compute SHA-256 hashes for all JS/JSON files and add signature to manifest."""
+    import hashlib
+    manifest_path = os.path.join(bundle_dir, 'manifest.json')
+    if not os.path.isfile(manifest_path):
+        return False
+
+    with open(manifest_path, 'r') as f:
+        manifest = json.load(f)
+
+    file_hashes = {}
+    for fname in sorted(os.listdir(bundle_dir)):
+        if fname == 'manifest.json':
+            continue
+        if fname.endswith(('.js', '.json')):
+            fp = os.path.join(bundle_dir, fname)
+            if os.path.isfile(fp):
+                with open(fp, 'r', encoding='utf-8') as f:
+                    content = f.read()
+                file_hashes[fname] = hashlib.sha256(content.encode('utf-8')).hexdigest()
+
+    if not file_hashes:
+        return False
+
+    all_hashes = ''.join(file_hashes.values())
+    bundle_hash = hashlib.sha256(all_hashes.encode('utf-8')).hexdigest()
+
+    manifest['signature'] = {
+        'algorithm': 'SHA-256',
+        'files': file_hashes,
+        'bundleHash': bundle_hash
+    }
+
+    with open(manifest_path, 'w') as f:
+        json.dump(manifest, f, indent=2)
+    return True
+
+
 def cmd_build_release(scripts_dir):
-    """Validate all bundles, zip scripts, create release package."""
+    """Validate all bundles, sign, zip scripts, create release package."""
     import zipfile
 
     # Step 1: Validate
@@ -992,20 +1332,68 @@ def cmd_build_release(scripts_dir):
 
     print(f'  \033[32m✓\033[0m All {len(bundles)} bundle(s) valid')
 
-    # Step 2: Read version
+    # Step 2: Sign bundles
+    signed = 0
+    screens_dir = os.path.join(scripts_dir, 'screens')
+    if os.path.isdir(screens_dir):
+        for bundle_name in sorted(os.listdir(screens_dir)):
+            bundle_path = os.path.join(screens_dir, bundle_name)
+            if os.path.isdir(bundle_path) and sign_bundle(bundle_path):
+                signed += 1
+    print(f'  \033[32m✓\033[0m Signed {signed} bundle(s)')
+
+    # Step 3: Auto-update version.json (bump globalVersion + scan bundles)
     version_file = os.path.join(scripts_dir, 'version.json')
     if os.path.isfile(version_file):
         with open(version_file, 'r') as f:
             version_data = json.load(f)
-        global_version = version_data.get('globalVersion', 'unknown')
+        old_version = version_data.get('globalVersion', '0.0.0')
     else:
-        global_version = time.strftime('%Y.%m.%d.1')
-        version_data = {'schemaVersion': 1, 'globalVersion': global_version, 'bundles': {}}
+        old_version = '0.0.0'
+        version_data = {'schemaVersion': 1, 'globalVersion': old_version, 'bundles': {}}
 
-    # Step 3: Create release directory
+    # Bump: parse "YYYY.MM.DD.N" or semver, increment last part
+    parts = old_version.split('.')
+    today = time.strftime('%Y.%m.%d')
+    today_parts = today.split('.')
+    if parts[:3] == today_parts:
+        # Same day — increment build number
+        build_num = int(parts[3]) + 1 if len(parts) > 3 else 1
+        global_version = f'{today}.{build_num}'
+    else:
+        global_version = f'{today}.1'
+
+    # Scan all screen bundles for files + versions
+    bundle_info = {}
+    if os.path.isdir(screens_dir):
+        for bundle_name in sorted(os.listdir(screens_dir)):
+            bundle_path = os.path.join(screens_dir, bundle_name)
+            if not os.path.isdir(bundle_path):
+                continue
+            manifest_path = os.path.join(bundle_path, 'manifest.json')
+            bversion = '1.0.0'
+            if os.path.isfile(manifest_path):
+                try:
+                    with open(manifest_path, 'r') as f:
+                        m = json.load(f)
+                    bversion = m.get('version', '1.0.0')
+                except Exception:
+                    pass
+            bfiles = sorted([f for f in os.listdir(bundle_path) if os.path.isfile(os.path.join(bundle_path, f))])
+            bundle_info[bundle_name] = {'version': bversion, 'files': bfiles}
+
+    version_data['globalVersion'] = global_version
+    version_data['bundles'] = bundle_info
+
+    with open(version_file, 'w') as f:
+        json.dump(version_data, f, indent=2)
+        f.write('\n')
+    print(f'  \033[32m✓\033[0m Updated version.json: {old_version} → {global_version}')
+
+    # Step 4: Create release directory
     os.makedirs(RELEASE_DIR, exist_ok=True)
 
-    # Step 4: Create zip
+    # Step 5: Create zip
     zip_path = os.path.join(RELEASE_DIR, 'scripts.zip')
     entry_count = 0
 
@@ -1042,7 +1430,7 @@ def cmd_build_release(scripts_dir):
 
     zip_size = os.path.getsize(zip_path)
 
-    # Step 5: Write release version.json
+    # Step 6: Write release version.json
     release_version_path = os.path.join(RELEASE_DIR, 'version.json')
     release_version = {
         'version': global_version,

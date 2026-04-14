@@ -1,5 +1,13 @@
 {
   "name": "StockPro Chart",
   "version": "1.0.0",
-  "entry": "main.js"
+  "entry": "main.js",
+  "signature": {
+    "algorithm": "SHA-256",
+    "files": {
+      "main.js": "bbe49ed8d9f626a18be58af47ac8ad18f9ccf7e36ce350b84bc300b0dce69df1",
+      "theme.js": "aa8c99def5983180d50ebd563c8ea6998f03502c982aa69ceec03b4980538263"
+    },
+    "bundleHash": "e682de343bf7b067c5ae6d36a852873540c877ab2b6c191168bdc1bcb94ae88b"
+  }
 }

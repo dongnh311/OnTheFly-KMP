@@ -1,5 +1,13 @@
 {
   "name": "components-demo",
   "version": "1.0.0",
-  "entry": "main.js"
+  "entry": "main.js",
+  "signature": {
+    "algorithm": "SHA-256",
+    "files": {
+      "main.js": "1e4ab027a7c59fa47e83ff439f839cae4efe6ba70bf8b8ef9f4be3c261729833",
+      "theme.js": "73448cbe11931dbcdc07746816ec48555eb7e408a8f878ef1d7d5a1865e668e3"
+    },
+    "bundleHash": "79c05278f812ecdbb5a3ac57eafa147a540437023db23dad73b90eb1756ea990"
+  }
 }

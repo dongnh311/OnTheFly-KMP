@@ -26,4 +26,14 @@ interface ScriptStorage {
     fun getScriptsDirectory(): String = ""
     /** Check remote server for updates, download and install if newer. Returns true if updated. */
     fun checkAndDownloadRemoteUpdate(serverUrl: String, onProgress: (Float) -> Unit = {}): Boolean = false
+
+    // Rollback support
+    /** Backup current scripts directory before OTA install */
+    fun backupCurrentScripts(): Boolean = false
+    /** Restore scripts from backup (rollback) */
+    fun rollbackToBackup(): Boolean = false
+    /** Check if a backup exists */
+    fun hasBackup(): Boolean = false
+    /** Delete backup (call after confirming new scripts work) */
+    fun clearBackup() {}
 }

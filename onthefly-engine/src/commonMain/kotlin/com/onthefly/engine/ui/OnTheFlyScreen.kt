@@ -137,7 +137,14 @@ fun OnTheFlyScreen(
         )
     }
 
-    Box(modifier = modifier.fillMaxSize()) {
+    // Read dark mode from SharedDataStore for edge-to-edge background
+    val isDark = com.onthefly.engine.data.SharedDataStore.get("dark_mode").let {
+        it == null || it == true || it == "true"
+    }
+    val edgeBg = if (isDark) androidx.compose.ui.graphics.Color(0xFF0A0E17)
+                 else androidx.compose.ui.graphics.Color(0xFFF8FAFC)
+
+    Box(modifier = modifier.fillMaxSize().background(edgeBg)) {
         Box(modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
             when {
                 error != null -> Text(

@@ -1,5 +1,13 @@
 {
   "name": "Full Screen Popup Demo",
   "version": "1.0.0",
-  "entry": "main.js"
+  "entry": "main.js",
+  "signature": {
+    "algorithm": "SHA-256",
+    "files": {
+      "main.js": "c722306642cb15b16f0f3a7356731033c0c9a8140b0a0ebfcf839ba8c11170a2",
+      "theme.js": "726e08ed1e5792f999abe113f36182a4306c47b61f83328d904ce7d93bdbb24f"
+    },
+    "bundleHash": "faee2ae833484991e8ae9df73a8f93430eb0ce7ce81c6b3565ca8efec08b6aeb"
+  }
 }

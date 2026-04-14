@@ -139,11 +139,15 @@ class ScriptViewModel(
         viewModelScope.launch {
             val updated = updateManager.updateFromDevServer(bundleName)
             _isDevServer.value = updated
+            // ScriptVerifier stays disabled by default.
+            // It auto-verifies when manifest contains a "signature" block (from signed OTA builds).
+            // Dev server scripts and bundled scripts without signatures are NOT blocked.
 
             try {
                 engine.init()
                 loadFromLocal(bundleName)
                 isInitialized = true
+                localStorage.clearBackup() // new scripts loaded successfully
                 dispatchLifecycleEvent(EngineEvent.ON_CREATE_VIEW)
                 viewData?.let { sendDataToScript(EngineEvent.ON_VIEW_DATA, it) }
             } catch (e: Exception) {
@@ -309,6 +313,8 @@ class ScriptViewModel(
         }
     }
 
+    private var rollbackAttempted = false
+
     private fun handleLoadError(message: String) {
         if (loadRetryCount < errorConfig.maxRetries) {
             loadRetryCount++
@@ -320,10 +326,32 @@ class ScriptViewModel(
                     engine.init()
                     loadFromLocal(currentBundleName)
                     isInitialized = true
+                    localStorage.clearBackup()
                     dispatchLifecycleEvent(EngineEvent.ON_CREATE_VIEW)
                 } catch (e: Exception) {
                     handleLoadError(e.message ?: "Unknown error")
                 }
+            }
+        } else if (!rollbackAttempted && localStorage.hasBackup()) {
+            // Retries exhausted — attempt rollback to previous version
+            rollbackAttempted = true
+            println("ScriptViewModel: Retries exhausted, attempting rollback...")
+            if (localStorage.rollbackToBackup()) {
+                loadRetryCount = 0
+                viewModelScope.launch {
+                    try {
+                        engine.close()
+                        engine.init()
+                        loadFromLocal(currentBundleName)
+                        isInitialized = true
+                        println("ScriptViewModel: Rollback successful")
+                        dispatchLifecycleEvent(EngineEvent.ON_CREATE_VIEW)
+                    } catch (e: Exception) {
+                        _error.value = "Rollback also failed: ${e.message}"
+                    }
+                }
+            } else {
+                _error.value = message
             }
         } else {
             _error.value = message

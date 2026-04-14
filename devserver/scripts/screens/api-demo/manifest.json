@@ -1,5 +1,13 @@
 {
   "name": "API Demo",
   "version": "1.0.0",
-  "entry": "main.js"
+  "entry": "main.js",
+  "signature": {
+    "algorithm": "SHA-256",
+    "files": {
+      "main.js": "2240454ec98c0a6f7a5c459f940fb431fc5de898418619a25f47ec630169667c",
+      "theme.js": "ac98195eb8e9876fc25c13c513a91228375ade7ddc7c4eae5a2ef5b5afffe446"
+    },
+    "bundleHash": "57c85332139e6036d4a4afeb910b74823b5366b439714a905e7f8cdf32452907"
+  }
 }

@@ -1,5 +1,13 @@
 {
   "name": "StockPro Watchlist",
   "version": "1.0.0",
-  "entry": "main.js"
+  "entry": "main.js",
+  "signature": {
+    "algorithm": "SHA-256",
+    "files": {
+      "main.js": "2ab233c5287ca8eb4ed52c2196b4bc9c31e4bddabc436a1720880c7d3ba11a4f",
+      "theme.js": "c280258021f5b07ee2287711ec5941291317b381063ef3edf990efe38ec684cf"
+    },
+    "bundleHash": "9f2e3e1f044cdb408a9f9859c7d30e095beba503b5f33425ee3869be698b9a45"
+  }
 }

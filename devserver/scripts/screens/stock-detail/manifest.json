@@ -1,5 +1,13 @@
 {
   "name": "StockPro Detail",
   "version": "1.0.0",
-  "entry": "main.js"
+  "entry": "main.js",
+  "signature": {
+    "algorithm": "SHA-256",
+    "files": {
+      "main.js": "e98cf099629daced77b077700319d6dfd8f84371371fab1c8065a5cdd3404c6a",
+      "theme.js": "a20c800516fc6f6cef8dedd5b75fd0799552df2dc2466fd985fc74de551072b0"
+    },
+    "bundleHash": "e17216c92062a50d57441b117263c95a8e41e0832b9ba1ffb10de6fd095b2843"
+  }
 }

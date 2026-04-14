@@ -229,7 +229,7 @@ private fun initializeScripts(
     val bundledVersion = storage.getBundledVersion()
 
     val needsBundledExtraction = localVersion == null ||
-            (bundledVersion != null && bundledVersion > localVersion)
+            (bundledVersion != null && com.onthefly.engine.version.VersionManager.compareVersions(bundledVersion, localVersion ?: "0.0.0") > 0)
 
     if (needsBundledExtraction) {
         storage.extractBundledScripts()

@@ -1,6 +1,7 @@
 package com.onthefly.engine.data
 
 import com.onthefly.engine.util.JsonParser
+import com.onthefly.engine.version.VersionManager
 import java.io.File
 import java.util.prefs.Preferences
 
@@ -11,10 +12,16 @@ class DesktopScriptStorage : ScriptStorage {
         val home = System.getProperty("user.home")
         return File(home, ".onthefly/scripts")
     }
+    private val backupDir: File get() {
+        val home = System.getProperty("user.home")
+        return File(home, ".onthefly/scripts_backup")
+    }
 
     override fun ensureInitialized() {
-        // Always re-copy from source to ensure latest scripts are used.
-        // Dev server updates (if running) will override these in loadAndRun().
+        // If local scripts already exist with a valid version, skip copy.
+        // The SplashScreen handles version-aware extraction before this is called.
+        if (scriptsDir.exists() && File(scriptsDir, "version.json").exists()) return
+        // Fallback: copy from devserver/scripts
         copyResourcesToLocal()
     }
 
@@ -104,6 +111,60 @@ class DesktopScriptStorage : ScriptStorage {
         } catch (_: Exception) { null }
     }
 
+    override fun getBundledVersion(): String? {
+        // Check for scripts.zip in classpath resources
+        val zipStream = javaClass.getResourceAsStream("/scripts.zip")
+        if (zipStream != null) {
+            return try {
+                zipStream.use { stream ->
+                    val zip = java.util.zip.ZipInputStream(stream)
+                    var entry = zip.nextEntry
+                    while (entry != null) {
+                        if (entry.name == "version.json") {
+                            val content = zip.bufferedReader().readText()
+                            val json = JsonParser.parseObject(content)
+                            return json["globalVersion"] as? String
+                        }
+                        entry = zip.nextEntry
+                    }
+                    null
+                }
+            } catch (_: Exception) { null }
+        }
+        // Fallback: read from devserver/scripts
+        val candidates = listOf(
+            File("devserver/scripts/version.json"),
+            File(System.getProperty("user.dir"), "devserver/scripts/version.json"),
+            File(System.getProperty("user.dir"), "../devserver/scripts/version.json"),
+        )
+        val versionFile = candidates.firstOrNull { it.exists() } ?: return null
+        return try {
+            val json = JsonParser.parseObject(versionFile.readText())
+            json["globalVersion"] as? String
+        } catch (_: Exception) { null }
+    }
+
+    override fun extractBundledScripts(onProgress: (Float) -> Unit) {
+        val zipStream = javaClass.getResourceAsStream("/scripts.zip")
+        if (zipStream != null) {
+            // Extract from classpath zip resource
+            val tempZip = File(scriptsDir.parentFile, "bundled_scripts.zip")
+            try {
+                scriptsDir.parentFile?.mkdirs()
+                zipStream.use { input -> tempZip.outputStream().use { output -> input.copyTo(output) } }
+                installFromZip(tempZip.absolutePath, onProgress)
+                tempZip.delete()
+            } catch (e: Exception) {
+                tempZip.delete()
+                println("DesktopScriptStorage: extractBundledScripts failed: ${e.message}")
+            }
+        } else {
+            // Dev mode: copy from devserver
+            copyResourcesToLocal()
+            onProgress(1f)
+        }
+    }
+
     override fun getScriptsDirectory(): String = scriptsDir.absolutePath
 
     override fun checkAndDownloadRemoteUpdate(serverUrl: String, onProgress: (Float) -> Unit): Boolean {
@@ -117,7 +178,7 @@ class DesktopScriptStorage : ScriptStorage {
             val remoteVersion = JsonParser.parseObject(versionBody)["version"] as? String ?: return false
             val localVersion = getLocalVersion()
 
-            if (localVersion != null && localVersion >= remoteVersion) {
+            if (localVersion != null && VersionManager.compareVersions(localVersion, remoteVersion) >= 0) {
                 onProgress(1f)
                 return false
             }
@@ -154,6 +215,8 @@ class DesktopScriptStorage : ScriptStorage {
     override fun installFromZip(zipFilePath: String, onProgress: (Float) -> Unit) {
         val zipFile = File(zipFilePath)
         if (!zipFile.exists()) return
+
+        backupCurrentScripts()
 
         val tempDir = File(scriptsDir.parentFile, "scripts_tmp")
         try {
@@ -193,6 +256,39 @@ class DesktopScriptStorage : ScriptStorage {
             println("DesktopScriptStorage: installFromZip failed: ${e.message}")
         }
     }
+
+    // ─── Rollback ─────────────────────────────────────────
+
+    override fun backupCurrentScripts(): Boolean {
+        if (!File(scriptsDir, "version.json").exists()) return false
+        return try {
+            backupDir.deleteRecursively()
+            scriptsDir.copyRecursively(backupDir, overwrite = true)
+            true
+        } catch (_: Exception) { false }
+    }
+
+    override fun rollbackToBackup(): Boolean {
+        if (!hasBackup()) return false
+        return try {
+            scriptsDir.deleteRecursively()
+            backupDir.renameTo(scriptsDir)
+            scriptsDir.listFiles()?.filter { it.isDirectory }?.forEach { bundleDir ->
+                try {
+                    val manifest = JsonParser.parseObject(readFile(bundleDir.name, "manifest.json"))
+                    val version = manifest["version"] as? String ?: ""
+                    if (version.isNotEmpty()) setVersion(bundleDir.name, version)
+                } catch (_: Exception) { }
+            }
+            true
+        } catch (_: Exception) { false }
+    }
+
+    override fun hasBackup(): Boolean = File(backupDir, "version.json").exists()
+
+    override fun clearBackup() { backupDir.deleteRecursively() }
+
+    // ─── Other ──────────────────────────────────────────
 
     override fun reset() {
         scriptsDir.deleteRecursively()

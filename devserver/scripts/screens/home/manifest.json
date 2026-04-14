@@ -1,5 +1,13 @@
 {
   "name": "Home",
   "version": "1.0.0",
-  "entry": "main.js"
+  "entry": "main.js",
+  "signature": {
+    "algorithm": "SHA-256",
+    "files": {
+      "main.js": "2e751e93e48f375c5f2aa5374795e1435767a51ce5f546ab64b9f076d2d6ba24",
+      "theme.js": "566a95e4102d8dda27baf1a122dfc8b2d63b64e99fcc9cda217edd1ada1453c8"
+    },
+    "bundleHash": "07a10e53cb70c85d233f95c9fc06224b2a956af9fab1f0a853df2fa7f4d6c665"
+  }
 }

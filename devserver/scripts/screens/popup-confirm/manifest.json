@@ -1,5 +1,13 @@
 {
   "name": "Confirm Dialog Demo",
   "version": "1.0.0",
-  "entry": "main.js"
+  "entry": "main.js",
+  "signature": {
+    "algorithm": "SHA-256",
+    "files": {
+      "main.js": "793f0ceaf676ad662f8f2314c11d87b0935697b36f675cb363da21228e0a748f",
+      "theme.js": "509dd34f91fe0070a5f7a97ec9050e982eabad67c1f5af7497792ac71b5a3f16"
+    },
+    "bundleHash": "eefd50931007f4c37f103062d6d953c80eacf3c0ec45ba9ec1e12af29443454b"
+  }
 }

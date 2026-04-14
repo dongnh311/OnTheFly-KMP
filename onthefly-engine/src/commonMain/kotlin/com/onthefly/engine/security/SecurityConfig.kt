@@ -71,13 +71,11 @@ object NetworkSecurity {
         if (config.maxRequestsPerMinute > 0) {
             val now = currentTimeMillis()
             val oneMinuteAgo = now - 60_000
-            synchronized(requestTimestamps) {
-                requestTimestamps.removeAll { it < oneMinuteAgo }
-                if (requestTimestamps.size >= config.maxRequestsPerMinute) {
-                    return ValidationResult(false, "Rate limit exceeded: ${config.maxRequestsPerMinute}/min")
-                }
-                requestTimestamps.add(now)
+            requestTimestamps.removeAll { it < oneMinuteAgo }
+            if (requestTimestamps.size >= config.maxRequestsPerMinute) {
+                return ValidationResult(false, "Rate limit exceeded: ${config.maxRequestsPerMinute}/min")
             }
+            requestTimestamps.add(now)
         }
 
         return ValidationResult(allowed = true)

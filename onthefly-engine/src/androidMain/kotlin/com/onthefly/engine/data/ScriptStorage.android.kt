@@ -2,6 +2,7 @@ package com.onthefly.engine.data
 
 import android.content.Context
 import com.onthefly.engine.util.JsonParser
+import com.onthefly.engine.version.VersionManager
 import java.io.File
 import java.util.zip.ZipFile
 import java.util.zip.ZipInputStream
@@ -83,6 +84,8 @@ class AndroidScriptStorage(private val context: Context) : ScriptStorage {
         val zipFile = File(zipFilePath)
         if (!zipFile.exists()) return
 
+        backupCurrentScripts()
+
         val tempDir = File(context.filesDir, "scripts_tmp")
 
         try {
@@ -113,7 +116,7 @@ class AndroidScriptStorage(private val context: Context) : ScriptStorage {
             val remoteVersion = JsonParser.parseObject(versionBody)["version"] as? String ?: return false
             val localVersion = getLocalVersion()
 
-            if (localVersion != null && localVersion >= remoteVersion) {
+            if (localVersion != null && VersionManager.compareVersions(localVersion, remoteVersion) >= 0) {
                 onProgress(1f)
                 return false // Already up to date
             }
@@ -209,6 +212,38 @@ class AndroidScriptStorage(private val context: Context) : ScriptStorage {
     override fun setVersion(bundleName: String, version: String) {
         prefs.edit().putString("version_$bundleName", version).apply()
     }
+
+    // ─── Rollback ─────────────────────────────────────────
+
+    override fun backupCurrentScripts(): Boolean {
+        if (!File(scriptsDir, "version.json").exists()) return false
+        val backupDir = File(context.filesDir, "scripts_backup")
+        return try {
+            backupDir.deleteRecursively()
+            scriptsDir.copyRecursively(backupDir, overwrite = true)
+            true
+        } catch (_: Exception) { false }
+    }
+
+    override fun rollbackToBackup(): Boolean {
+        val backupDir = File(context.filesDir, "scripts_backup")
+        if (!hasBackup()) return false
+        return try {
+            scriptsDir.deleteRecursively()
+            backupDir.renameTo(scriptsDir)
+            updateVersionsFromManifests()
+            true
+        } catch (_: Exception) { false }
+    }
+
+    override fun hasBackup(): Boolean =
+        File(context.filesDir, "scripts_backup/version.json").exists()
+
+    override fun clearBackup() {
+        File(context.filesDir, "scripts_backup").deleteRecursively()
+    }
+
+    // ─── Other ──────────────────────────────────────────
 
     override fun reset() {
         scriptsDir.deleteRecursively()

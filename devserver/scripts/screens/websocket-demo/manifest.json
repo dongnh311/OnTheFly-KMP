@@ -1,5 +1,13 @@
 {
   "name": "websocket-demo",
   "version": "1.0.0",
-  "entry": "main.js"
+  "entry": "main.js",
+  "signature": {
+    "algorithm": "SHA-256",
+    "files": {
+      "main.js": "be4eab57e9de9ca6d42983a805fc1bb6f8f1b73afc86ef6fe1f77b3129a69b9a",
+      "theme.js": "9407c9ebd6444b908070faa7811e291cea68ff6ed7fd2a38b5fa9a5d68665b9c"
+    },
+    "bundleHash": "9f7c2db6ba589248b764cf861c6dc256564503d2f234cc26514d7cf568dea75a"
+  }
 }

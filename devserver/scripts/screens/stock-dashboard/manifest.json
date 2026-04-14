@@ -1,5 +1,13 @@
 {
   "name": "StockPro Dashboard",
   "version": "1.0.0",
-  "entry": "main.js"
+  "entry": "main.js",
+  "signature": {
+    "algorithm": "SHA-256",
+    "files": {
+      "main.js": "c6e9cd2b20dac45287aab080af63d67a14c8b18d1b1ab5528c23334c5f47f6c8",
+      "theme.js": "90185d5c329543b7a19c9c1d5f7c489cc57b6d26a90ea933cca2c0faa25308de"
+    },
+    "bundleHash": "0e90c98eee9a561f6e452c164fabb8ed86ec3348b833b063d4ea10c40be2ab79"
+  }
 }

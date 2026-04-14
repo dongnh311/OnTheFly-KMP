@@ -1,5 +1,13 @@
 {
   "name": "StockPro Splash",
   "version": "1.0.0",
-  "entry": "main.js"
+  "entry": "main.js",
+  "signature": {
+    "algorithm": "SHA-256",
+    "files": {
+      "main.js": "5c1279afa2b8609deefb22fde299c6b51abbbc832d99341730b33ef75b4e8867",
+      "theme.js": "d7eca2bfbbc72637264354a41477a9563bd729eb9954133dc0d418969ff1918d"
+    },
+    "bundleHash": "d8bae4d9544f3c976ff65a6576706202507ec7c74101429c51870268b0993ee5"
+  }
 }

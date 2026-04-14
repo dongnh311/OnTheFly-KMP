@@ -1,5 +1,13 @@
 {
   "name": "StockPro News",
   "version": "1.0.0",
-  "entry": "main.js"
+  "entry": "main.js",
+  "signature": {
+    "algorithm": "SHA-256",
+    "files": {
+      "main.js": "a772a2dee0760f28e54e6b3e46d01f0a7c4c1d68818ef0c554c895ad8b575d63",
+      "theme.js": "30eac53e9db868bd0e0242ddca05234068b79fe6669b670a7eb6f51706e19ec3"
+    },
+    "bundleHash": "29c07d5ecd3692848b5b45d8dd97ef4f9eece24a7e1a40213b6417114f5ad3b8"
+  }
 }

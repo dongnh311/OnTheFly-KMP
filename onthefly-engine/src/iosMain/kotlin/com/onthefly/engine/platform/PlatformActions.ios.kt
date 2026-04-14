@@ -1,6 +1,7 @@
 package com.onthefly.engine.platform
 
 import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.cinterop.useContents
 import platform.Foundation.*
 import platform.UIKit.*
 import platform.darwin.NSObject
@@ -42,8 +43,8 @@ class IosPlatformActions : PlatformActions {
             "platform" to "ios",
             "osVersion" to device.systemVersion,
             "model" to device.model,
-            "screenWidth" to screen.bounds.size.width.toInt(),
-            "screenHeight" to screen.bounds.size.height.toInt(),
+            "screenWidth" to screen.bounds.useContents { size.width.toInt() },
+            "screenHeight" to screen.bounds.useContents { size.height.toInt() },
             "density" to screen.scale.toFloat(),
             "locale" to locale.localeIdentifier,
             "isDarkMode" to (screen.traitCollection.userInterfaceStyle == UIUserInterfaceStyle.UIUserInterfaceStyleDark),

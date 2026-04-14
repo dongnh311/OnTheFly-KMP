@@ -2,5 +2,13 @@
   "name": "OnTheFly Demo",
   "version": "1.0.0",
   "entry": "main.js",
-  "description": "Demo app showing dynamic UI rendering via QuickJS"
+  "description": "Demo app showing dynamic UI rendering via QuickJS",
+  "signature": {
+    "algorithm": "SHA-256",
+    "files": {
+      "main.js": "cf0ee0069b1192337fcc7f84b290fdf24380ea552e5f4edad03b760c81036983",
+      "theme.js": "15557c2176d22526acc6f939fccf161300747e79b034072bc7e07ed2bb146f68"
+    },
+    "bundleHash": "51a56a6c69f00dc74abda0a8c9393f6403e8ff5e58bcdb51111cdfa51fffa74f"
+  }
 }

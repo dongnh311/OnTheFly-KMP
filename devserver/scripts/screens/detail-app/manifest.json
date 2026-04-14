@@ -2,5 +2,13 @@
   "name": "Detail Screen",
   "version": "1.0.0",
   "entry": "main.js",
-  "description": "Detail view demonstrating navigation and data passing"
+  "description": "Detail view demonstrating navigation and data passing",
+  "signature": {
+    "algorithm": "SHA-256",
+    "files": {
+      "main.js": "1bc143f979e5cd54a36e144d88bcbe2ff15a4ab9ef5b0110de3045a66c5457d4",
+      "theme.js": "906d9233606d874024141721c88ed744080065408b48189dcb1e8f4602280c10"
+    },
+    "bundleHash": "1740b7ae869928eda6dbece6b0426852176075d97bbc48951fc5aca455c9f8fc"
+  }
 }

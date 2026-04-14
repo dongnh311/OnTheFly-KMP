@@ -13,6 +13,11 @@ fun main() = application {
     val localStorage = DesktopScriptStorage()
     val platformActions = DesktopPlatformActions()
 
+    // Production server URL for OTA script updates (null = no remote check)
+    // For testing with release server: "http://localhost:8082"
+    // For production: "https://your-server.com"
+    val productionServerUrl: String? = null
+
     Window(
         onCloseRequest = ::exitApplication,
         title = "OnTheFly",
@@ -24,6 +29,7 @@ fun main() = application {
         App(
             localStorage = localStorage,
             platformActions = platformActions,
+            productionServerUrl = productionServerUrl,
             appVersion = "1.0.0"
         )
     }

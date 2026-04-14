@@ -146,7 +146,7 @@ fun RenderSlider(
                 }
                 if (showValue) {
                     Text(
-                        text = String.format("%.1f", value),
+                        text = "${(value * 10).toInt() / 10.0}",
                         style = MaterialTheme.typography.bodySmall,
                         color = Color.Gray
                     )

@@ -66,6 +66,7 @@
 				7555FF77242A565900829871 /* Sources */,
 				B93DF1B62C6B299D00AAAE9B /* Frameworks */,
 				7555FF79242A565900829871 /* Resources */,
+				AABB0001COPYSC00000000001 /* Copy Scripts to Bundle */,
 			);
 			buildRules = (
 			);
@@ -132,6 +133,24 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "cd \"$SRCROOT/..\"\n./gradlew :composeApp:embedAndSignAppleFrameworkForXcode\n";
+		};
+		AABB0001COPYSC00000000001 /* Copy Scripts to Bundle */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Copy Scripts to Bundle";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "SCRIPTS_SRC=\"${SRCROOT}/../devserver/scripts\"\nSCRIPTS_DST=\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/scripts\"\n\nif [ -d \"$SCRIPTS_SRC\" ]; then\n  rm -rf \"$SCRIPTS_DST\"\n  mkdir -p \"$SCRIPTS_DST\"\n  # Copy _base, _libs, languages\n  for dir in _base _libs languages; do\n    if [ -d \"$SCRIPTS_SRC/$dir\" ]; then\n      cp -R \"$SCRIPTS_SRC/$dir\" \"$SCRIPTS_DST/$dir\"\n    fi\n  done\n  # Copy screen bundles (flatten from screens/)\n  if [ -d \"$SCRIPTS_SRC/screens\" ]; then\n    for bundle in \"$SCRIPTS_SRC/screens\"/*/; do\n      name=$(basename \"$bundle\")\n      cp -R \"$bundle\" \"$SCRIPTS_DST/$name\"\n    done\n  fi\n  # Copy version.json\n  if [ -f \"$SCRIPTS_SRC/version.json\" ]; then\n    cp \"$SCRIPTS_SRC/version.json\" \"$SCRIPTS_DST/version.json\"\n  fi\n  echo \"Copied scripts to bundle: $(ls \"$SCRIPTS_DST\" | wc -l) entries\"\nelse\n  echo \"WARNING: devserver/scripts not found at $SCRIPTS_SRC\"\nfi\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 

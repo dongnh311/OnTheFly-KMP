@@ -1,20 +1,142 @@
 {
   "schemaVersion": 1,
-  "globalVersion": "2026.04.08.1",
+  "globalVersion": "2026.04.14.1",
   "bundles": {
-    "home":             { "version": "1.0.0", "files": ["manifest.json", "main.js", "theme.js"] },
-    "demo-app":         { "version": "1.0.0", "files": ["manifest.json", "main.js", "theme.js"] },
-    "detail-app":       { "version": "1.0.0", "files": ["manifest.json", "main.js", "theme.js"] },
-    "api-demo":         { "version": "1.0.0", "files": ["manifest.json", "main.js", "theme.js"] },
-    "popup-fullscreen": { "version": "1.0.0", "files": ["manifest.json", "main.js", "theme.js"] },
-    "popup-confirm":    { "version": "1.0.0", "files": ["manifest.json", "main.js", "theme.js"] },
-    "stock-splash":     { "version": "1.0.0", "files": ["manifest.json", "main.js", "theme.js"] },
-    "stock-login":      { "version": "1.0.0", "files": ["manifest.json", "main.js", "theme.js"] },
-    "stock-dashboard":  { "version": "1.0.0", "files": ["manifest.json", "main.js", "theme.js"] },
-    "stock-watchlist":  { "version": "1.0.0", "files": ["manifest.json", "main.js", "theme.js"] },
-    "stock-search":     { "version": "1.0.0", "files": ["manifest.json", "main.js", "theme.js"] },
-    "stock-news":       { "version": "1.0.0", "files": ["manifest.json", "main.js", "theme.js"] },
-    "stock-account":    { "version": "1.0.0", "files": ["manifest.json", "main.js", "theme.js"] },
-    "stock-detail":     { "version": "1.0.0", "files": ["manifest.json", "main.js", "theme.js"] }
+    "api-demo": {
+      "version": "1.0.0",
+      "files": [
+        "main.js",
+        "manifest.json",
+        "theme.js"
+      ]
+    },
+    "components-demo": {
+      "version": "1.0.0",
+      "files": [
+        "main.js",
+        "manifest.json",
+        "theme.js"
+      ]
+    },
+    "demo-app": {
+      "version": "1.0.0",
+      "files": [
+        "main.js",
+        "manifest.json",
+        "theme.js"
+      ]
+    },
+    "detail-app": {
+      "version": "1.0.0",
+      "files": [
+        "main.js",
+        "manifest.json",
+        "theme.js"
+      ]
+    },
+    "home": {
+      "version": "1.0.0",
+      "files": [
+        "main.js",
+        "manifest.json",
+        "theme.js"
+      ]
+    },
+    "popup-confirm": {
+      "version": "1.0.0",
+      "files": [
+        "main.js",
+        "manifest.json",
+        "theme.js"
+      ]
+    },
+    "popup-fullscreen": {
+      "version": "1.0.0",
+      "files": [
+        "main.js",
+        "manifest.json",
+        "theme.js"
+      ]
+    },
+    "stock-account": {
+      "version": "1.0.0",
+      "files": [
+        "main.js",
+        "manifest.json",
+        "theme.js"
+      ]
+    },
+    "stock-chart": {
+      "version": "1.0.0",
+      "files": [
+        "main.js",
+        "manifest.json",
+        "theme.js"
+      ]
+    },
+    "stock-dashboard": {
+      "version": "1.0.0",
+      "files": [
+        "main.js",
+        "manifest.json",
+        "theme.js"
+      ]
+    },
+    "stock-detail": {
+      "version": "1.0.0",
+      "files": [
+        "main.js",
+        "manifest.json",
+        "theme.js"
+      ]
+    },
+    "stock-login": {
+      "version": "1.0.0",
+      "files": [
+        "main.js",
+        "manifest.json",
+        "theme.js"
+      ]
+    },
+    "stock-news": {
+      "version": "1.0.0",
+      "files": [
+        "main.js",
+        "manifest.json",
+        "theme.js"
+      ]
+    },
+    "stock-search": {
+      "version": "1.0.0",
+      "files": [
+        "main.js",
+        "manifest.json",
+        "theme.js"
+      ]
+    },
+    "stock-splash": {
+      "version": "1.0.0",
+      "files": [
+        "main.js",
+        "manifest.json",
+        "theme.js"
+      ]
+    },
+    "stock-watchlist": {
+      "version": "1.0.0",
+      "files": [
+        "main.js",
+        "manifest.json",
+        "theme.js"
+      ]
+    },
+    "websocket-demo": {
+      "version": "1.0.0",
+      "files": [
+        "main.js",
+        "manifest.json",
+        "theme.js"
+      ]
+    }
   }
 }
