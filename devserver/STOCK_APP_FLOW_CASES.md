@@ -300,8 +300,8 @@
 
 | #    | Action                        | Expected Result                                          |
 | ---- | ----------------------------- | ------------------------------------------------------- |
-| A-13 | Tap "Change Password" row (→) | `NativeAction.showToast("Change password coming soon")` |
-| A-14 | Tap "Two-Factor Auth" row (→) | `NativeAction.showToast("2FA setup coming soon")`       |
+| A-13 | Tap "Change Password" row (→) | Opens fullscreen Change Password popup with 3 fields: Current Password, New Password, Confirm Password. Validates min 6 chars + match. Shows toast on success. |
+| A-14 | Tap "Two-Factor Auth" row (→) | Opens ConfirmDialog to enable/disable 2FA. Shows ON status + arrow when enabled. Toast confirms toggle. |
 | A-15 | Toggle Biometric Login ON/OFF | Toggle switches state                                    |
 
 ### 6.5 About Section
@@ -473,9 +473,9 @@
 
 | #     | Action                                 | Expected Result                                                                                                                                                                                            |
 | ----- | -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| CH-44 | Tap "⚙ Indicators" button              | Shows **Popup/Dialog** with full list of indicators with toggles: MA, EMA, RSI, MACD, Bollinger Bands, VWAP, Stochastic, ATR, OBV. Each indicator has ON/OFF toggle + customizable params (e.g., MA period) |
-| CH-45 | In Indicators popup → toggle MA OFF    | MA turns off, close popup → chart no longer shows MA lines                                                                                                                                                 |
-| CH-46 | Close Indicators popup                 | Tap overlay or Close button → closes popup                                                                                                                                                                 |
+| CH-44 | Tap "◇ Indicators" button              | Opens fullscreen **Indicators panel** (slideUp popup) listing: MA (7,25,99), RSI, MACD, Bollinger, EMA, VWAP. Each row shows name + description. Active indicator has check_circle icon + accent highlight. |
+| CH-45 | In Indicators panel → tap an indicator | Selects it (radio-style, one active at a time), closes panel, chart updates to show selected indicator |
+| CH-46 | Close Indicators panel                 | Tap "Close" button → closes popup, no change to selection                                                                                                                                                  |
 
 ### 8.9 Navigation
 

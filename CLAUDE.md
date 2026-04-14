@@ -182,7 +182,9 @@ Dark mode and language preferences are persisted to native storage (`SharedPrefe
 
 **Why:** This keeps JS scripts thin and declarative, avoids duplicating rendering logic across screens, and ensures consistent behavior across all platforms (Android/iOS/Desktop).
 
-**IMPORTANT:** Whenever you **add, remove, or modify** props, events, native actions, or JS API functions, you **MUST** update `BRIDGE_API_REFERENCE.md` in the project root to reflect the changes. This file is the single source of truth for all bridge capabilities.
+**IMPORTANT:** Whenever you **add, remove, or modify** props, events, native actions, or JS API functions, you **MUST** update both:
+1. `BRIDGE_API_REFERENCE.md` — the single source of truth for all bridge capabilities.
+2. `devserver/types/onthefly.d.ts` — TypeScript declarations that provide VS Code autocomplete for JS scripts. Without this update, new props/functions won't appear in IntelliSense when coding UI.
 
 ## Key Technical Details
 

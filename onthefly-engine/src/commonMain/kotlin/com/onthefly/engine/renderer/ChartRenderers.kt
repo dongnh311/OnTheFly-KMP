@@ -33,6 +33,8 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.onthefly.engine.model.UIComponent
+import kotlinx.coroutines.flow.first
+import androidx.compose.runtime.snapshotFlow
 import kotlin.math.max
 import kotlin.math.min
 
@@ -133,9 +135,11 @@ fun RenderCandlestickChart(
     val rightMarginDp = 58
     val chartContentWidthDp = candles.size * candleWidthDp
 
-    // Scroll state - scroll to end (latest candles)
+    // Scroll state - scroll to end (latest candles on the right)
     val scrollState = rememberScrollState()
     LaunchedEffect(candles.size) {
+        // Wait until layout measures content so maxValue > 0
+        snapshotFlow { scrollState.maxValue }.first { it > 0 }
         scrollState.scrollTo(scrollState.maxValue)
     }
 

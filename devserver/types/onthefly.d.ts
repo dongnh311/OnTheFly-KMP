@@ -263,6 +263,10 @@ interface TextFieldProps extends CommonProps {
     borderColor?: Color;
     focusedBorderColor?: Color;
     cornerRadius?: number;
+    /** Inner content padding vertical (dp) — controls text padding inside the field */
+    contentPaddingVertical?: number;
+    /** Inner content padding horizontal (dp) — controls text padding inside the field */
+    contentPaddingHorizontal?: number;
     /** Event handler name (triggers onTextChanged) */
     onChanged?: string;
     /** Event handler name (triggers onSubmit) */

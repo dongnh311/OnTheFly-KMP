@@ -6,6 +6,7 @@ var selectedSymbol = "AAPL";
 var selectedRange = "1M";
 var selectedIndicator = "MA (7,25,99)";
 var wsConnected = false;
+var showIndicatorsPanel = false;
 
 // ─── Lifecycle ─────────────────────────────────────────────
 
@@ -97,7 +98,21 @@ function onClick(id, data) {
 }
 
 function onIndicatorsClick() {
-    toast("Indicators panel coming soon");
+    showIndicatorsPanel = true;
+    render();
+}
+
+function onCloseIndicators() {
+    showIndicatorsPanel = false;
+    render();
+}
+
+function onSelectIndicator(id) {
+    if (id && id.indexOf("panel_ind_") === 0) {
+        selectedIndicator = id.substring(10);
+        showIndicatorsPanel = false;
+        render();
+    }
 }
 
 // ─── UI Builders ───────────────────────────────────────────
@@ -145,6 +160,28 @@ function buildIndicatorChip(label, theme) {
         onClick: "onClick"
     }, [
         Text({ text: label, fontSize: 11, fontWeight: "600", color: isActive ? "#FFFFFF" : theme.textSecondary })
+    ]);
+}
+
+function buildIndicatorPanelRow(label, desc, theme) {
+    var isActive = (selectedIndicator === label);
+    return Box({
+        id: "panel_ind_" + label,
+        fillMaxWidth: true,
+        background: isActive ? theme.accent + "22" : "transparent",
+        borderRadius: 10,
+        padding: { horizontal: 14, vertical: 12 },
+        onClick: "onSelectIndicator"
+    }, [
+        Row({ fillMaxWidth: true, crossAlignment: "center", alignment: "spaceBetween" }, [
+            Column({ width: "wrap" }, [
+                Text({ text: label, fontSize: 14, fontWeight: "600", color: isActive ? theme.accent : theme.textPrimary }),
+                Text({ text: desc, fontSize: 11, color: theme.textTertiary })
+            ]),
+            isActive
+                ? Icon({ name: "check_circle", size: 20, color: theme.accent, width: "wrap" })
+                : Icon({ name: "radio_button_unchecked", size: 20, color: theme.textTertiary, width: "wrap" })
+        ])
     ]);
 }
 
@@ -277,7 +314,29 @@ function render() {
         ]),
 
         // Bottom nav
-        buildStockBottomNav("chart", theme)
+        buildStockBottomNav("chart", theme),
+
+        // Indicators panel popup
+        Popup({
+            id: "indicatorsPanel",
+            visible: showIndicatorsPanel,
+            onDismiss: "onCloseIndicators",
+            background: theme.primary,
+            animation: "slideUp"
+        }, [
+            Text({ text: St("indicators"), fontSize: 22, fontWeight: "800", color: theme.textPrimary, padding: { bottom: 20 } }),
+            buildIndicatorPanelRow("MA (7,25,99)", "Moving Average 7, 25, 99 periods", theme),
+            Spacer({ height: 4 }),
+            buildIndicatorPanelRow("RSI", "Relative Strength Index (14)", theme),
+            Spacer({ height: 4 }),
+            buildIndicatorPanelRow("MACD", "Moving Average Convergence Divergence", theme),
+            Spacer({ height: 4 }),
+            buildIndicatorPanelRow("Bollinger", "Bollinger Bands (20, 2)", theme),
+            Spacer({ height: 4 }),
+            buildIndicatorPanelRow("EMA", "Exponential Moving Average", theme),
+            Spacer({ height: 4 }),
+            buildIndicatorPanelRow("VWAP", "Volume Weighted Average Price", theme)
+        ])
     ]));
 }
 
