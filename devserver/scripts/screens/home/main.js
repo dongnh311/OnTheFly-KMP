@@ -118,81 +118,62 @@ function toggleLogin() {
 // ─── UI ─────────────────────────────────────────────────────
 
 function render() {
-    OnTheFly.setUI({
-        type: "Column",
-        props: { style: "container" },
-        children: [
-            // Header
-            { type: "Text", props: { text: "OnTheFly", style: "title" } },
-            { type: "Text", props: { text: "Dynamic UI Engine — KMP Demo", style: "caption" } },
+    OnTheFly.setUI(Column({ style: "container" }, [
+        // Header
+        Text({ text: "OnTheFly", style: "title" }),
+        Text({ text: "Dynamic UI Engine — KMP Demo", style: "caption" }),
 
-            { type: "Spacer", props: { style: "sectionGap" } },
+        Spacer({ style: "sectionGap" }),
 
-            // Counter
-            { type: "Text", props: { text: "Counter", style: "subtitle" } },
-            { type: "Text", props: { id: "counter", text: formatNumber(count), style: "counter" } },
-            {
-                type: "Row",
-                props: { style: "buttonRow" },
-                children: [
-                    { type: "Button", props: { text: " − ", onClick: "decrease", style: "secondaryButton" } },
-                    { type: "Button", props: { text: " + ", onClick: "increase", style: "primaryButton" } },
-                    { type: "Button", props: { text: "Reset", onClick: "openConfirmDialog", style: "outlineButton" } }
-                ]
-            },
+        // Counter
+        Text({ text: "Counter", style: "subtitle" }),
+        Text({ id: "counter", text: formatNumber(count), style: "counter" }),
+        Row({ style: "buttonRow" }, [
+            Button({ text: " − ", onClick: "decrease", style: "secondaryButton" }),
+            Button({ text: " + ", onClick: "increase", style: "primaryButton" }),
+            Button({ text: "Reset", onClick: "openConfirmDialog", style: "outlineButton" })
+        ]),
 
-            { type: "Spacer", props: { style: "sectionGap" } },
+        Spacer({ style: "sectionGap" }),
 
-            // Navigation
-            { type: "Text", props: { text: "Navigation", style: "subtitle" } },
-            { type: "Button", props: { text: "Detail Screen (Data Passing) →", onClick: "gotoDetail", style: "primaryButton" } },
-            { type: "Button", props: { text: "API Demo (HTTP Requests) →", onClick: "gotoApiDemo", style: "primaryButton" } },
-            { type: "Button", props: { text: "Components Demo (Phase 1) →", onClick: "gotoComponentsDemo", style: "primaryButton" } },
-            { type: "Button", props: { text: "WebSocket Demo (Realtime) →", onClick: "gotoWebSocketDemo", style: "primaryButton" } },
-            {
-                type: "Row",
-                props: { style: "buttonRow" },
-                children: [
-                    { type: "Button", props: { text: "Popup →", onClick: "gotoFullPopupDemo", style: "outlineButton" } },
-                    { type: "Button", props: { text: "Confirm →", onClick: "gotoConfirmDemo", style: "outlineButton" } }
-                ]
-            },
+        // Navigation
+        Text({ text: "Navigation", style: "subtitle" }),
+        Button({ text: "Detail Screen (Data Passing) →", onClick: "gotoDetail", style: "primaryButton" }),
+        Button({ text: "API Demo (HTTP Requests) →", onClick: "gotoApiDemo", style: "primaryButton" }),
+        Button({ text: "Components Demo (Phase 1) →", onClick: "gotoComponentsDemo", style: "primaryButton" }),
+        Button({ text: "WebSocket Demo (Realtime) →", onClick: "gotoWebSocketDemo", style: "primaryButton" }),
+        Row({ style: "buttonRow" }, [
+            Button({ text: "Popup →", onClick: "gotoFullPopupDemo", style: "outlineButton" }),
+            Button({ text: "Confirm →", onClick: "gotoConfirmDemo", style: "outlineButton" })
+        ]),
 
-            { type: "Spacer", props: { style: "sectionGap" } },
+        Spacer({ style: "sectionGap" }),
 
-            // Shared State Demo
-            { type: "Text", props: { text: "Shared State", style: "subtitle" } },
-            {
-                type: "Row",
-                props: { style: "buttonRow" },
-                children: [
-                    { type: "Button", props: { id: "loginBtn", text: AppState.isLoggedIn() ? "Logout" : "Login", onClick: "toggleLogin", style: "outlineButton" } },
-                    { type: "Toggle", props: { id: "darkModeToggle", label: "Dark Mode", checked: darkMode } }
-                ]
-            },
+        // Shared State Demo
+        Text({ text: "Shared State", style: "subtitle" }),
+        Row({ style: "buttonRow" }, [
+            Button({ id: "loginBtn", text: AppState.isLoggedIn() ? "Logout" : "Login", onClick: "toggleLogin", style: "outlineButton" }),
+            Toggle({ id: "darkModeToggle", label: "Dark Mode", checked: darkMode })
+        ]),
 
-            { type: "Spacer", props: { style: "smallGap" } },
+        Spacer({ style: "smallGap" }),
 
-            // Status log
-            { type: "Text", props: { id: "logText", text: "Loading...", style: "caption" } },
+        // Status log
+        Text({ id: "logText", text: "Loading...", style: "caption" }),
 
-            // Confirm Dialog
-            {
-                type: "ConfirmDialog",
-                props: {
-                    id: "confirmDialog",
-                    visible: false,
-                    title: "Reset Counter?",
-                    message: "This will reset the counter back to 0. Are you sure?",
-                    confirmText: "Reset",
-                    cancelText: "Cancel",
-                    onConfirm: "onConfirmReset",
-                    onCancel: "onCancelDialog",
-                    style: "dialogConfirm"
-                }
-            }
-        ]
-    });
+        // Confirm Dialog
+        ConfirmDialog({
+            id: "confirmDialog",
+            visible: false,
+            title: "Reset Counter?",
+            message: "This will reset the counter back to 0. Are you sure?",
+            confirmText: "Reset",
+            cancelText: "Cancel",
+            onConfirm: "onConfirmReset",
+            onCancel: "onCancelDialog",
+            style: "dialogConfirm"
+        })
+    ]));
 }
 
 render();

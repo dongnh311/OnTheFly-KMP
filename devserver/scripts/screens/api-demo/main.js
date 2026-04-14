@@ -124,66 +124,49 @@ function onDataReceived(data) {
 // ─── UI ─────────────────────────────────────────────────────
 
 function render() {
-    OnTheFly.setUI({
-        type: "Column",
-        props: { style: "container" },
-        children: [
-            { type: "Text", props: { text: "API Demo", style: "title" } },
-            { type: "Text", props: { text: "JS calls API via native HTTP client", style: "caption" } },
-            { type: "Text", props: { id: "status", text: statusText, style: "caption" } },
+    OnTheFly.setUI(
+        Column({ style: "container" }, [
+            Text({ text: "API Demo", style: "title" }),
+            Text({ text: "JS calls API via native HTTP client", style: "caption" }),
+            Text({ id: "status", text: statusText, style: "caption" }),
 
-            { type: "Spacer", props: { style: "gap" } },
+            Spacer({ style: "gap" }),
 
             // GET Post
-            {
-                type: "Column",
-                props: { style: "card" },
-                children: [
-                    { type: "Text", props: { text: "GET — Fetch Post", style: "subtitle" } },
-                    {
-                        type: "Row", props: { style: "row" },
-                        children: [
-                            { type: "Button", props: { text: "Fetch #1", onClick: "fetchPost", style: "primaryBtn" } },
-                            { type: "Button", props: { text: "Random", onClick: "fetchRandomPost", style: "secondaryBtn" } }
-                        ]
-                    },
-                    { type: "Text", props: { id: "resultTitle", text: resultTitle, style: "subtitle" } },
-                    { type: "Text", props: { id: "resultBody", text: resultBody, style: "body" } }
-                ]
-            },
+            Column({ style: "card" }, [
+                Text({ text: "GET — Fetch Post", style: "subtitle" }),
+                Row({ style: "row" }, [
+                    Button({ text: "Fetch #1", onClick: "fetchPost", style: "primaryBtn" }),
+                    Button({ text: "Random", onClick: "fetchRandomPost", style: "secondaryBtn" })
+                ]),
+                Text({ id: "resultTitle", text: resultTitle, style: "subtitle" }),
+                Text({ id: "resultBody", text: resultBody, style: "body" })
+            ]),
 
-            { type: "Spacer", props: { style: "smallGap" } },
+            Spacer({ style: "smallGap" }),
 
             // POST Create
-            {
-                type: "Column",
-                props: { style: "card" },
-                children: [
-                    { type: "Text", props: { text: "POST — Create Post", style: "subtitle" } },
-                    { type: "Button", props: { text: "Create New Post", onClick: "createPost", style: "postBtn" } },
-                    { type: "Text", props: { id: "postResult", text: postResult, style: "code" } }
-                ]
-            },
+            Column({ style: "card" }, [
+                Text({ text: "POST — Create Post", style: "subtitle" }),
+                Button({ text: "Create New Post", onClick: "createPost", style: "postBtn" }),
+                Text({ id: "postResult", text: postResult, style: "code" })
+            ]),
 
-            { type: "Spacer", props: { style: "smallGap" } },
+            Spacer({ style: "smallGap" }),
 
             // GET Todo
-            {
-                type: "Column",
-                props: { style: "card" },
-                children: [
-                    { type: "Text", props: { text: "GET — Random Todo", style: "subtitle" } },
-                    { type: "Button", props: { text: "Fetch Todo", onClick: "fetchTodo", style: "primaryBtn" } },
-                    { type: "Text", props: { id: "todoTitle", text: todoTitle, style: "body" } },
-                    { type: "Text", props: { id: "todoStatus", text: todoCompleted, style: "caption" } }
-                ]
-            },
+            Column({ style: "card" }, [
+                Text({ text: "GET — Random Todo", style: "subtitle" }),
+                Button({ text: "Fetch Todo", onClick: "fetchTodo", style: "primaryBtn" }),
+                Text({ id: "todoTitle", text: todoTitle, style: "body" }),
+                Text({ id: "todoStatus", text: todoCompleted, style: "caption" })
+            ]),
 
-            { type: "Spacer", props: { style: "gap" } },
+            Spacer({ style: "gap" }),
 
-            { type: "Button", props: { text: "← Back to Home", onClick: "goBack", style: "backBtn" } }
-        ]
-    });
+            Button({ text: "← Back to Home", onClick: "goBack", style: "backBtn" })
+        ])
+    );
 }
 
 render();

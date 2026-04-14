@@ -112,69 +112,45 @@ function onDataReceived(data) {
 
 function buildStockRow(stock, theme) {
     var up = stock.change >= 0;
-    return {
-        type: "Row",
-        props: {
-            fillMaxWidth: true,
-            padding: { horizontal: 16, vertical: 13 },
-            crossAlignment: "center",
-            id: "stockRow_" + stock.symbol,
-            onClick: "onClick"
-        },
-        children: [
-            {
-                type: "Column",
-                props: { weight: 1 },
-                children: [
-                    { type: "Text", props: { text: stock.symbol, fontSize: 15, fontWeight: "700", color: theme.textPrimary } },
-                    { type: "Text", props: { text: stock.name, fontSize: 12, color: theme.textSecondary, maxLines: 1 } }
-                ]
-            },
-            {
-                type: "Column",
-                props: { alignment: "end", width: "wrap" },
-                children: [
-                    { type: "Text", props: { text: stockPriceText(stock.price), fontSize: 15, fontWeight: "700", color: theme.textPrimary } },
-                    { type: "Text", props: { text: (stock.change >= 0 ? "+" : "") + stock.change.toFixed(2) + " (" + fmtPct(stock.pct) + ")", fontSize: 12, fontWeight: "600", color: stock.change > 0 ? theme.positive : (stock.change < 0 ? theme.negative : theme.warning) } }
-                ]
-            }
-        ]
-    };
+    return Row({
+        fillMaxWidth: true,
+        padding: { horizontal: 16, vertical: 13 },
+        crossAlignment: "center",
+        id: "stockRow_" + stock.symbol,
+        onClick: "onClick"
+    }, [
+        Column({ weight: 1 }, [
+            Text({ text: stock.symbol, fontSize: 15, fontWeight: "700", color: theme.textPrimary }),
+            Text({ text: stock.name, fontSize: 12, color: theme.textSecondary, maxLines: 1 })
+        ]),
+        Column({ alignment: "end", width: "wrap" }, [
+            Text({ text: stockPriceText(stock.price), fontSize: 15, fontWeight: "700", color: theme.textPrimary }),
+            Text({ text: (stock.change >= 0 ? "+" : "") + stock.change.toFixed(2) + " (" + fmtPct(stock.pct) + ")", fontSize: 12, fontWeight: "600", color: stock.change > 0 ? theme.positive : (stock.change < 0 ? theme.negative : theme.warning) })
+        ])
+    ]);
 }
 
 function buildApiResultRow(item, theme) {
-    return {
-        type: "Row",
-        props: {
-            id: "stockRow_" + item.symbol,
-            fillMaxWidth: true,
-            padding: { horizontal: 16, vertical: 13 },
-            crossAlignment: "center",
-            onClick: "onClick"
-        },
-        children: [
-            {
-                type: "Column",
-                props: { weight: 1 },
-                children: [
-                    { type: "Text", props: { text: item.symbol, fontSize: 15, fontWeight: "700", color: theme.textPrimary } },
-                    { type: "Text", props: { text: item.name, fontSize: 12, color: theme.textSecondary, maxLines: 1 } }
-                ]
-            },
-            item.price > 0 ? {
-                type: "Column",
-                props: { alignment: "end", width: "wrap" },
-                children: [
-                    { type: "Text", props: { text: stockPriceText(item.price), fontSize: 15, fontWeight: "700", color: theme.textPrimary } },
-                    item.pct !== 0 ? { type: "Text", props: {
-                        text: fmtPct(item.pct),
-                        fontSize: 12, fontWeight: "600",
-                        color: item.pct >= 0 ? theme.positive : theme.negative
-                    }} : { type: "Spacer", props: { height: 1 } }
-                ]
-            } : { type: "Spacer", props: { width: 1 } }
-        ]
-    };
+    return Row({
+        id: "stockRow_" + item.symbol,
+        fillMaxWidth: true,
+        padding: { horizontal: 16, vertical: 13 },
+        crossAlignment: "center",
+        onClick: "onClick"
+    }, [
+        Column({ weight: 1 }, [
+            Text({ text: item.symbol, fontSize: 15, fontWeight: "700", color: theme.textPrimary }),
+            Text({ text: item.name, fontSize: 12, color: theme.textSecondary, maxLines: 1 })
+        ]),
+        item.price > 0 ? Column({ alignment: "end", width: "wrap" }, [
+            Text({ text: stockPriceText(item.price), fontSize: 15, fontWeight: "700", color: theme.textPrimary }),
+            item.pct !== 0 ? Text({
+                text: fmtPct(item.pct),
+                fontSize: 12, fontWeight: "600",
+                color: item.pct >= 0 ? theme.positive : theme.negative
+            }) : Spacer({ height: 1 })
+        ]) : Spacer({ width: 1 })
+    ]);
 }
 
 // ─── Main Render ───────────────────────────────────────────
@@ -191,62 +167,48 @@ function render() {
 
     if (!hasQuery) {
         // ── Recent Searches section ──
-        scrollContent.push({
-            type: "Text",
-            props: {
-                text: St("recent_search"),
-                fontSize: 15,
-                fontWeight: "700",
-                color: theme.textSecondary,
-                padding: { left: 16, right: 16, top: 12, bottom: 0 }
-            }
-        });
+        scrollContent.push(Text({
+            text: St("recent_search"),
+            fontSize: 15,
+            fontWeight: "700",
+            color: theme.textSecondary,
+            padding: { left: 16, right: 16, top: 12, bottom: 0 }
+        }));
 
         // Chips row
         var chipChildren = [];
         for (var c = 0; c < recentSearches.length; c++) {
             var sym = recentSearches[c];
-            chipChildren.push({
-                type: "Box",
-                props: {
-                    width: "wrap",
-                    background: theme.surfaceVariant,
-                    borderColor: theme.border,
-                    borderWidth: 1,
-                    borderRadius: 16,
-                    padding: { horizontal: 12, vertical: 6 },
-                    onClick: "onChip" + sym
-                },
-                children: [
-                    { type: "Text", props: { text: sym, fontSize: 13, color: theme.textPrimary } }
-                ]
-            });
+            chipChildren.push(Box({
+                width: "wrap",
+                background: theme.surfaceVariant,
+                borderColor: theme.border,
+                borderWidth: 1,
+                borderRadius: 16,
+                padding: { horizontal: 12, vertical: 6 },
+                onClick: "onChip" + sym
+            }, [
+                Text({ text: sym, fontSize: 13, color: theme.textPrimary })
+            ]));
         }
-        scrollContent.push({
-            type: "Row",
-            props: {
-                spacing: 8,
-                padding: { left: 16, right: 16, top: 8, bottom: 16 }
-            },
-            children: chipChildren
-        });
+        scrollContent.push(Row({
+            spacing: 8,
+            padding: { left: 16, right: 16, top: 8, bottom: 16 }
+        }, chipChildren));
 
         // ── Popular section ──
-        scrollContent.push({
-            type: "Text",
-            props: {
-                text: St("popular"),
-                fontSize: 15,
-                fontWeight: "700",
-                color: theme.textSecondary,
-                padding: { left: 16, right: 16, bottom: 8 }
-            }
-        });
+        scrollContent.push(Text({
+            text: St("popular"),
+            fontSize: 15,
+            fontWeight: "700",
+            color: theme.textSecondary,
+            padding: { left: 16, right: 16, bottom: 8 }
+        }));
 
         var popularStocks = StockData.stocks.slice(0, 5);
         for (var p = 0; p < popularStocks.length; p++) {
             if (p > 0) {
-                scrollContent.push({ type: "Divider", props: { color: theme.border } });
+                scrollContent.push(Divider({ color: theme.border }));
             }
             scrollContent.push(buildStockRow(popularStocks[p], theme));
         }
@@ -255,7 +217,7 @@ function render() {
         if (displayResults.length > 0) {
             for (var r = 0; r < displayResults.length; r++) {
                 if (r > 0) {
-                    scrollContent.push({ type: "Divider", props: { color: theme.border } });
+                    scrollContent.push(Divider({ color: theme.border }));
                 }
                 if (showApiResults) {
                     scrollContent.push(buildApiResultRow(displayResults[r], theme));
@@ -265,70 +227,50 @@ function render() {
             }
         } else {
             // No results
-            scrollContent.push({
-                type: "Column",
-                props: {
-                    fillMaxWidth: true,
-                    alignment: "center",
-                    padding: { vertical: 40 }
-                },
-                children: [
-                    { type: "Text", props: { text: "No results", fontSize: 14, color: theme.textSecondary } }
-                ]
-            });
+            scrollContent.push(Column({
+                fillMaxWidth: true,
+                alignment: "center",
+                padding: { vertical: 40 }
+            }, [
+                Text({ text: "No results", fontSize: 14, color: theme.textSecondary })
+            ]));
         }
     }
 
-    scrollContent.push({ type: "Spacer", props: { height: 70 } });
+    scrollContent.push(Spacer({ height: 70 }));
 
-    var searchFieldRow = {
-        type: "TextField",
-        props: {
-            id: "searchField",
-            value: query,
-            placeholder: St("search_placeholder"),
-            background: theme.inputBg,
-            textColor: theme.textPrimary,
-            placeholderColor: theme.textTertiary,
-            fontSize: 14,
-            cornerRadius: 10,
-            leadingIcon: "search",
-            padding: { horizontal: 12, vertical: 8 }
-        }
-    };
-
-    OnTheFly.setUI({
-        type: "Column",
-        props: { height: "fill", background: theme.primary },
-        children: [
-            // Header: title + search field
-            {
-                type: "Column",
-                props: { fillMaxWidth: true, padding: { start: 16, end: 16, top: 4, bottom: 16 } },
-                children: [
-                    {
-                        type: "Text",
-                        props: {
-                            text: St("search_title"),
-                            fontSize: 22,
-                            fontWeight: "800",
-                            color: theme.textPrimary,
-                            padding: { bottom: 12 }
-                        }
-                    },
-                    searchFieldRow
-                ]
-            },
-            // Scrollable content
-            {
-                type: "Column",
-                props: { id: "search_scroll", fillMaxWidth: true, weight: 1, scrollable: true },
-                children: scrollContent
-            },
-            // Bottom nav
-            buildStockBottomNav("search", theme)
-        ]
+    var searchFieldRow = TextField({
+        id: "searchField",
+        value: query,
+        placeholder: St("search_placeholder"),
+        background: theme.inputBg,
+        textColor: theme.textPrimary,
+        placeholderColor: theme.textTertiary,
+        fontSize: 14,
+        cornerRadius: 10,
+        leadingIcon: "search",
+        padding: { horizontal: 12, vertical: 8 }
     });
+
+    OnTheFly.setUI(Column({ height: "fill", background: theme.primary }, [
+        // Header: title + search field
+        Column({ fillMaxWidth: true, padding: { start: 16, end: 16, top: 4, bottom: 16 } }, [
+            Text({
+                text: St("search_title"),
+                fontSize: 22,
+                fontWeight: "800",
+                color: theme.textPrimary,
+                padding: { bottom: 12 }
+            }),
+            searchFieldRow
+        ]),
+        // Scrollable content
+        Column({ id: "search_scroll", fillMaxWidth: true, weight: 1, scrollable: true },
+            scrollContent
+        ),
+        // Bottom nav
+        buildStockBottomNav("search", theme)
+    ]));
 }
 
 render();

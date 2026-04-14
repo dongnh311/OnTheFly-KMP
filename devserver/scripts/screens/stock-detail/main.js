@@ -189,27 +189,20 @@ function generateLinePoints(stock) {
 
 function buildTimeButton(label, rangeId, theme) {
     var isActive = (selectedRange === rangeId);
-    return {
-        type: "Box",
-        props: {
-            width: "wrap",
-            background: isActive ? theme.accent : "transparent",
-            borderRadius: 16,
-            padding: { horizontal: 14, vertical: 6 },
-            onClick: "onRange_" + rangeId
-        },
-        children: [
-            {
-                type: "Text",
-                props: {
-                    text: label,
-                    fontSize: 12,
-                    fontWeight: "600",
-                    color: isActive ? "#FFFFFF" : theme.textTertiary
-                }
-            }
-        ]
-    };
+    return Box({
+        width: "wrap",
+        background: isActive ? theme.accent : "transparent",
+        borderRadius: 16,
+        padding: { horizontal: 14, vertical: 6 },
+        onClick: "onRange_" + rangeId
+    }, [
+        Text({
+            text: label,
+            fontSize: 12,
+            fontWeight: "600",
+            color: isActive ? "#FFFFFF" : theme.textTertiary
+        })
+    ]);
 }
 
 // ─── Main Render ───────────────────────────────────────────
@@ -218,19 +211,15 @@ function render() {
     var theme = StockTheme.get();
 
     if (!stock) {
-        OnTheFly.setUI({
-            type: "Column",
-            props: {
-                height: "fill",
-                background: theme.primary,
-                alignment: "center"
-            },
-            children: [
-                { type: "Spacer", props: { weight: 1 } },
-                { type: "Text", props: { text: "Loading...", color: theme.textSecondary } },
-                { type: "Spacer", props: { weight: 1 } }
-            ]
-        });
+        OnTheFly.setUI(Column({
+            height: "fill",
+            background: theme.primary,
+            alignment: "center"
+        }, [
+            Spacer({ weight: 1 }),
+            Text({ text: "Loading...", color: theme.textSecondary }),
+            Spacer({ weight: 1 })
+        ]));
         return;
     }
 
@@ -250,214 +239,144 @@ function render() {
     var statsRows = [];
     for (var i = 0; i < stats.length; i++) {
         if (i > 0) {
-            statsRows.push({ type: "Divider", props: { color: theme.border } });
+            statsRows.push(Divider({ color: theme.border }));
         }
-        statsRows.push({
-            type: "Column",
-            props: {
-                fillMaxWidth: true,
-                padding: { horizontal: 16, top: 10, bottom: 10 }
-            },
-            children: [
-                { type: "Text", props: { text: stats[i][0], fontSize: 11, color: theme.textTertiary, padding: { bottom: 2 } } },
-                { type: "Text", props: { text: stats[i][1], fontSize: 16, fontWeight: "700", color: theme.textPrimary } }
-            ]
-        });
+        statsRows.push(Column({
+            fillMaxWidth: true,
+            padding: { horizontal: 16, top: 10, bottom: 10 }
+        }, [
+            Text({ text: stats[i][0], fontSize: 11, color: theme.textTertiary, padding: { bottom: 2 } }),
+            Text({ text: stats[i][1], fontSize: 16, fontWeight: "700", color: theme.textPrimary })
+        ]));
     }
 
-    OnTheFly.setUI({
-        type: "Column",
-        props: { height: "fill", background: theme.primary },
-        children: [
-            // ── Top bar: back + symbol + bookmark ──
-            {
-                type: "Row",
-                props: {
+    OnTheFly.setUI(Column({ height: "fill", background: theme.primary }, [
+        // ── Top bar: back + symbol + bookmark ──
+        Row({
+            fillMaxWidth: true,
+            padding: { start: 16, end: 16, top: 4, bottom: 8 },
+            crossAlignment: "center"
+        }, [
+            Icon({
+                name: "arrow_back",
+                size: 22,
+                color: theme.textPrimary,
+                onClick: "onBackClick"
+            }),
+            Text({
+                text: stock.symbol,
+                fontSize: 18,
+                fontWeight: "800",
+                color: theme.textPrimary,
+                weight: 1,
+                textAlign: "center"
+            }),
+            Box({
+                width: 32,
+                height: 32,
+                contentAlignment: "center",
+                onClick: "onBookmarkToggle"
+            }, [
+                Text({
+                    text: bookmarked ? "\u2B50" : "\u2606",
+                    fontSize: 20,
+                    color: bookmarked ? theme.warning : theme.textTertiary
+                })
+            ])
+        ]),
+
+        // ── Scrollable content ──
+        Column({ id: "detail_scroll", fillMaxWidth: true, weight: 1, scrollable: true }, [
+            // Price centered
+            Column({
+                fillMaxWidth: true,
+                alignment: "center",
+                padding: { top: 8, bottom: 16 }
+            }, [
+                Text({
+                    id: "priceText",
+                    text: stockPriceText(stock.price),
+                    fontSize: 32,
+                    fontWeight: "800",
+                    color: theme.textPrimary,
+                    letterSpacing: -1
+                }),
+                Text({
+                    id: "changeText",
+                    text: stockChangeArrow(stock),
+                    fontSize: 15,
+                    fontWeight: "600",
+                    color: stock.change > 0 ? theme.positive : (stock.change < 0 ? theme.negative : theme.warning)
+                })
+            ]),
+
+            // Line chart
+            Box({ padding: { horizontal: 16, bottom: 12 } }, [
+                LineChart({
+                    height: 140,
+                    points: generateLinePoints(stock),
+                    lineColor: stock.change > 0 ? theme.positive : (stock.change < 0 ? theme.negative : theme.warning),
+                    background: theme.surfaceVariant,
+                    fillAlpha: 0.25,
+                    lineWidth: 2,
+                    borderRadius: 14
+                })
+            ]),
+
+            // Time range buttons
+            Row({
+                fillMaxWidth: true,
+                alignment: "center",
+                padding: { start: 16, end: 16, bottom: 16 },
+                spacing: 4
+            }, [
+                buildTimeButton("1D", "1D", theme),
+                buildTimeButton("1W", "1W", theme),
+                buildTimeButton("1M", "1M", theme),
+                buildTimeButton("3M", "3M", theme),
+                buildTimeButton("1Y", "1Y", theme),
+                buildTimeButton("ALL", "ALL", theme)
+            ]),
+
+            // Stats card
+            Box({ padding: { horizontal: 16, bottom: 16 } }, [
+                Column({
                     fillMaxWidth: true,
-                    padding: { start: 16, end: 16, top: 4, bottom: 8 },
-                    crossAlignment: "center"
-                },
-                children: [
-                    {
-                        type: "Icon",
-                        props: {
-                            name: "arrow_back",
-                            size: 22,
-                            color: theme.textPrimary,
-                            onClick: "onBackClick"
-                        }
-                    },
-                    {
-                        type: "Text",
-                        props: {
-                            text: stock.symbol,
-                            fontSize: 18,
-                            fontWeight: "800",
-                            color: theme.textPrimary,
-                            weight: 1,
-                            textAlign: "center"
-                        }
-                    },
-                    {
-                        type: "Box",
-                        props: {
-                            width: 32,
-                            height: 32,
-                            contentAlignment: "center",
-                            onClick: "onBookmarkToggle"
-                        },
-                        children: [
-                            {
-                                type: "Text",
-                                props: {
-                                    text: bookmarked ? "\u2B50" : "\u2606",
-                                    fontSize: 20,
-                                    color: bookmarked ? theme.warning : theme.textTertiary
-                                }
-                            }
-                        ]
-                    }
-                ]
-            },
+                    borderRadius: 12,
+                    background: theme.card
+                }, statsRows)
+            ]),
 
-            // ── Scrollable content ──
-            {
-                type: "Column",
-                props: { id: "detail_scroll", fillMaxWidth: true, weight: 1, scrollable: true },
-                children: [
-                    // Price centered
-                    {
-                        type: "Column",
-                        props: {
-                            fillMaxWidth: true,
-                            alignment: "center",
-                            padding: { top: 8, bottom: 16 }
-                        },
-                        children: [
-                            {
-                                type: "Text",
-                                props: {
-                                    id: "priceText",
-                                    text: stockPriceText(stock.price),
-                                    fontSize: 32,
-                                    fontWeight: "800",
-                                    color: theme.textPrimary,
-                                    letterSpacing: -1
-                                }
-                            },
-                            {
-                                type: "Text",
-                                props: {
-                                    id: "changeText",
-                                    text: stockChangeArrow(stock),
-                                    fontSize: 15,
-                                    fontWeight: "600",
-                                    color: stock.change > 0 ? theme.positive : (stock.change < 0 ? theme.negative : theme.warning)
-                                }
-                            }
-                        ]
-                    },
+        ]),
 
-                    // Line chart
-                    {
-                        type: "Box",
-                        props: { padding: { horizontal: 16, bottom: 12 } },
-                        children: [
-                            {
-                                type: "LineChart",
-                                props: {
-                                    height: 140,
-                                    points: generateLinePoints(stock),
-                                    lineColor: stock.change > 0 ? theme.positive : (stock.change < 0 ? theme.negative : theme.warning),
-                                    background: theme.surfaceVariant,
-                                    fillAlpha: 0.25,
-                                    lineWidth: 2,
-                                    borderRadius: 14
-                                }
-                            }
-                        ]
-                    },
-
-                    // Time range buttons
-                    {
-                        type: "Row",
-                        props: {
-                            fillMaxWidth: true,
-                            alignment: "center",
-                            padding: { start: 16, end: 16, bottom: 16 },
-                            spacing: 4
-                        },
-                        children: [
-                            buildTimeButton("1D", "1D", theme),
-                            buildTimeButton("1W", "1W", theme),
-                            buildTimeButton("1M", "1M", theme),
-                            buildTimeButton("3M", "3M", theme),
-                            buildTimeButton("1Y", "1Y", theme),
-                            buildTimeButton("ALL", "ALL", theme)
-                        ]
-                    },
-
-                    // Stats card
-                    {
-                        type: "Box",
-                        props: { padding: { horizontal: 16, bottom: 16 } },
-                        children: [
-                            {
-                                type: "Column",
-                                props: {
-                                    fillMaxWidth: true,
-                                    borderRadius: 12,
-                                    background: theme.card
-                                },
-                                children: statsRows
-                            }
-                        ]
-                    },
-
-                ]
-            },
-
-            // Buy + Sell buttons (pinned to bottom)
-            {
-                type: "Row",
-                props: {
-                    fillMaxWidth: true,
-                    spacing: 10,
-                    padding: { start: 16, end: 16, top: 8, bottom: 16 }
-                },
-                children: [
-                    {
-                        type: "Box",
-                        props: {
-                            weight: 1,
-                            background: theme.positive,
-                            borderRadius: 10,
-                            padding: { vertical: 14 },
-                            contentAlignment: "center",
-                            onClick: "onBuyClick"
-                        },
-                        children: [
-                            { type: "Text", props: { text: St("buy"), fontSize: 15, fontWeight: "700", color: "#FFFFFF" } }
-                        ]
-                    },
-                    {
-                        type: "Box",
-                        props: {
-                            weight: 1,
-                            background: theme.negative,
-                            borderRadius: 10,
-                            padding: { vertical: 14 },
-                            contentAlignment: "center",
-                            onClick: "onSellClick"
-                        },
-                        children: [
-                            { type: "Text", props: { text: St("sell"), fontSize: 15, fontWeight: "700", color: "#FFFFFF" } }
-                        ]
-                    }
-                ]
-            }
-        ]
-    });
+        // Buy + Sell buttons (pinned to bottom)
+        Row({
+            fillMaxWidth: true,
+            spacing: 10,
+            padding: { start: 16, end: 16, top: 8, bottom: 16 }
+        }, [
+            Box({
+                weight: 1,
+                background: theme.positive,
+                borderRadius: 10,
+                padding: { vertical: 14 },
+                contentAlignment: "center",
+                onClick: "onBuyClick"
+            }, [
+                Text({ text: St("buy"), fontSize: 15, fontWeight: "700", color: "#FFFFFF" })
+            ]),
+            Box({
+                weight: 1,
+                background: theme.negative,
+                borderRadius: 10,
+                padding: { vertical: 14 },
+                contentAlignment: "center",
+                onClick: "onSellClick"
+            }, [
+                Text({ text: St("sell"), fontSize: 15, fontWeight: "700", color: "#FFFFFF" })
+            ])
+        ])
+    ]));
 }
 
 render();

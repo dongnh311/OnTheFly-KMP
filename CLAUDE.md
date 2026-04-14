@@ -83,7 +83,35 @@ Each platform implements `actual QuickJSBridge`, `ScriptStorage`, `PlatformActio
 
 Python-based hot reload server. Watches `devserver/scripts/` for changes and pushes updates via WebSocket.
 
-Script bundles live in `devserver/scripts/screens/` — each bundle has `manifest.json`, `main.js`, and optional `theme.js`. Shared code in `_base/` and `_libs/`, i18n in `languages/`.
+Script bundles live in `devserver/scripts/screens/` — each bundle has `manifest.json`, `main.js`, and optional `theme.js`. Shared code in `_base/` (UI builders + utils) and `_libs/` (app state, theme, i18n, data), i18n in `languages/`.
+
+### Script Load Order
+
+`_base/*.js` (alphabetical) → `_libs/*.js` (alphabetical) → theme.js → bundle base.js → main.js. This ensures UI builder functions from `_base/ui.js` are available to all subsequent scripts.
+
+### UI Builder Functions
+
+All JS scripts use builder functions instead of raw object literals for UI declarations. Defined in `_base/ui.js`, loaded automatically for all screens.
+
+```javascript
+// Builder style (current)
+Column({ alignment: "center", padding: { horizontal: 32 } }, [
+    Text({ text: "Hello", fontSize: 28, fontWeight: "bold" }),
+    Spacer({ height: 8 }),
+    Button({ text: "Click", onClick: "handleClick" })
+])
+
+// Equivalent raw object (what the engine receives)
+{ type: "Column", props: { alignment: "center", padding: { horizontal: 32 } }, children: [
+    { type: "Text", props: { text: "Hello", fontSize: 28, fontWeight: "bold" } },
+    { type: "Spacer", props: { height: 8 } },
+    { type: "Button", props: { text: "Click", onClick: "handleClick" } }
+]}
+```
+
+**Name mappings:** `Image` → `Img()`, `IconButton` → `IconBtn()`, `FullScreenPopup` → `Popup()`, `LoadingOverlay` → `Loading()`, `ProgressBar` → `Progress()`. All others match 1:1.
+
+VS Code autocomplete is provided via TypeScript declarations in `devserver/types/onthefly.d.ts` + `devserver/jsconfig.json`.
 
 The `zipScriptsToAssets` Gradle task (in `composeApp/build.gradle.kts`) creates `scripts.zip` in Android assets on every build. The app extracts this zip on first launch or when a newer bundled version is detected.
 

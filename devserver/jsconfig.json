@@ -1,0 +1,15 @@
+{
+    "compilerOptions": {
+        "target": "ES5",
+        "checkJs": false,
+        "ignoreDeprecations": "6.0",
+        "baseUrl": ".",
+        "paths": {
+            "*": [ "types/*" ]
+        }
+    },
+    "include": [
+        "scripts/**/*.js",
+        "types/**/*.d.ts"
+    ]
+}

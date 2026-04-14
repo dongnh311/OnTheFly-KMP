@@ -134,123 +134,92 @@ function onCancelDialog() {
 // ─── UI ─────────────────────────────────────────────────────
 
 function render() {
-    OnTheFly.setUI({
-        type: "Column",
-        props: { style: "container" },
-        children: [
-            // Header
-            { type: "Text", props: { text: "OnTheFly Home", style: "title" } },
-            { type: "Text", props: { text: "Navigation + Popups + Events", style: "caption" } },
+    OnTheFly.setUI(Column({ style: "container" }, [
+        // Header
+        Text({ text: "OnTheFly Home", style: "title" }),
+        Text({ text: "Navigation + Popups + Events", style: "caption" }),
 
-            { type: "Spacer", props: { style: "sectionGap" } },
+        Spacer({ style: "sectionGap" }),
 
-            // Navigation
-            { type: "Text", props: { text: "Navigation", style: "subtitle" } },
-            {
-                type: "Row",
-                props: { style: "buttonRow" },
-                children: [
-                    { type: "Button", props: { text: "SET Index →", onClick: "gotoDetail", style: "primaryButton" } },
-                    { type: "Button", props: { text: "PTT →", onClick: "gotoDetailPTT", style: "primaryButton" } }
-                ]
-            },
+        // Navigation
+        Text({ text: "Navigation", style: "subtitle" }),
+        Row({ style: "buttonRow" }, [
+            Button({ text: "SET Index →", onClick: "gotoDetail", style: "primaryButton" }),
+            Button({ text: "PTT →", onClick: "gotoDetailPTT", style: "primaryButton" })
+        ]),
 
-            { type: "Spacer", props: { style: "smallGap" } },
+        Spacer({ style: "smallGap" }),
 
-            // Counter
-            { type: "Text", props: { id: "counter", text: "" + count, style: "counter" } },
-            {
-                type: "Row",
-                props: { style: "buttonRow" },
-                children: [
-                    { type: "Button", props: { text: "−", onClick: "decrease", style: "secondaryButton" } },
-                    { type: "Button", props: { text: "+", onClick: "increase", style: "primaryButton" } }
-                ]
-            },
+        // Counter
+        Text({ id: "counter", text: "" + count, style: "counter" }),
+        Row({ style: "buttonRow" }, [
+            Button({ text: "−", onClick: "decrease", style: "secondaryButton" }),
+            Button({ text: "+", onClick: "increase", style: "primaryButton" })
+        ]),
 
-            { type: "Spacer", props: { style: "smallGap" } },
+        Spacer({ style: "smallGap" }),
 
-            // Inline popup buttons
-            { type: "Text", props: { text: "Inline Popups", style: "subtitle" } },
-            {
-                type: "Row",
-                props: { style: "buttonRow" },
-                children: [
-                    { type: "Button", props: { text: "Full Popup", onClick: "openFullPopup", style: "secondaryButton" } },
-                    { type: "Button", props: { text: "Confirm Reset", onClick: "openConfirmDialog", style: "outlineButton" } }
-                ]
-            },
+        // Inline popup buttons
+        Text({ text: "Inline Popups", style: "subtitle" }),
+        Row({ style: "buttonRow" }, [
+            Button({ text: "Full Popup", onClick: "openFullPopup", style: "secondaryButton" }),
+            Button({ text: "Confirm Reset", onClick: "openConfirmDialog", style: "outlineButton" })
+        ]),
 
-            { type: "Spacer", props: { style: "smallGap" } },
+        Spacer({ style: "smallGap" }),
 
-            // Demo screens
-            { type: "Text", props: { text: "Demo Screens", style: "subtitle" } },
-            {
-                type: "Row",
-                props: { style: "buttonRow" },
-                children: [
-                    { type: "Button", props: { text: "FullScreen →", onClick: "gotoFullPopupDemo", style: "outlineButton" } },
-                    { type: "Button", props: { text: "Confirm →", onClick: "gotoConfirmDemo", style: "outlineButton" } }
-                ]
-            },
-            { type: "Button", props: { text: "API Demo →", onClick: "gotoApiDemo", style: "primaryButton" } },
+        // Demo screens
+        Text({ text: "Demo Screens", style: "subtitle" }),
+        Row({ style: "buttonRow" }, [
+            Button({ text: "FullScreen →", onClick: "gotoFullPopupDemo", style: "outlineButton" }),
+            Button({ text: "Confirm →", onClick: "gotoConfirmDemo", style: "outlineButton" })
+        ]),
+        Button({ text: "API Demo →", onClick: "gotoApiDemo", style: "primaryButton" }),
 
-            { type: "Spacer", props: { style: "smallGap" } },
+        Spacer({ style: "smallGap" }),
 
-            // Toggle
-            { type: "Toggle", props: { id: "darkModeToggle", label: "Dark Mode", checked: darkMode } },
+        // Toggle
+        Toggle({ id: "darkModeToggle", label: "Dark Mode", checked: darkMode }),
 
-            { type: "Spacer", props: { style: "smallGap" } },
+        Spacer({ style: "smallGap" }),
 
-            // Log
-            { type: "Text", props: { id: "logText", text: "Lifecycle: " + lifecycleLog, style: "caption" } },
+        // Log
+        Text({ id: "logText", text: "Lifecycle: " + lifecycleLog, style: "caption" }),
 
-            // ─── Full Screen Popup (hidden by default) ──────
-            {
-                type: "FullScreenPopup",
-                props: { id: "fullPopup", visible: false, onDismiss: "closeFullPopup", style: "fullPopupBg" },
-                children: [
-                    { type: "Spacer", props: { height: 40 } },
-                    { type: "Text", props: { text: "Full Screen Popup", style: "title" } },
-                    { type: "Text", props: { text: "This popup covers the entire screen", style: "caption" } },
-                    { type: "Spacer", props: { style: "sectionGap" } },
-                    { type: "Text", props: { text: "You can put any content here:", style: "body" } },
-                    { type: "Spacer", props: { style: "smallGap" } },
-                    { type: "Text", props: { text: "• Charts", style: "body" } },
-                    { type: "Text", props: { text: "• Forms", style: "body" } },
-                    { type: "Text", props: { text: "• Detail views", style: "body" } },
-                    { type: "Text", props: { text: "• Settings panels", style: "body" } },
-                    { type: "Spacer", props: { style: "sectionGap" } },
-                    {
-                        type: "Row",
-                        props: { style: "buttonRow" },
-                        children: [
-                            { type: "Button", props: { text: "Action 1", onClick: "popupAction1", style: "primaryButton" } },
-                            { type: "Button", props: { text: "Action 2", onClick: "popupAction2", style: "secondaryButton" } }
-                        ]
-                    },
-                    { type: "Spacer", props: { style: "sectionGap" } },
-                    { type: "Button", props: { text: "Close Popup", onClick: "closeFullPopup", style: "outlineButton" } }
-                ]
-            },
+        // ─── Full Screen Popup (hidden by default) ──────
+        Popup({ id: "fullPopup", visible: false, onDismiss: "closeFullPopup", style: "fullPopupBg" }, [
+            Spacer({ height: 40 }),
+            Text({ text: "Full Screen Popup", style: "title" }),
+            Text({ text: "This popup covers the entire screen", style: "caption" }),
+            Spacer({ style: "sectionGap" }),
+            Text({ text: "You can put any content here:", style: "body" }),
+            Spacer({ style: "smallGap" }),
+            Text({ text: "• Charts", style: "body" }),
+            Text({ text: "• Forms", style: "body" }),
+            Text({ text: "• Detail views", style: "body" }),
+            Text({ text: "• Settings panels", style: "body" }),
+            Spacer({ style: "sectionGap" }),
+            Row({ style: "buttonRow" }, [
+                Button({ text: "Action 1", onClick: "popupAction1", style: "primaryButton" }),
+                Button({ text: "Action 2", onClick: "popupAction2", style: "secondaryButton" })
+            ]),
+            Spacer({ style: "sectionGap" }),
+            Button({ text: "Close Popup", onClick: "closeFullPopup", style: "outlineButton" })
+        ]),
 
-            // ─── Confirm Dialog (hidden by default) ─────────
-            {
-                type: "ConfirmDialog",
-                props: {
-                    id: "confirmDialog",
-                    visible: false,
-                    title: "Reset Counter?",
-                    message: "This will reset the counter back to 0. Are you sure?",
-                    confirmText: "Reset",
-                    cancelText: "Cancel",
-                    onConfirm: "onConfirmReset",
-                    onCancel: "onCancelDialog",
-                    style: "dialogConfirm"
-                }
-            }
-        ]
-    });
+        // ─── Confirm Dialog (hidden by default) ─────────
+        ConfirmDialog({
+            id: "confirmDialog",
+            visible: false,
+            title: "Reset Counter?",
+            message: "This will reset the counter back to 0. Are you sure?",
+            confirmText: "Reset",
+            cancelText: "Cancel",
+            onConfirm: "onConfirmReset",
+            onCancel: "onCancelDialog",
+            style: "dialogConfirm"
+        })
+    ]));
 }
 
 function popupAction1() {

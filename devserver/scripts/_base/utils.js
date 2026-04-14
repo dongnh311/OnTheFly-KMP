@@ -97,21 +97,17 @@ function buildFlashPriceColumn(stock, theme) {
 
     if (hasFlash) clearPriceFlash(stock.symbol);
 
-    return {
-        type: "Column",
-        props: {
-            alignment: "end",
-            width: "wrap",
-            flashBackground: flashBg,
-            flashDuration: 500,
-            borderRadius: 4,
-            padding: { horizontal: 4, vertical: 2 }
-        },
-        children: [
-            { type: "Text", props: { text: stockPriceText(stock.price), fontSize: 15, fontWeight: "700", color: changeColor } },
-            { type: "Text", props: { text: changeSign + stock.change.toFixed(2) + " (" + fmtPct(stock.pct) + ")", fontSize: 12, fontWeight: "600", color: changeColor } }
-        ]
-    };
+    return Column({
+        alignment: "end",
+        width: "wrap",
+        flashBackground: flashBg,
+        flashDuration: 500,
+        borderRadius: 4,
+        padding: { horizontal: 4, vertical: 2 }
+    }, [
+        Text({ text: stockPriceText(stock.price), fontSize: 15, fontWeight: "700", color: changeColor }),
+        Text({ text: changeSign + stock.change.toFixed(2) + " (" + fmtPct(stock.pct) + ")", fontSize: 12, fontWeight: "600", color: changeColor })
+    ]);
 }
 
 // ─── Color helpers ─────────────────────────────────────────

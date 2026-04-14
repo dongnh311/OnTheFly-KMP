@@ -7,49 +7,40 @@ OnTheFly.state("messageInput", "");
 OnTheFly.state("messageCount", 0);
 
 function render() {
-    OnTheFly.setUI({
-        type: "Column", props: { padding: 16, spacing: 12 },
-        children: [
-            { type: "TopAppBar", props: {
+    OnTheFly.setUI(
+        Column({ padding: 16, spacing: 12 }, [
+            TopAppBar({
                 title: "WebSocket Demo",
                 subtitle: "Realtime Communication",
                 navigationIcon: "arrow_back",
                 onNavigationClick: "goBack"
-            }},
+            }),
             // Status
-            { type: "Card", props: { padding: 16, borderRadius: 12 },
-                children: [
-                    { type: "Row", props: { spacing: 8 },
-                        children: [
-                            { type: "Icon", props: { name: "wifi", size: 20, color: "$state.status" === "connected" ? "#27AE60" : "#E74C3C" }},
-                            { type: "Text", props: { id: "statusText", text: "Status: $state.status", style: "statusDisconnected" }}
-                        ]
-                    },
-                    { type: "Text", props: { text: "Server: " + wsUrl, style: "subtitle" }}
-                ]
-            },
+            Card({ padding: 16, borderRadius: 12 }, [
+                Row({ spacing: 8 }, [
+                    Icon({ name: "wifi", size: 20, color: "$state.status" === "connected" ? "#27AE60" : "#E74C3C" }),
+                    Text({ id: "statusText", text: "Status: $state.status", style: "statusDisconnected" })
+                ]),
+                Text({ text: "Server: " + wsUrl, style: "subtitle" })
+            ]),
             // Connect/Disconnect buttons
-            { type: "Row", props: { spacing: 12 },
-                children: [
-                    { type: "Button", props: { id: "connectBtn", text: "Connect", style: "primaryButton", onClick: "doConnect" }},
-                    { type: "Button", props: { id: "disconnectBtn", text: "Disconnect", style: "dangerButton", onClick: "doDisconnect" }}
-                ]
-            },
+            Row({ spacing: 12 }, [
+                Button({ id: "connectBtn", text: "Connect", style: "primaryButton", onClick: "doConnect" }),
+                Button({ id: "disconnectBtn", text: "Disconnect", style: "dangerButton", onClick: "doDisconnect" })
+            ]),
             // Send message
-            { type: "Row", props: { spacing: 8 },
-                children: [
-                    { type: "TextField", props: { id: "msgInput", placeholder: "Type a message...", width: "fill" }},
-                    { type: "IconButton", props: { id: "sendBtn", icon: "send", color: "#3498DB", onClick: "doSend" }}
-                ]
-            },
+            Row({ spacing: 8 }, [
+                TextField({ id: "msgInput", placeholder: "Type a message...", width: "fill" }),
+                IconBtn({ id: "sendBtn", icon: "send", color: "#3498DB", onClick: "doSend" })
+            ]),
             // Messages list
-            { type: "Text", props: { id: "msgCount", text: "Messages: $state.messageCount", style: "subtitle" }},
-            { type: "Divider", props: {} },
-            { type: "LazyColumn", props: { id: "messageList", spacing: 4, height: "fill" },
-                children: buildMessageList()
-            }
-        ]
-    });
+            Text({ id: "msgCount", text: "Messages: $state.messageCount", style: "subtitle" }),
+            Divider({}),
+            LazyColumn({ id: "messageList", spacing: 4, height: "fill" },
+                buildMessageList()
+            )
+        ])
+    );
 }
 
 function buildMessageList() {
@@ -58,13 +49,12 @@ function buildMessageList() {
         var msg = messages[i];
         var prefix = msg.sent ? ">> " : "<< ";
         var style = msg.sent ? "sentMessage" : "messageText";
-        items.push({
-            type: "Text",
-            props: { text: prefix + msg.text, style: style }
-        });
+        items.push(
+            Text({ text: prefix + msg.text, style: style })
+        );
     }
     if (items.length === 0) {
-        items.push({ type: "Text", props: { text: "No messages yet. Connect and send something!", style: "subtitle" }});
+        items.push(Text({ text: "No messages yet. Connect and send something!", style: "subtitle" }));
     }
     return items;
 }

@@ -202,21 +202,21 @@ class ScriptViewModel(
             println("ScriptViewModel: Loaded ${langMap.size} language(s): ${langMap.keys}")
         }
 
-        // 2. Load global libraries (_libs/*.js) — singleton, shared state
-        val libs = repository.loadGlobalLibs()
-        for ((fileName, content) in libs) {
-            val r = engine.eval(content, "_libs/$fileName")
-            if (r.startsWith("Error:")) { _error.value = "lib $fileName: $r"; return }
-        }
-        if (libs.isNotEmpty()) println("QuickJSEngine: Loaded ${libs.size} lib(s)")
-
-        // 3. Load global base functions (_base/*.js) — utilities
+        // 2. Load global base functions (_base/*.js) — UI builders + utilities
         val baseFns = repository.loadGlobalBase()
         for ((fileName, content) in baseFns) {
             val r = engine.eval(content, "_base/$fileName")
             if (r.startsWith("Error:")) { _error.value = "base $fileName: $r"; return }
         }
         if (baseFns.isNotEmpty()) println("QuickJSEngine: Loaded ${baseFns.size} base file(s)")
+
+        // 3. Load global libraries (_libs/*.js) — singleton, shared state (may use _base)
+        val libs = repository.loadGlobalLibs()
+        for ((fileName, content) in libs) {
+            val r = engine.eval(content, "_libs/$fileName")
+            if (r.startsWith("Error:")) { _error.value = "lib $fileName: $r"; return }
+        }
+        if (libs.isNotEmpty()) println("QuickJSEngine: Loaded ${libs.size} lib(s)")
 
         // 4. Load theme
         val themeScript = repository.loadTheme(bundleName)

@@ -227,13 +227,31 @@ fun OnTheFlyScreen(
 
 ## Engine Features
 
+### UI Builder Functions
+
+All JS scripts use concise builder functions (defined in `_base/ui.js`) instead of verbose object literals:
+
+```javascript
+// Builder style — concise, with VS Code autocomplete
+Column({ alignment: "center", spacing: 8 }, [
+    Text({ text: "Hello", fontSize: 28, fontWeight: "bold", color: "#FFF" }),
+    Spacer({ height: 12 }),
+    Row({ alignment: "spaceBetween" }, [
+        Button({ text: "Buy", onClick: "handleBuy", background: "#10B981" }),
+        Button({ text: "Sell", onClick: "handleSell", background: "#EF4444" })
+    ])
+])
+```
+
+Name mappings: `Image` → `Img()`, `IconButton` → `IconBtn()`, `FullScreenPopup` → `Popup()`, `LoadingOverlay` → `Loading()`, `ProgressBar` → `Progress()`.
+
 ### State Management
 ```javascript
 OnTheFly.state("count", 0);
 OnTheFly.setState("count", OnTheFly.getState("count") + 1);
 
 // Auto-binding in UI
-{ type: "Text", props: { text: "Count: $state.count" } }
+Text({ text: "Count: $state.count" })
 
 // Computed values
 OnTheFly.computed("total", function() { return getState("price") * getState("qty"); });
@@ -290,15 +308,15 @@ OnTheFly.setLocale("vi");
 OnTheFly.t("greeting", { name: "Dong" }); // "Xin chao, Dong!"
 
 // Auto-binding
-{ type: "Text", props: { text: "$lang.welcome_back" } }
+Text({ text: "$lang.welcome_back" })
 ```
 
 ### Animation System
 ```javascript
-{ type: "Card", props: {
+Card({
     enterAnimation: { type: "slideInUp", duration: 300, easing: "spring" },
     exitAnimation: { type: "fadeOut", duration: 200 }
-}}
+}, [...])
 
 // Types: fadeIn/Out, slideIn/OutLeft/Right/Up/Down, scaleIn/Out
 // Easing: linear, easeIn, easeOut, easeInOut, spring
@@ -339,10 +357,10 @@ OnTheFly.registerStyles({ title: { color: "#FFF" } }, "dark");
 OnTheFly.setTheme("dark");
 
 OnTheFly.registerComponent("UserCard", function(props) {
-  return { type: "Card", children: [
-    { type: "Avatar", props: { name: props.name } },
-    { type: "Text", props: { text: props.name } }
-  ]};
+  return Card({}, [
+    Avatar({ name: props.name }),
+    Text({ text: props.name })
+  ]);
 });
 ```
 
@@ -394,12 +412,16 @@ OnTheFly-KMP/
 │   └── rust/                           Cargo workspace: engine.rs, jni_bridge.rs, ios_bridge.rs
 ├── devserver/                          Dev server + JS script bundles
 │   ├── scripts/
-│   │   ├── _base/, _libs/              Shared utilities and state
+│   │   ├── _base/                      ui.js (builder functions), utils.js (helpers)
+│   │   ├── _libs/                      appState, stockTheme, stockI18n, stockData, etc.
 │   │   ├── languages/                  i18n (en.json, vi.json)
 │   │   └── screens/                    home, demo-app, api-demo, websocket-demo,
 │   │                                   stock-dashboard, stock-chart, stock-detail,
 │   │                                   stock-search, stock-watchlist, stock-news, etc.
-│   └── server.py                       HTTP + WebSocket push + file watcher
+│   ├── types/                          TypeScript declarations for VS Code autocomplete
+│   │   └── onthefly.d.ts               Type definitions for all APIs + components
+│   ├── jsconfig.json                   VS Code configuration for IntelliSense
+│   └── server.py                       HTTP + WebSocket push + file watcher + release server
 └── iosApp/                             Xcode project wrapper
 ```
 

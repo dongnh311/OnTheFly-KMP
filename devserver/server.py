@@ -760,7 +760,12 @@ class DevHandler(http.server.BaseHTTPRequestHandler):
         p = args[0] if args else ''
         if '/version' in str(p): return
         if '/status' in str(p): return
-        super().log_message(format, *args)
+        req = str(p)
+        filename = req.rsplit('/', 1)[-1].split(' ')[0] if '/' in req else ''
+        if filename:
+            super().log_message(format + " file:  %s", *args, filename)
+        else:
+            super().log_message(format, *args)
 
 
 # ═══════════════════════════════════════════════════════════

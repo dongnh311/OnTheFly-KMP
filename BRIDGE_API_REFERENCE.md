@@ -27,6 +27,7 @@ Complete reference of all views, props, events, and functions available in the J
 - [10. ScriptStorage Interface](#10-scriptstorage-interface)
 - [11. SplashScreen API](#11-splashscreen-api)
 - [12. Settings Persistence](#12-settings-persistence)
+- [13. UI Builder Functions](#13-ui-builder-functions)
 
 ---
 
@@ -1003,3 +1004,104 @@ StockI18n.setLang("vi");
 ### Native → SharedDataStore (on app startup)
 
 `ScriptViewModel.restorePersistedPreferences()` reads `dark_mode` and `stock_lang` from `localStorage.getKV()` and sets them into `SharedDataStore` before scripts load. This ensures JS code sees the correct values immediately via `AppState.isDarkMode()` and `StockI18n.getLang()`.
+
+---
+
+## 13. UI Builder Functions
+
+Shorthand functions defined in `_base/ui.js` for building UI component trees. Loaded automatically for all screens.
+
+### Usage
+
+```javascript
+// Instead of verbose object literals:
+{ type: "Column", props: { alignment: "center" }, children: [
+    { type: "Text", props: { text: "Hello" } }
+]}
+
+// Use builder functions:
+Column({ alignment: "center" }, [
+    Text({ text: "Hello" })
+])
+```
+
+Both produce the same `{ type, props, children }` object — the engine sees no difference.
+
+### Available Functions
+
+#### Layout
+| Function | Maps To | Signature |
+|----------|---------|-----------|
+| `Column` | `Column` | `Column(props?, children?)` |
+| `Row` | `Row` | `Row(props?, children?)` |
+| `Box` | `Box` | `Box(props?, children?)` |
+| `Spacer` | `Spacer` | `Spacer(props?)` |
+| `Divider` | `Divider` | `Divider(props?)` |
+| `Card` | `Card` | `Card(props?, children?)` |
+
+#### Display
+| Function | Maps To | Signature |
+|----------|---------|-----------|
+| `Text` | `Text` | `Text(props?)` |
+| `Img` | `Image` | `Img(props?)` |
+| `Icon` | `Icon` | `Icon(props?)` |
+| `IconBtn` | `IconButton` | `IconBtn(props?)` |
+| `Badge` | `Badge` | `Badge(props?)` |
+| `Avatar` | `Avatar` | `Avatar(props?)` |
+| `Progress` | `ProgressBar` | `Progress(props?)` |
+
+#### Input
+| Function | Maps To | Signature |
+|----------|---------|-----------|
+| `TextField` | `TextField` | `TextField(props?)` |
+| `Button` | `Button` | `Button(props?)` |
+| `Toggle` | `Toggle` | `Toggle(props?)` |
+| `Checkbox` | `Checkbox` | `Checkbox(props?)` |
+| `RadioGroup` | `RadioGroup` | `RadioGroup(props?)` |
+| `Dropdown` | `Dropdown` | `Dropdown(props?)` |
+| `SearchBar` | `SearchBar` | `SearchBar(props?)` |
+| `Slider` | `Slider` | `Slider(props?)` |
+| `Chip` | `Chip` | `Chip(props?)` |
+
+#### Lists
+| Function | Maps To | Signature |
+|----------|---------|-----------|
+| `LazyColumn` | `LazyColumn` | `LazyColumn(props?, children?)` |
+| `LazyRow` | `LazyRow` | `LazyRow(props?, children?)` |
+| `Grid` | `Grid` | `Grid(props?, children?)` |
+
+#### Navigation
+| Function | Maps To | Signature |
+|----------|---------|-----------|
+| `TopAppBar` | `TopAppBar` | `TopAppBar(props?)` |
+| `BottomNavBar` | `BottomNavBar` | `BottomNavBar(props?)` |
+| `TabBar` | `TabBar` | `TabBar(props?)` |
+| `TabContent` | `TabContent` | `TabContent(props?, children?)` |
+| `Drawer` | `Drawer` | `Drawer(props?, children?)` |
+
+#### Feedback / Overlay
+| Function | Maps To | Signature |
+|----------|---------|-----------|
+| `Popup` | `FullScreenPopup` | `Popup(props?, children?)` |
+| `ConfirmDialog` | `ConfirmDialog` | `ConfirmDialog(props?)` |
+| `BottomSheet` | `BottomSheet` | `BottomSheet(props?, children?)` |
+| `Snackbar` | `Snackbar` | `Snackbar(props?)` |
+| `Loading` | `LoadingOverlay` | `Loading(props?)` |
+
+#### Charts
+| Function | Maps To | Signature |
+|----------|---------|-----------|
+| `CandlestickChart` | `CandlestickChart` | `CandlestickChart(props?)` |
+| `LineChart` | `LineChart` | `LineChart(props?)` |
+
+### VS Code IntelliSense
+
+TypeScript declarations in `devserver/types/onthefly.d.ts` provide full autocomplete for all builder functions. Each function's parameter is typed to its specific props interface (e.g., `Column()` only suggests `ColumnProps`, `Text()` only suggests `TextProps`).
+
+Configured via `devserver/jsconfig.json` — works automatically for all `.js` files in `devserver/scripts/`.
+
+### Script Load Order
+
+`_base/*.js` → `_libs/*.js` → `theme.js` → bundle `base.js` → `main.js`
+
+Builder functions (`_base/ui.js`) load first, making them available to all subsequent scripts including shared libraries.

@@ -75,134 +75,92 @@ function goBack() {
 // ─── UI ─────────────────────────────────────────────────────
 
 function render() {
-    OnTheFly.setUI({
-        type: "Column",
-        props: { style: "container" },
-        children: [
+    OnTheFly.setUI(
+        Column({ style: "container" }, [
             // Header
-            { type: "Text", props: { text: "Full Screen Popups", style: "title" } },
-            { type: "Text", props: { text: "Different popup patterns", style: "caption" } },
+            Text({ text: "Full Screen Popups", style: "title" }),
+            Text({ text: "Different popup patterns", style: "caption" }),
 
-            { type: "Spacer", props: { style: "gap" } },
+            Spacer({ style: "gap" }),
 
             // Current selection
-            {
-                type: "Column",
-                props: { style: "card" },
-                children: [
-                    { type: "Text", props: { text: "Stock Picker", style: "subtitle" } },
-                    { type: "Text", props: { id: "selectedText", text: "Selected: " + selectedItem, style: "value" } },
-                    { type: "Spacer", props: { style: "smallGap" } },
-                    { type: "Button", props: { text: "Open Stock List", onClick: "openInfoPopup", style: "primaryBtn" } }
-                ]
-            },
+            Column({ style: "card" }, [
+                Text({ text: "Stock Picker", style: "subtitle" }),
+                Text({ id: "selectedText", text: "Selected: " + selectedItem, style: "value" }),
+                Spacer({ style: "smallGap" }),
+                Button({ text: "Open Stock List", onClick: "openInfoPopup", style: "primaryBtn" })
+            ]),
 
-            { type: "Spacer", props: { style: "smallGap" } },
+            Spacer({ style: "smallGap" }),
 
             // Form popup trigger
-            {
-                type: "Column",
-                props: { style: "card" },
-                children: [
-                    { type: "Text", props: { text: "Settings Panel", style: "subtitle" } },
-                    { type: "Text", props: { text: "Full screen form overlay", style: "caption" } },
-                    { type: "Spacer", props: { style: "smallGap" } },
-                    { type: "Button", props: { text: "Open Settings", onClick: "openFormPopup", style: "primaryBtn" } }
-                ]
-            },
+            Column({ style: "card" }, [
+                Text({ text: "Settings Panel", style: "subtitle" }),
+                Text({ text: "Full screen form overlay", style: "caption" }),
+                Spacer({ style: "smallGap" }),
+                Button({ text: "Open Settings", onClick: "openFormPopup", style: "primaryBtn" })
+            ]),
 
-            { type: "Spacer", props: { style: "gap" } },
+            Spacer({ style: "gap" }),
 
-            { type: "Button", props: { text: "← Back to Home", onClick: "goBack", style: "backBtn" } },
+            Button({ text: "← Back to Home", onClick: "goBack", style: "backBtn" }),
 
             // ─── Info Popup: Stock list ─────────────────────
-            {
-                type: "FullScreenPopup",
-                props: { id: "infoPopup", visible: false, onDismiss: "closeInfoPopup", style: "popupLight" },
-                children: [
-                    { type: "Text", props: { text: "Select a Stock", style: "title" } },
-                    { type: "Text", props: { text: "Tap to select and close", style: "caption" } },
-                    { type: "Spacer", props: { style: "gap" } },
-                    {
-                        type: "Column",
-                        props: { style: "card" },
-                        children: [
-                            {
-                                type: "Row", props: { style: "row" },
-                                children: [
-                                    { type: "Text", props: { text: "SET Index", style: "subtitle" } },
-                                    { type: "Text", props: { text: "1,423.56", style: "value" } }
-                                ]
-                            },
-                            { type: "Button", props: { text: "Select SET", onClick: "selectSET", style: "primaryBtn" } }
-                        ]
-                    },
-                    { type: "Spacer", props: { style: "smallGap" } },
-                    {
-                        type: "Column",
-                        props: { style: "card" },
-                        children: [
-                            {
-                                type: "Row", props: { style: "row" },
-                                children: [
-                                    { type: "Text", props: { text: "PTT", style: "subtitle" } },
-                                    { type: "Text", props: { text: "32.75", style: "value" } }
-                                ]
-                            },
-                            { type: "Button", props: { text: "Select PTT", onClick: "selectPTT", style: "primaryBtn" } }
-                        ]
-                    },
-                    { type: "Spacer", props: { style: "smallGap" } },
-                    {
-                        type: "Column",
-                        props: { style: "card" },
-                        children: [
-                            {
-                                type: "Row", props: { style: "row" },
-                                children: [
-                                    { type: "Text", props: { text: "BANPU", style: "subtitle" } },
-                                    { type: "Text", props: { text: "8.90", style: "value" } }
-                                ]
-                            },
-                            { type: "Button", props: { text: "Select BANPU", onClick: "selectBANPU", style: "primaryBtn" } }
-                        ]
-                    }
-                ]
-            },
+            Popup({ id: "infoPopup", visible: false, onDismiss: "closeInfoPopup", style: "popupLight" }, [
+                Text({ text: "Select a Stock", style: "title" }),
+                Text({ text: "Tap to select and close", style: "caption" }),
+                Spacer({ style: "gap" }),
+                Column({ style: "card" }, [
+                    Row({ style: "row" }, [
+                        Text({ text: "SET Index", style: "subtitle" }),
+                        Text({ text: "1,423.56", style: "value" })
+                    ]),
+                    Button({ text: "Select SET", onClick: "selectSET", style: "primaryBtn" })
+                ]),
+                Spacer({ style: "smallGap" }),
+                Column({ style: "card" }, [
+                    Row({ style: "row" }, [
+                        Text({ text: "PTT", style: "subtitle" }),
+                        Text({ text: "32.75", style: "value" })
+                    ]),
+                    Button({ text: "Select PTT", onClick: "selectPTT", style: "primaryBtn" })
+                ]),
+                Spacer({ style: "smallGap" }),
+                Column({ style: "card" }, [
+                    Row({ style: "row" }, [
+                        Text({ text: "BANPU", style: "subtitle" }),
+                        Text({ text: "8.90", style: "value" })
+                    ]),
+                    Button({ text: "Select BANPU", onClick: "selectBANPU", style: "primaryBtn" })
+                ])
+            ]),
 
             // ─── Form Popup: Settings panel ─────────────────
-            {
-                type: "FullScreenPopup",
-                props: { id: "formPopup", visible: false, onDismiss: "closeFormPopup", style: "popupDark" },
-                children: [
-                    { type: "Text", props: { text: "Settings", style: "popupTitleDark" } },
-                    { type: "Text", props: { text: "Configure your preferences", style: "popupBodyDark" } },
-                    { type: "Spacer", props: { style: "gap" } },
+            Popup({ id: "formPopup", visible: false, onDismiss: "closeFormPopup", style: "popupDark" }, [
+                Text({ text: "Settings", style: "popupTitleDark" }),
+                Text({ text: "Configure your preferences", style: "popupBodyDark" }),
+                Spacer({ style: "gap" }),
 
-                    { type: "Text", props: { text: "Notifications", style: "popupAccent" } },
-                    { type: "Toggle", props: { id: "notifToggle", label: "Price Alerts", checked: true } },
-                    { type: "Toggle", props: { id: "newsToggle", label: "News Updates", checked: false } },
-                    { type: "Toggle", props: { id: "reportToggle", label: "Daily Report", checked: true } },
+                Text({ text: "Notifications", style: "popupAccent" }),
+                Toggle({ id: "notifToggle", label: "Price Alerts", checked: true }),
+                Toggle({ id: "newsToggle", label: "News Updates", checked: false }),
+                Toggle({ id: "reportToggle", label: "Daily Report", checked: true }),
 
-                    { type: "Spacer", props: { style: "gap" } },
+                Spacer({ style: "gap" }),
 
-                    { type: "Text", props: { text: "Display", style: "popupAccent" } },
-                    { type: "Toggle", props: { id: "darkToggle", label: "Dark Mode", checked: false } },
-                    { type: "Toggle", props: { id: "compactToggle", label: "Compact View", checked: false } },
+                Text({ text: "Display", style: "popupAccent" }),
+                Toggle({ id: "darkToggle", label: "Dark Mode", checked: false }),
+                Toggle({ id: "compactToggle", label: "Compact View", checked: false }),
 
-                    { type: "Spacer", props: { style: "gap" } },
+                Spacer({ style: "gap" }),
 
-                    {
-                        type: "Row", props: { style: "row" },
-                        children: [
-                            { type: "Button", props: { text: "Save", onClick: "submitForm", style: "primaryBtn" } },
-                            { type: "Button", props: { text: "Cancel", onClick: "closeFormPopup", style: "dangerBtn" } }
-                        ]
-                    }
-                ]
-            }
-        ]
-    });
+                Row({ style: "row" }, [
+                    Button({ text: "Save", onClick: "submitForm", style: "primaryBtn" }),
+                    Button({ text: "Cancel", onClick: "closeFormPopup", style: "dangerBtn" })
+                ])
+            ])
+        ])
+    );
 }
 
 render();

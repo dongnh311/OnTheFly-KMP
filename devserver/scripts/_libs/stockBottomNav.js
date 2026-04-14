@@ -16,44 +16,28 @@ function buildStockBottomNav(activeTab, theme) {
         var tab = tabs[i];
         var isActive = (tab.id === activeTab);
         var tabColor = isActive ? theme.accent : theme.textTertiary;
-        children.push({
-            type: "Column",
-            props: {
+        children.push(
+            Column({
                 weight: 1,
                 alignment: "center",
                 padding: { top: 10, bottom: 6 },
                 onClick: "onNavTab_" + tab.id
-            },
-            children: [
-                {
-                    type: "Icon",
-                    props: { name: tab.icon, size: 20, color: tabColor }
-                },
-                { type: "Spacer", props: { height: 2 } },
-                {
-                    type: "Text",
-                    props: {
-                        text: tab.label,
-                        fontSize: 9,
-                        color: tabColor,
-                        fontWeight: isActive ? "600" : "normal"
-                    }
-                }
-            ]
-        });
+            }, [
+                Icon({ name: tab.icon, size: 20, color: tabColor }),
+                Spacer({ height: 2 }),
+                Text({
+                    text: tab.label,
+                    fontSize: 9,
+                    color: tabColor,
+                    fontWeight: isActive ? "600" : "normal"
+                })
+            ])
+        );
     }
-    return {
-        type: "Column",
-        props: { fillMaxWidth: true },
-        children: [
-            { type: "Divider", props: { color: theme.border, thickness: 1 } },
-            {
-                type: "Row",
-                props: { fillMaxWidth: true, background: theme.navBar },
-                children: children
-            }
-        ]
-    };
+    return Column({ fillMaxWidth: true }, [
+        Divider({ color: theme.border, thickness: 1 }),
+        Row({ fillMaxWidth: true, background: theme.navBar }, children)
+    ]);
 }
 
 // Standard nav handlers — each screen overrides its own tab

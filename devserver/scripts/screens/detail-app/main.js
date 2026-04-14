@@ -58,79 +58,59 @@ function renderWithData() {
     var stockName = receivedData ? (receivedData.stockName || stockCode) : "No data";
     var price = receivedData ? (receivedData.price || "0.00") : "0.00";
 
-    OnTheFly.setUI({
-        type: "Column",
-        props: { style: "container" },
-        children: [
+    OnTheFly.setUI(
+        Column({ style: "container" }, [
             // Header
-            { type: "Text", props: { text: "Stock Detail", style: "title" } },
-            { type: "Text", props: { text: "Data received from Home screen", style: "caption" } },
+            Text({ text: "Stock Detail", style: "title" }),
+            Text({ text: "Data received from Home screen", style: "caption" }),
 
-            { type: "Spacer", props: { style: "sectionGap" } },
+            Spacer({ style: "sectionGap" }),
 
             // Stock info card
-            {
-                type: "Column",
-                props: { style: "infoCard" },
-                children: [
-                    { type: "Text", props: { text: stockName, style: "subtitle" } },
-                    {
-                        type: "Row",
-                        props: { style: "buttonRow" },
-                        children: [
-                            { type: "Text", props: { text: "Code: ", style: "label" } },
-                            { type: "Text", props: { text: stockCode, style: "value" } }
-                        ]
-                    },
-                    {
-                        type: "Row",
-                        props: { style: "buttonRow" },
-                        children: [
-                            { type: "Text", props: { text: "Price: ", style: "label" } },
-                            { type: "Text", props: { text: "" + price, style: "value" } }
-                        ]
-                    },
-                    { type: "Text", props: { id: "favStatus", text: "☆ Not Favorited", style: "caption" } }
-                ]
-            },
+            Column({ style: "infoCard" }, [
+                Text({ text: stockName, style: "subtitle" }),
+                Row({ style: "buttonRow" }, [
+                    Text({ text: "Code: ", style: "label" }),
+                    Text({ text: stockCode, style: "value" })
+                ]),
+                Row({ style: "buttonRow" }, [
+                    Text({ text: "Price: ", style: "label" }),
+                    Text({ text: "" + price, style: "value" })
+                ]),
+                Text({ id: "favStatus", text: "☆ Not Favorited", style: "caption" })
+            ]),
 
-            { type: "Spacer", props: { style: "sectionGap" } },
+            Spacer({ style: "sectionGap" }),
 
             // Action buttons
-            {
-                type: "Row",
-                props: { style: "buttonRow" },
-                children: [
-                    { type: "Button", props: { text: "★ Favorite", onClick: "toggleFavorite", style: "actionButton" } },
-                    { type: "Button", props: { text: "Refresh Data", onClick: "requestStockData", style: "actionButton" } }
-                ]
-            },
+            Row({ style: "buttonRow" }, [
+                Button({ text: "★ Favorite", onClick: "toggleFavorite", style: "actionButton" }),
+                Button({ text: "Refresh Data", onClick: "requestStockData", style: "actionButton" })
+            ]),
 
-            { type: "Spacer", props: { style: "smallGap" } },
+            Spacer({ style: "smallGap" }),
 
             // Navigation buttons
-            { type: "Button", props: { text: "← Go Back", onClick: "goBack", style: "backButton" } },
+            Button({ text: "← Go Back", onClick: "goBack", style: "backButton" }),
 
-            { type: "Spacer", props: { style: "sectionGap" } },
+            Spacer({ style: "sectionGap" }),
 
             // Debug info
-            { type: "Text", props: { text: "Raw data: " + JSON.stringify(receivedData), style: "caption" } }
-        ]
-    });
+            Text({ text: "Raw data: " + JSON.stringify(receivedData), style: "caption" })
+        ])
+    );
 }
 
 // ─── Initial render (no data yet) ───────────────────────────
 function render() {
-    OnTheFly.setUI({
-        type: "Column",
-        props: { style: "container" },
-        children: [
-            { type: "Text", props: { text: "Stock Detail", style: "title" } },
-            { type: "Text", props: { text: "Waiting for data...", style: "caption" } },
-            { type: "Spacer", props: { style: "sectionGap" } },
-            { type: "Button", props: { text: "← Go Back", onClick: "goBack", style: "backButton" } }
-        ]
-    });
+    OnTheFly.setUI(
+        Column({ style: "container" }, [
+            Text({ text: "Stock Detail", style: "title" }),
+            Text({ text: "Waiting for data...", style: "caption" }),
+            Spacer({ style: "sectionGap" }),
+            Button({ text: "← Go Back", onClick: "goBack", style: "backButton" })
+        ])
+    );
 }
 
 render();
