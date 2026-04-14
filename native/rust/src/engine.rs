@@ -108,6 +108,25 @@ fn push_log(ctx: *mut JSContext, level: &str, msg: &str) {
     }
 }
 
+/// Drain the microtask/promise job queue so async/await and .then() chains resolve.
+unsafe fn drain_jobs(ctx: *mut JSContext) {
+    let rt = JS_GetRuntime(ctx);
+    loop {
+        let mut job_ctx: *mut JSContext = std::ptr::null_mut();
+        let ret = JS_ExecutePendingJob(rt, &mut job_ctx);
+        if ret <= 0 {
+            if ret < 0 {
+                // Job threw an exception — log it
+                let ex = JS_GetException(job_ctx);
+                let err = js_value_to_string(job_ctx, ex);
+                otf_js_free_value(job_ctx, ex);
+                push_log(ctx, "e", &format!("Async job error: {}", err));
+            }
+            break;
+        }
+    }
+}
+
 // ── JS Callback Functions ─────────────────────────────────────
 
 unsafe extern "C" fn js_console_log(
@@ -406,7 +425,7 @@ pub fn eval_script(ctx: *mut JSContext, script: &str, filename: &str) -> String 
             JS_EVAL_TYPE_GLOBAL,
         );
 
-        if otf_js_is_exception(result) != 0 {
+        let out = if otf_js_is_exception(result) != 0 {
             let ex = JS_GetException(ctx);
             let err_str = js_value_to_string(ctx, ex);
             otf_js_free_value(ctx, ex);
@@ -423,7 +442,9 @@ pub fn eval_script(ctx: *mut JSContext, script: &str, filename: &str) -> String 
             } else {
                 s
             }
-        }
+        };
+        drain_jobs(ctx);
+        out
     }
 }
 
@@ -509,7 +530,7 @@ pub fn eval_module(ctx: *mut JSContext, script: &str, filename: &str) -> String 
             JS_EVAL_TYPE_MODULE,
         );
 
-        if otf_js_is_exception(result) != 0 {
+        let out = if otf_js_is_exception(result) != 0 {
             let ex = JS_GetException(ctx);
             let err_str = js_value_to_string(ctx, ex);
             otf_js_free_value(ctx, ex);
@@ -526,7 +547,9 @@ pub fn eval_module(ctx: *mut JSContext, script: &str, filename: &str) -> String 
             } else {
                 s
             }
-        }
+        };
+        drain_jobs(ctx);
+        out
     }
 }
 

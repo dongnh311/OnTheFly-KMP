@@ -56,7 +56,9 @@ pub struct JSModuleDef {
 
 pub const JS_EVAL_TYPE_GLOBAL: c_int = 0;
 pub const JS_EVAL_TYPE_MODULE: c_int = 1 << 0;
+pub const JS_EVAL_FLAG_STRICT: c_int = 1 << 3;
 pub const JS_EVAL_FLAG_COMPILE_ONLY: c_int = 1 << 5;
+pub const JS_EVAL_FLAG_ASYNC: c_int = 1 << 7;
 
 // ── Callback types ────────────────────────────────────────────
 
@@ -126,6 +128,12 @@ extern "C" {
     ) -> JSValue;
 
     pub fn JS_GetRuntime(ctx: *mut JSContext) -> *mut JSRuntime;
+
+    pub fn JS_IsJobPending(rt: *mut JSRuntime) -> c_int;
+    pub fn JS_ExecutePendingJob(
+        rt: *mut JSRuntime,
+        pctx: *mut *mut JSContext,
+    ) -> c_int;
 
     pub fn JS_SetModuleLoaderFunc(
         rt: *mut JSRuntime,
