@@ -79,6 +79,47 @@ pub extern "C" fn otf_get_pending_logs(_context: *mut c_void) -> *const c_char {
 }
 
 #[no_mangle]
+pub extern "C" fn otf_register_module(
+    context: *mut c_void,
+    name: *const c_char,
+    source: *const c_char,
+) {
+    let name_str = if name.is_null() {
+        ""
+    } else {
+        unsafe { CStr::from_ptr(name) }.to_str().unwrap_or("")
+    };
+    let source_str = if source.is_null() {
+        ""
+    } else {
+        unsafe { CStr::from_ptr(source) }.to_str().unwrap_or("")
+    };
+    engine::register_module(context as *mut JSContext, name_str, source_str);
+}
+
+#[no_mangle]
+pub extern "C" fn otf_eval_module(
+    context: *mut c_void,
+    script: *const c_char,
+    file_name: *const c_char,
+) -> *const c_char {
+    let script_str = if script.is_null() {
+        ""
+    } else {
+        unsafe { CStr::from_ptr(script) }.to_str().unwrap_or("")
+    };
+    let filename_str = if file_name.is_null() {
+        "<module>"
+    } else {
+        unsafe { CStr::from_ptr(file_name) }
+            .to_str()
+            .unwrap_or("<module>")
+    };
+    let result = engine::eval_module(context as *mut JSContext, script_str, filename_str);
+    to_c_string(&result)
+}
+
+#[no_mangle]
 pub extern "C" fn otf_destroy_context(context: *mut c_void) {
     engine::destroy_context(context as *mut JSContext);
 }

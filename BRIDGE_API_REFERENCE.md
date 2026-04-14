@@ -28,6 +28,7 @@ Complete reference of all views, props, events, and functions available in the J
 - [11. SplashScreen API](#11-splashscreen-api)
 - [12. Settings Persistence](#12-settings-persistence)
 - [13. UI Builder Functions](#13-ui-builder-functions)
+- [14. ES Modules](#14-es-modules)
 
 ---
 
@@ -1104,6 +1105,81 @@ Configured via `devserver/jsconfig.json` — works automatically for all `.js` f
 
 ### Script Load Order
 
-`_base/*.js` → `_libs/*.js` → `theme.js` → bundle `base.js` → `main.js`
+`_base/*.js` → `_libs/*.js` → register `_modules/*.js` → `theme.js` → bundle `base.js` → `main.js`
 
-Builder functions (`_base/ui.js`) load first, making them available to all subsequent scripts including shared libraries.
+Builder functions (`_base/ui.js`) load first, making them available to all subsequent scripts. ES modules are registered but not evaluated — they only run when imported.
+
+---
+
+## 14. ES Modules
+
+Support for ES `import`/`export` syntax via the `_modules/` directory. Unlike `_base/` and `_libs/` (auto-loaded globally for all screens), modules only execute when explicitly imported by a screen.
+
+### Directory
+
+`devserver/scripts/_modules/` — place ES module `.js` files here. Module name = filename without `.js` extension.
+
+### Creating a Module
+
+```javascript
+// _modules/dataHelper.js — module name: "dataHelper"
+export function formatPrice(value, decimals) {
+    if (decimals === undefined) decimals = 2;
+    return "$" + Number(value).toFixed(decimals);
+}
+
+export function formatPercent(value) {
+    var sign = value >= 0 ? "+" : "";
+    return sign + Number(value).toFixed(2) + "%";
+}
+```
+
+### Using in a Screen
+
+**Step 1:** Add `"type": "module"` to `manifest.json`:
+
+```json
+{
+  "name": "Stock Detail",
+  "version": "1.0.0",
+  "entry": "main.js",
+  "type": "module"
+}
+```
+
+**Step 2:** Use `import` in `main.js`:
+
+```javascript
+import { formatPrice, formatPercent } from "dataHelper";
+
+function onCreateView() {
+    render();
+}
+
+function render() {
+    var theme = StockTheme.get();
+    OnTheFly.setUI(Column({ background: theme.primary }, [
+        Text({ text: formatPrice(150.5), fontSize: 24 }),
+        Text({ text: formatPercent(-2.35), fontSize: 14 })
+    ]));
+}
+```
+
+### How It Works
+
+| Aspect | Detail |
+|--------|--------|
+| **Registration** | `_modules/*.js` are registered in the engine at startup (not evaluated) |
+| **Loading** | Only when a screen's `main.js` uses `import`, the module is compiled and executed |
+| **Globals** | `OnTheFly`, `StockTheme`, `St()`, `Column()`, `Text()`, etc. remain accessible — no import needed |
+| **Lifecycle** | `onCreateView`, `render`, `onTextChanged`, etc. are auto-bound to `globalThis` by the engine |
+| **Scope** | Screens without `"type": "module"` work exactly as before (global eval, no changes) |
+
+### Comparison: `_libs/` vs `_modules/`
+
+| | `_libs/` | `_modules/` |
+|---|---|---|
+| **Pattern** | Singleton IIFE (global) | ES module (`export`/`import`) |
+| **Loaded** | Always, all screens | Only when imported |
+| **Scope** | Global | Module (isolated) |
+| **Use case** | Shared state, singletons | Utility functions, selective reuse |

@@ -106,6 +106,35 @@ pub extern "system" fn Java_com_onthefly_engine_core_QuickJSBridge_nativeGetPend
 }
 
 #[no_mangle]
+pub extern "system" fn Java_com_onthefly_engine_core_QuickJSBridge_nativeRegisterModule<'local>(
+    mut env: JNIEnv<'local>,
+    _class: JClass<'local>,
+    context_ptr: jlong,
+    name: JString<'local>,
+    source: JString<'local>,
+) {
+    let ctx = context_ptr as *mut JSContext;
+    let name_str: String = env.get_string(&name).map(|s| s.into()).unwrap_or_default();
+    let source_str: String = env.get_string(&source).map(|s| s.into()).unwrap_or_default();
+    engine::register_module(ctx, &name_str, &source_str);
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_onthefly_engine_core_QuickJSBridge_nativeEvalModule<'local>(
+    mut env: JNIEnv<'local>,
+    _class: JClass<'local>,
+    context_ptr: jlong,
+    script: JString<'local>,
+    file_name: JString<'local>,
+) -> jstring {
+    let ctx = context_ptr as *mut JSContext;
+    let script_str: String = env.get_string(&script).map(|s| s.into()).unwrap_or_default();
+    let filename_str: String = env.get_string(&file_name).map(|s| s.into()).unwrap_or_default();
+    let result = engine::eval_module(ctx, &script_str, &filename_str);
+    to_jstring(&mut env, &result)
+}
+
+#[no_mangle]
 pub extern "system" fn Java_com_onthefly_engine_core_QuickJSBridge_nativeDestroyContext<'local>(
     _env: JNIEnv<'local>,
     _class: JClass<'local>,

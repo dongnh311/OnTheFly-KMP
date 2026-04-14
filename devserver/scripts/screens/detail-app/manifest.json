@@ -2,6 +2,7 @@
   "name": "Detail Screen",
   "version": "1.0.0",
   "entry": "main.js",
+  "type": "module",
   "description": "Detail view demonstrating navigation and data passing",
   "signature": {
     "algorithm": "SHA-256",

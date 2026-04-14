@@ -132,6 +132,14 @@ class ScriptViewModel(
     private var errorConfig = ErrorConfig()
     private var loadRetryCount = 0
 
+    fun retry(bundleName: String, viewData: String? = null) {
+        isInitialized = false
+        _error.value = null
+        loadRetryCount = 0
+        engine.close()
+        loadAndRun(bundleName, viewData)
+    }
+
     fun loadAndRun(bundleName: String, viewData: String? = null) {
         if (isInitialized) return
         currentBundleName = bundleName
@@ -222,6 +230,14 @@ class ScriptViewModel(
         }
         if (libs.isNotEmpty()) println("QuickJSEngine: Loaded ${libs.size} lib(s)")
 
+        // 3b. Register ES modules (_modules/*.js) — NOT eval'd, loaded on demand via import
+        val modules = repository.loadGlobalModules()
+        for ((fileName, content) in modules) {
+            val moduleName = fileName.removeSuffix(".js")
+            engine.registerModule(moduleName, content)
+        }
+        if (modules.isNotEmpty()) println("QuickJSEngine: Registered ${modules.size} module(s)")
+
         // 4. Load theme
         val themeScript = repository.loadTheme(bundleName)
         if (themeScript != null) {
@@ -232,12 +248,14 @@ class ScriptViewModel(
 
         // 5. Load manifest config (errorConfig, version compatibility)
         var bundleVersion = "1.0.0"
+        var isModuleEntry = false
         try {
             val manifestJson = localStorage.readFile(bundleName, "manifest.json")
             val manifest = com.onthefly.engine.util.JsonParser.parseObject(manifestJson)
             @Suppress("UNCHECKED_CAST")
             errorConfig = ErrorConfig.fromMap(manifest["errorConfig"] as? Map<*, *>)
             bundleVersion = manifest["version"] as? String ?: "1.0.0"
+            isModuleEntry = manifest["type"] as? String == "module"
             // Version compatibility check
             val versionCheck = VersionManager.checkCompatibility(
                 minEngineVersion = manifest["minEngineVersion"] as? String,
@@ -265,9 +283,13 @@ class ScriptViewModel(
             if (r.startsWith("Error:")) { _error.value = "base.js: $r"; return }
         }
 
-        // 7. Load main entry
+        // 7. Load main entry (as ES module if manifest specifies "type": "module")
         val bundle = loadScript(bundleName)
-        val result = engine.eval(bundle.scriptContent, bundle.entry)
+        val result = if (isModuleEntry) {
+            engine.evalModule(bundle.scriptContent, bundle.entry)
+        } else {
+            engine.eval(bundle.scriptContent, bundle.entry)
+        }
         engine.drainLogs()
         if (result.startsWith("Error:")) {
             _error.value = result

@@ -12,6 +12,9 @@ interface ScriptRepository {
     /** Load all JS files from _base/ directory (shared utility functions). */
     fun loadGlobalBase(): List<Pair<String, String>>
 
+    /** Load all JS files from _modules/ directory (ES modules, registered but not auto-eval'd). */
+    fun loadGlobalModules(): List<Pair<String, String>>
+
     /** Load bundle-specific base.js if it exists. */
     fun loadBundleBase(bundleName: String): String?
 

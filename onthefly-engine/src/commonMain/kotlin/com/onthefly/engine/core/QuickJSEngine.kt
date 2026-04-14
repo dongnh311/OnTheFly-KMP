@@ -12,6 +12,8 @@ expect class QuickJSBridge() {
     fun createRuntime(): Long
     fun createContext(runtimePtr: Long): Long
     fun eval(contextPtr: Long, script: String, fileName: String): String
+    fun registerModule(contextPtr: Long, name: String, source: String)
+    fun evalModule(contextPtr: Long, script: String, fileName: String): String
     fun getUI(contextPtr: Long): String
     fun getStyles(contextPtr: Long): String
     fun getPendingUpdates(contextPtr: Long): String
@@ -47,6 +49,40 @@ class QuickJSEngine : AutoCloseable {
     fun eval(script: String, fileName: String = "<eval>"): String {
         check(contextPtr != 0L) { "Engine not initialized" }
         return bridge.eval(contextPtr, script, fileName)
+    }
+
+    /**
+     * Register an ES module source that can be imported via `import { ... } from "name"`.
+     */
+    fun registerModule(name: String, source: String) {
+        check(contextPtr != 0L) { "Engine not initialized" }
+        bridge.registerModule(contextPtr, name, source)
+    }
+
+    /**
+     * Evaluate a script as an ES module (supports `import`/`export`).
+     * Scans for all top-level function declarations and binds them to globalThis
+     * so the engine can call them (lifecycle callbacks, onClick handlers, etc.).
+     */
+    fun evalModule(script: String, fileName: String = "<module>"): String {
+        check(contextPtr != 0L) { "Engine not initialized" }
+        // Find all top-level function declarations: "function name("
+        val fnNames = FUNCTION_DECL_REGEX.findAll(script).map { it.groupValues[1] }.toSet()
+        val wrapped = buildString {
+            append(script)
+            if (fnNames.isNotEmpty()) {
+                append("\n\n// Auto-bind all functions to globalThis\n")
+                for (fn in fnNames) {
+                    append("if(typeof $fn!=='undefined')globalThis.$fn=$fn;\n")
+                }
+            }
+        }
+        return bridge.evalModule(contextPtr, wrapped, fileName)
+    }
+
+    companion object {
+        /** Matches top-level function declarations like `function onCreateView(` */
+        private val FUNCTION_DECL_REGEX = Regex("""(?m)^function\s+(\w+)\s*\(""")
     }
 
     /**

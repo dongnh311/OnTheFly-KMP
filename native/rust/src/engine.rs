@@ -15,6 +15,7 @@ struct ContextState {
     pending_updates: Vec<String>,
     native_actions: Vec<String>,
     pending_logs: Vec<String>,
+    module_cache: HashMap<String, String>,
 }
 
 impl ContextState {
@@ -25,6 +26,7 @@ impl ContextState {
             pending_updates: Vec::new(),
             native_actions: Vec::new(),
             pending_logs: Vec::new(),
+            module_cache: HashMap::new(),
         }
     }
 }
@@ -236,6 +238,72 @@ unsafe extern "C" fn js_log_e(
     otf_js_undefined()
 }
 
+// ── ES Module loader callback ─────────────────────────────────
+
+unsafe extern "C" fn module_loader(
+    ctx: *mut JSContext,
+    module_name: *const std::os::raw::c_char,
+    _opaque: *mut std::os::raw::c_void,
+) -> *mut JSModuleDef {
+    if module_name.is_null() {
+        return std::ptr::null_mut();
+    }
+    let name = match CStr::from_ptr(module_name).to_str() {
+        Ok(s) => s,
+        Err(_) => return std::ptr::null_mut(),
+    };
+
+    // Look up module source in per-context cache
+    let source = {
+        let map = match states().lock() {
+            Ok(m) => m,
+            Err(_) => return std::ptr::null_mut(),
+        };
+        match map.get(&ctx_key(ctx)) {
+            Some(state) => state.module_cache.get(name).cloned(),
+            None => None,
+        }
+    };
+
+    let source = match source {
+        Some(s) => s,
+        None => {
+            eprintln!("Module not found: {}", name);
+            return std::ptr::null_mut();
+        }
+    };
+
+    let c_source = match CString::new(source.as_str()) {
+        Ok(s) => s,
+        Err(_) => return std::ptr::null_mut(),
+    };
+
+    // Compile the module (JS_EVAL_TYPE_MODULE | JS_EVAL_FLAG_COMPILE_ONLY)
+    let func_val = JS_Eval(
+        ctx,
+        c_source.as_ptr(),
+        source.len(),
+        module_name,
+        JS_EVAL_TYPE_MODULE | JS_EVAL_FLAG_COMPILE_ONLY,
+    );
+
+    if otf_js_is_exception(func_val) != 0 {
+        let ex = JS_GetException(ctx);
+        let err = js_value_to_string(ctx, ex);
+        otf_js_free_value(ctx, ex);
+        eprintln!("Module compile error [{}]: {}", name, err);
+        return std::ptr::null_mut();
+    }
+
+    // Extract JSModuleDef* from the compiled module value
+    #[cfg(target_pointer_width = "64")]
+    let module_def = func_val.u.ptr as *mut JSModuleDef;
+    #[cfg(target_pointer_width = "32")]
+    let module_def = std::ptr::null_mut::<JSModuleDef>(); // 32-bit not supported for modules
+
+    module_def
+}
+
 // ── Setup JS globals ──────────────────────────────────────────
 
 unsafe fn setup_globals(ctx: *mut JSContext) {
@@ -307,6 +375,13 @@ pub fn create_context(rt: *mut JSRuntime) -> *mut JSContext {
         if let Ok(mut map) = states().lock() {
             map.insert(ctx_key(ctx), ContextState::new());
         }
+        // Set up ES module loader
+        JS_SetModuleLoaderFunc(
+            rt,
+            None, // use default normalizer
+            Some(module_loader),
+            std::ptr::null_mut(),
+        );
         setup_globals(ctx);
         ctx
     }
@@ -405,6 +480,54 @@ pub fn get_pending_actions(ctx: *mut JSContext) -> String {
 
 pub fn get_pending_logs(ctx: *mut JSContext) -> String {
     drain_queue(ctx, QueueType::Logs)
+}
+
+pub fn register_module(ctx: *mut JSContext, name: &str, source: &str) {
+    if let Ok(mut map) = states().lock() {
+        if let Some(state) = map.get_mut(&ctx_key(ctx)) {
+            state.module_cache.insert(name.to_string(), source.to_string());
+        }
+    }
+}
+
+pub fn eval_module(ctx: *mut JSContext, script: &str, filename: &str) -> String {
+    if ctx.is_null() {
+        return "Error: context is null".to_string();
+    }
+    let c_script = match CString::new(script) {
+        Ok(s) => s,
+        Err(_) => return "Error: script contains null bytes".to_string(),
+    };
+    let c_filename = CString::new(filename).unwrap_or_else(|_| CString::new("<module>").unwrap());
+
+    unsafe {
+        let result = JS_Eval(
+            ctx,
+            c_script.as_ptr(),
+            script.len(),
+            c_filename.as_ptr(),
+            JS_EVAL_TYPE_MODULE,
+        );
+
+        if otf_js_is_exception(result) != 0 {
+            let ex = JS_GetException(ctx);
+            let err_str = js_value_to_string(ctx, ex);
+            otf_js_free_value(ctx, ex);
+            if err_str.is_empty() {
+                "Error: unknown".to_string()
+            } else {
+                format!("Error: {}", err_str)
+            }
+        } else {
+            let s = js_value_to_string(ctx, result);
+            otf_js_free_value(ctx, result);
+            if s.is_empty() {
+                "undefined".to_string()
+            } else {
+                s
+            }
+        }
+    }
 }
 
 pub fn destroy_context(ctx: *mut JSContext) {

@@ -1,6 +1,15 @@
 {
   "schemaVersion": 1,
-  "globalVersion": "2026.04.14.1",
+  "globalVersion": "2026.04.14.2",
+  "changelog": [
+    "Add ES module support (import/export) via _modules/ directory",
+    "All screens now use module entry type",
+    "Add dataHelper module with formatPrice, formatPercent, formatVolume utilities",
+    "Improve error UI with retry button and error categorization",
+    "Fix flash animation recomposition bug in Column/Box",
+    "Improve WebView/MapView/VideoPlayer placeholder components with tap-to-open",
+    "Implement Change Password dialog and 2FA toggle in Account screen"
+  ],
   "bundles": {
     "api-demo": {
       "version": "1.0.0",

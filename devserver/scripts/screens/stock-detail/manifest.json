@@ -2,6 +2,7 @@
   "name": "StockPro Detail",
   "version": "1.0.0",
   "entry": "main.js",
+  "type": "module",
   "signature": {
     "algorithm": "SHA-256",
     "files": {

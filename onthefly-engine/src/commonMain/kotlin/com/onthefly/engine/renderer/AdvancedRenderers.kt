@@ -241,73 +241,128 @@ fun RenderSwipeToAction(
 }
 
 // ═══════════════════════════════════════════════════════════
-//  WebView (placeholder — needs platform webview)
+//  WebView (placeholder — opens URL in browser via onEvent)
 // ═══════════════════════════════════════════════════════════
 
 @Composable
-fun RenderWebView(c: UIComponent, modifier: Modifier) {
+fun RenderWebView(
+    c: UIComponent,
+    onEvent: (String) -> Unit,
+    onComponentEvent: (ComponentEvent) -> Unit,
+    modifier: Modifier
+) {
     val url = c.propString("url")
     val height = c.propInt("height", 300)
     val visible = c.propBool("visible", true)
+    val onClick = c.propString("onClick")
+    val componentId = c.propString("id")
     if (!visible) return
 
     Box(
         modifier = modifier.fillMaxWidth().height(height.dp)
-            .background(Color(0xFFF5F5F5), RoundedCornerShape(8.dp)),
+            .background(Color(0xFFF5F5F5), RoundedCornerShape(8.dp))
+            .clickable {
+                if (componentId != null) onComponentEvent(
+                    ComponentEvent(com.onthefly.engine.model.EngineEvent.ON_CLICK, componentId)
+                )
+                onClick?.let { onEvent(it) }
+            },
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(resolveIcon("info"), contentDescription = null, tint = Color.Gray, modifier = Modifier.size(32.dp))
+            Icon(resolveIcon("language"), contentDescription = null, tint = Color(0xFF1976D2), modifier = Modifier.size(36.dp))
             Text("WebView", color = Color.Gray, fontSize = 12.sp)
-            if (url != null) Text(url, color = Color.Gray, fontSize = 10.sp, maxLines = 1)
+            if (url != null) {
+                Text(url, color = Color(0xFF1976D2), fontSize = 10.sp, maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
+            }
+            Text("Tap to open in browser", color = Color(0xFF1976D2), fontSize = 11.sp,
+                fontWeight = FontWeight.Medium)
         }
     }
 }
 
 // ═══════════════════════════════════════════════════════════
-//  MapView (placeholder — needs platform map SDK)
+//  MapView (placeholder — shows coordinates, opens in maps)
 // ═══════════════════════════════════════════════════════════
 
 @Composable
-fun RenderMapView(c: UIComponent, modifier: Modifier) {
+fun RenderMapView(
+    c: UIComponent,
+    onEvent: (String) -> Unit,
+    onComponentEvent: (ComponentEvent) -> Unit,
+    modifier: Modifier
+) {
     val lat = c.propFloat("latitude", 0f)
     val lng = c.propFloat("longitude", 0f)
     val height = c.propInt("height", 300)
     val visible = c.propBool("visible", true)
+    val onClick = c.propString("onClick")
+    val componentId = c.propString("id")
     if (!visible) return
 
     Box(
         modifier = modifier.fillMaxWidth().height(height.dp)
-            .background(Color(0xFFE8F5E9), RoundedCornerShape(8.dp)),
+            .background(Color(0xFFE8F5E9), RoundedCornerShape(8.dp))
+            .clickable {
+                if (componentId != null) onComponentEvent(
+                    ComponentEvent(com.onthefly.engine.model.EngineEvent.ON_CLICK, componentId)
+                )
+                onClick?.let { onEvent(it) }
+            },
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(resolveIcon("location_on"), contentDescription = null, tint = Color(0xFF4CAF50), modifier = Modifier.size(32.dp))
+            Icon(resolveIcon("location_on"), contentDescription = null, tint = Color(0xFF4CAF50), modifier = Modifier.size(36.dp))
             Text("MapView", color = Color.Gray, fontSize = 12.sp)
-            Text("${lat}, ${lng}", color = Color.Gray, fontSize = 10.sp)
+            Text("${lat}, ${lng}", color = Color(0xFF388E3C), fontSize = 11.sp,
+                fontWeight = FontWeight.Medium)
+            Text("Tap to open in maps", color = Color(0xFF4CAF50), fontSize = 11.sp,
+                fontWeight = FontWeight.Medium, modifier = Modifier.padding(top = 4.dp))
         }
     }
 }
 
 // ═══════════════════════════════════════════════════════════
-//  VideoPlayer (placeholder)
+//  VideoPlayer (placeholder — opens video externally)
 // ═══════════════════════════════════════════════════════════
 
 @Composable
-fun RenderVideoPlayer(c: UIComponent, modifier: Modifier) {
+fun RenderVideoPlayer(
+    c: UIComponent,
+    onEvent: (String) -> Unit,
+    onComponentEvent: (ComponentEvent) -> Unit,
+    modifier: Modifier
+) {
     val url = c.propString("url")
     val height = c.propInt("height", 200)
     val visible = c.propBool("visible", true)
+    val onClick = c.propString("onClick")
+    val componentId = c.propString("id")
     if (!visible) return
 
     Box(
         modifier = modifier.fillMaxWidth().height(height.dp)
-            .background(Color(0xFF212121), RoundedCornerShape(8.dp)),
+            .background(Color(0xFF212121), RoundedCornerShape(8.dp))
+            .clickable {
+                if (componentId != null) onComponentEvent(
+                    ComponentEvent(com.onthefly.engine.model.EngineEvent.ON_CLICK, componentId)
+                )
+                onClick?.let { onEvent(it) }
+            },
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(resolveIcon("play_arrow"), contentDescription = null, tint = Color.White, modifier = Modifier.size(48.dp))
+            Icon(resolveIcon("play_circle"), contentDescription = null, tint = Color.White, modifier = Modifier.size(48.dp))
             Text("VideoPlayer", color = Color.White, fontSize = 12.sp)
+            if (url != null) {
+                Text(url, color = Color(0xFFBBBBBB), fontSize = 10.sp, maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp))
+            }
+            Text("Tap to play", color = Color(0xFF90CAF9), fontSize = 11.sp,
+                fontWeight = FontWeight.Medium, modifier = Modifier.padding(top = 4.dp))
         }
     }
 }

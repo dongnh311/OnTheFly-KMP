@@ -12,6 +12,7 @@ class ScriptRepositoryImpl(
     companion object {
         const val LIBS_DIR = "_libs"
         const val BASE_DIR = "_base"
+        const val MODULES_DIR = "_modules"
         const val LANGUAGES_DIR = "languages"
     }
 
@@ -41,6 +42,10 @@ class ScriptRepositoryImpl(
 
     override fun loadGlobalBase(): List<Pair<String, String>> {
         return loadJsFilesFromDir(BASE_DIR)
+    }
+
+    override fun loadGlobalModules(): List<Pair<String, String>> {
+        return loadJsFilesFromDir(MODULES_DIR)
     }
 
     override fun loadBundleBase(bundleName: String): String? {

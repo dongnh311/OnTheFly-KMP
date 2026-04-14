@@ -32,6 +32,19 @@ actual class QuickJSBridge actual constructor() {
         return str
     }
 
+    actual fun registerModule(contextPtr: Long, name: String, source: String) {
+        val ctx = longToPtr(contextPtr) ?: return
+        otf_register_module(ctx, name, source)
+    }
+
+    actual fun evalModule(contextPtr: Long, script: String, fileName: String): String {
+        val ctx = longToPtr(contextPtr) ?: return "Error: null context"
+        val result: CPointer<ByteVar> = otf_eval_module(ctx, script, fileName) ?: return "Error: null result"
+        val str = result.toKString()
+        free(result)
+        return str
+    }
+
     actual fun getUI(contextPtr: Long): String = callAndFree(contextPtr) { otf_get_ui(it) } ?: ""
     actual fun getStyles(contextPtr: Long): String = callAndFree(contextPtr) { otf_get_styles(it) } ?: ""
     actual fun getPendingUpdates(contextPtr: Long): String = callAndFree(contextPtr) { otf_get_pending_updates(it) } ?: "[]"

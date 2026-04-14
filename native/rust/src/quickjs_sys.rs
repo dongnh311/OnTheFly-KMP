@@ -45,11 +45,20 @@ pub struct JSValue(pub u64);
 #[allow(dead_code)]
 pub type JSValueConst = JSValue;
 
+// ── Opaque module type ────────────────────────────────────────
+
+#[repr(C)]
+pub struct JSModuleDef {
+    _opaque: [u8; 0],
+}
+
 // ── Constants ─────────────────────────────────────────────────
 
 pub const JS_EVAL_TYPE_GLOBAL: c_int = 0;
+pub const JS_EVAL_TYPE_MODULE: c_int = 1 << 0;
+pub const JS_EVAL_FLAG_COMPILE_ONLY: c_int = 1 << 5;
 
-// ── Callback type ─────────────────────────────────────────────
+// ── Callback types ────────────────────────────────────────────
 
 pub type JSCFunction = unsafe extern "C" fn(
     ctx: *mut JSContext,
@@ -57,6 +66,19 @@ pub type JSCFunction = unsafe extern "C" fn(
     argc: c_int,
     argv: *mut JSValue,
 ) -> JSValue;
+
+pub type JSModuleNormalizeFunc = unsafe extern "C" fn(
+    ctx: *mut JSContext,
+    module_base_name: *const c_char,
+    module_name: *const c_char,
+    opaque: *mut c_void,
+) -> *mut c_char;
+
+pub type JSModuleLoaderFunc = unsafe extern "C" fn(
+    ctx: *mut JSContext,
+    module_name: *const c_char,
+    opaque: *mut c_void,
+) -> *mut JSModuleDef;
 
 // ── Non-inline QuickJS functions (linked from static lib) ─────
 
@@ -102,6 +124,15 @@ extern "C" {
         argc: c_int,
         argv: *const JSValue,
     ) -> JSValue;
+
+    pub fn JS_GetRuntime(ctx: *mut JSContext) -> *mut JSRuntime;
+
+    pub fn JS_SetModuleLoaderFunc(
+        rt: *mut JSRuntime,
+        module_normalize: Option<JSModuleNormalizeFunc>,
+        module_loader: Option<JSModuleLoaderFunc>,
+        opaque: *mut c_void,
+    );
 }
 
 // ── Wrappers for static inline functions (from quickjs_wrapper.c) ──

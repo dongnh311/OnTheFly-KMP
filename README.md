@@ -414,6 +414,7 @@ OnTheFly-KMP/
 │   ├── scripts/
 │   │   ├── _base/                      ui.js (builder functions), utils.js (helpers)
 │   │   ├── _libs/                      appState, stockTheme, stockI18n, stockData, etc.
+│   │   ├── _modules/                   ES modules (import/export, loaded on demand)
 │   │   ├── languages/                  i18n (en.json, vi.json)
 │   │   └── screens/                    home, demo-app, api-demo, websocket-demo,
 │   │                                   stock-dashboard, stock-chart, stock-detail,

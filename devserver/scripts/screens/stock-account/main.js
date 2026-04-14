@@ -5,6 +5,12 @@
 var pushOn = true;
 var alertOn = true;
 var bioOn = false;
+var twoFactorOn = false;
+var showChangePass = false;
+var currentPass = "";
+var newPass = "";
+var confirmPass = "";
+var passError = "";
 
 // ─── Lifecycle ─────────────────────────────────────────────
 
@@ -52,11 +58,58 @@ function onLangVI() {
 }
 
 function onChangePass() {
-    toast("Change password coming soon");
+    showChangePass = true;
+    currentPass = "";
+    newPass = "";
+    confirmPass = "";
+    passError = "";
+    render();
+}
+
+function onCloseChangePass() {
+    showChangePass = false;
+    render();
+}
+
+function onTextChanged(id, data) {
+    if (id === "currentPassField") { currentPass = data.value; }
+    if (id === "newPassField") { newPass = data.value; }
+    if (id === "confirmPassField") { confirmPass = data.value; }
+    if (passError) {
+        passError = "";
+        OnTheFly.update("passErrorText", { visible: false });
+    }
+}
+
+function onSavePassword() {
+    if (newPass.length < 6) {
+        passError = St("password_too_short");
+        OnTheFly.update("passErrorText", { visible: true, text: passError });
+        return;
+    }
+    if (newPass !== confirmPass) {
+        passError = St("password_mismatch");
+        OnTheFly.update("passErrorText", { visible: true, text: passError });
+        return;
+    }
+    showChangePass = false;
+    toast(St("password_changed"));
+    render();
 }
 
 function onTwoFactor() {
-    toast("2FA setup coming soon");
+    OnTheFly.update("twoFactorDialog", { visible: true });
+}
+
+function onConfirmTwoFactor() {
+    twoFactorOn = !twoFactorOn;
+    OnTheFly.update("twoFactorDialog", { visible: false });
+    toast(twoFactorOn ? St("two_factor_enabled") : St("two_factor_disabled"));
+    render();
+}
+
+function onCancelTwoFactor() {
+    OnTheFly.update("twoFactorDialog", { visible: false });
 }
 
 var pendingLogout = false;
@@ -209,12 +262,21 @@ function render() {
         theme)
     ], theme);
 
+    var twoFactorStatus = twoFactorOn
+        ? Text({ text: "ON", fontSize: 12, fontWeight: "700", color: theme.positive, width: "wrap" })
+        : Icon({ name: "arrow_forward", size: 18, color: theme.textTertiary, width: "wrap", onClick: "onTwoFactor" });
+
     var securitySection = buildSection(St("security"), [
         buildSettingRow(St("change_pass"),
             Icon({ name: "arrow_forward", size: 18, color: theme.textTertiary, width: "wrap", onClick: "onChangePass" }),
         theme),
         buildSettingRow(St("two_factor"),
-            Icon({ name: "arrow_forward", size: 18, color: theme.textTertiary, width: "wrap", onClick: "onTwoFactor" }),
+            twoFactorOn
+                ? Row({ width: "wrap", crossAlignment: "center", spacing: 8 }, [
+                    Text({ text: "ON", fontSize: 12, fontWeight: "700", color: theme.positive, width: "wrap" }),
+                    Icon({ name: "arrow_forward", size: 18, color: theme.textTertiary, width: "wrap", onClick: "onTwoFactor" })
+                ])
+                : Icon({ name: "arrow_forward", size: 18, color: theme.textTertiary, width: "wrap", onClick: "onTwoFactor" }),
         theme),
         buildSettingRow(St("biometric"),
             Toggle({ id: "bioToggle", checked: bioOn, activeColor: theme.accent, inactiveColor: theme.surfaceVariant, thumbColor: "#FFFFFF" }),
@@ -350,7 +412,112 @@ function render() {
             cancelText: St("cancel"),
             onConfirm: "onConfirmLogout",
             onCancel: "onCancelLogout"
-        })
+        }),
+
+        // 2FA confirm dialog
+        ConfirmDialog({
+            id: "twoFactorDialog",
+            visible: false,
+            title: St("two_factor"),
+            message: St("two_factor_desc"),
+            confirmText: twoFactorOn ? St("disable") : St("enable"),
+            cancelText: St("cancel"),
+            onConfirm: "onConfirmTwoFactor",
+            onCancel: "onCancelTwoFactor"
+        }),
+
+        // Change Password popup
+        Popup({
+            id: "changePassPopup",
+            visible: showChangePass,
+            onDismiss: "onCloseChangePass",
+            background: theme.primary,
+            animation: "slideUp"
+        }, [
+            Text({
+                text: St("change_pass"),
+                fontSize: 22,
+                fontWeight: "800",
+                color: theme.textPrimary,
+                padding: { bottom: 24 }
+            }),
+            // Current password
+            Text({ text: St("current_password"), fontSize: 12, color: theme.textSecondary, padding: { bottom: 4 } }),
+            TextField({
+                id: "currentPassField",
+                value: currentPass,
+                placeholder: St("current_password"),
+                type: "password",
+                background: theme.inputBg,
+                textColor: theme.textPrimary,
+                placeholderColor: theme.textTertiary,
+                borderColor: theme.border,
+                focusedBorderColor: theme.accent,
+                fontSize: 14,
+                cornerRadius: 10,
+                padding: { horizontal: 12, vertical: 8 }
+            }),
+            Spacer({ height: 16 }),
+            // New password
+            Text({ text: St("new_password"), fontSize: 12, color: theme.textSecondary, padding: { bottom: 4 } }),
+            TextField({
+                id: "newPassField",
+                value: newPass,
+                placeholder: St("new_password"),
+                type: "password",
+                background: theme.inputBg,
+                textColor: theme.textPrimary,
+                placeholderColor: theme.textTertiary,
+                borderColor: theme.border,
+                focusedBorderColor: theme.accent,
+                fontSize: 14,
+                cornerRadius: 10,
+                padding: { horizontal: 12, vertical: 8 }
+            }),
+            Spacer({ height: 16 }),
+            // Confirm password
+            Text({ text: St("confirm_new_password"), fontSize: 12, color: theme.textSecondary, padding: { bottom: 4 } }),
+            TextField({
+                id: "confirmPassField",
+                value: confirmPass,
+                placeholder: St("confirm_new_password"),
+                type: "password",
+                background: theme.inputBg,
+                textColor: theme.textPrimary,
+                placeholderColor: theme.textTertiary,
+                borderColor: theme.border,
+                focusedBorderColor: theme.accent,
+                fontSize: 14,
+                cornerRadius: 10,
+                padding: { horizontal: 12, vertical: 8 }
+            }),
+            // Error message
+            Text({
+                id: "passErrorText",
+                text: passError,
+                fontSize: 12,
+                color: theme.negative,
+                visible: !!passError,
+                padding: { top: 8 }
+            }),
+            Spacer({ height: 24 }),
+            // Save button
+            Box({
+                fillMaxWidth: true,
+                background: theme.accent,
+                borderRadius: 10,
+                padding: { vertical: 14 },
+                contentAlignment: "center",
+                onClick: "onSavePassword"
+            }, [
+                Text({
+                    text: St("save"),
+                    fontSize: 15,
+                    fontWeight: "700",
+                    color: "#FFFFFF"
+                })
+            ])
+        ])
     ]));
 }
 

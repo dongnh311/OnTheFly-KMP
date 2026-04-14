@@ -83,11 +83,36 @@ Each platform implements `actual QuickJSBridge`, `ScriptStorage`, `PlatformActio
 
 Python-based hot reload server. Watches `devserver/scripts/` for changes and pushes updates via WebSocket.
 
-Script bundles live in `devserver/scripts/screens/` — each bundle has `manifest.json`, `main.js`, and optional `theme.js`. Shared code in `_base/` (UI builders + utils) and `_libs/` (app state, theme, i18n, data), i18n in `languages/`.
+Script bundles live in `devserver/scripts/screens/` — each bundle has `manifest.json`, `main.js`, and optional `theme.js`. Shared code in `_base/` (UI builders + utils), `_libs/` (app state, theme, i18n, data), and `_modules/` (ES modules), i18n in `languages/`.
 
 ### Script Load Order
 
-`_base/*.js` (alphabetical) → `_libs/*.js` (alphabetical) → theme.js → bundle base.js → main.js. This ensures UI builder functions from `_base/ui.js` are available to all subsequent scripts.
+`_base/*.js` (alphabetical) → `_libs/*.js` (alphabetical) → register `_modules/*.js` → theme.js → bundle base.js → main.js. This ensures UI builder functions from `_base/ui.js` are available to all subsequent scripts. ES modules from `_modules/` are **registered but not evaluated** — they only run when a screen imports them.
+
+### ES Modules (`_modules/`)
+
+Files in `_modules/` are ES modules that screens can selectively import. Unlike `_base/` and `_libs/` (which auto-load for all screens), modules only execute when imported.
+
+**Creating a module:** `devserver/scripts/_modules/dataHelper.js`
+```javascript
+export function formatPrice(value) {
+    return "$" + Number(value).toFixed(2);
+}
+```
+
+**Using in a screen:** Add `"type": "module"` to `manifest.json`, then use `import` in `main.js`:
+```json
+{ "name": "My Screen", "version": "1.0.0", "entry": "main.js", "type": "module" }
+```
+```javascript
+import { formatPrice } from "dataHelper";
+
+function render() {
+    OnTheFly.setUI(Text({ text: formatPrice(150.5) }));
+}
+```
+
+Lifecycle functions (`onCreateView`, `render`, `onTextChanged`, etc.) are auto-bound to `globalThis` by the engine — no manual `globalThis.xxx = xxx` needed. Globals from `_base/` and `_libs/` (`OnTheFly`, `StockTheme`, `St()`, `Column()`, etc.) remain accessible in modules.
 
 ### UI Builder Functions
 

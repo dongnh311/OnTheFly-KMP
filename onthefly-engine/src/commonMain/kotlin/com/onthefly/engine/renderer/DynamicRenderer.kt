@@ -104,9 +104,9 @@ private fun RenderComponent(
         "RichText" -> RenderRichText(component, onEvent, onComponentEvent, modifier)
         "Slider" -> RenderSlider(component, onComponentEvent, modifier)
         "SwipeToAction" -> RenderSwipeToAction(component, onEvent, onComponentEvent, modifier)
-        "WebView" -> RenderWebView(component, modifier)
-        "MapView" -> RenderMapView(component, modifier)
-        "VideoPlayer" -> RenderVideoPlayer(component, modifier)
+        "WebView" -> RenderWebView(component, onEvent, onComponentEvent, modifier)
+        "MapView" -> RenderMapView(component, onEvent, onComponentEvent, modifier)
+        "VideoPlayer" -> RenderVideoPlayer(component, onEvent, onComponentEvent, modifier)
 
         // Charts
         "CandlestickChart" -> RenderCandlestickChart(component, onEvent, onComponentEvent, modifier)
