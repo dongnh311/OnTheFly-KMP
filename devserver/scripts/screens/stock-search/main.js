@@ -249,7 +249,9 @@ function render() {
         fontSize: 14,
         cornerRadius: 10,
         leadingIcon: "search",
-        padding: { horizontal: 12, vertical: 8 }
+        padding: { horizontal: 12, vertical: 8 },
+        contentPaddingVertical: 4,
+        contentPaddingHorizontal: 12
     });
 
     OnTheFly.setUI(Column({ height: "fill", background: theme.primary }, [

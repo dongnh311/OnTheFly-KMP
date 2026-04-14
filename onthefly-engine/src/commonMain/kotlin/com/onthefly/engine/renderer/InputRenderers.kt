@@ -61,6 +61,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -114,6 +115,100 @@ fun RenderTextField(c: UIComponent, onComponentEvent: (ComponentEvent) -> Unit, 
     // Sync from JS when value changes externally (e.g., JS reset)
     LaunchedEffect(value) {
         if (value != textState && value.isNotEmpty()) textState = value
+    }
+
+    // Custom content padding mode using BasicTextField
+    val contentPaddingV = (c.props["contentPaddingVertical"] as? Number)?.toInt()
+    val contentPaddingH = (c.props["contentPaddingHorizontal"] as? Number)?.toInt()
+
+    if (contentPaddingV != null || contentPaddingH != null) {
+        val shape = RoundedCornerShape(cornerRadius.dp)
+        val effectiveTextColor = textColor ?: MaterialTheme.colorScheme.onSurface
+        BasicTextField(
+            value = textState,
+            onValueChange = { newValue ->
+                val limited = if (maxLength != null) newValue.take(maxLength) else newValue
+                textState = limited
+                if (componentId.isNotEmpty()) {
+                    onComponentEvent(
+                        ComponentEvent(
+                            EngineEvent.ON_TEXT_CHANGED,
+                            componentId,
+                            "{\"value\": \"${limited.escapeJson()}\"}"
+                        )
+                    )
+                }
+            },
+            modifier = modifier.fillMaxWidth(),
+            enabled = enabled,
+            readOnly = readOnly,
+            singleLine = !isMultiline,
+            maxLines = if (isMultiline) maxLines.coerceAtLeast(3) else 1,
+            textStyle = MaterialTheme.typography.bodyLarge.copy(color = effectiveTextColor),
+            keyboardOptions = KeyboardOptions(
+                keyboardType = keyboardType,
+                imeAction = if (isMultiline) ImeAction.Default else ImeAction.Done
+            ),
+            keyboardActions = KeyboardActions(
+                onDone = {
+                    if (onSubmit != null) {
+                        onComponentEvent(
+                            ComponentEvent(
+                                EngineEvent.ON_SUBMIT,
+                                componentId,
+                                "{\"value\": \"${textState.escapeJson()}\"}"
+                            )
+                        )
+                    }
+                }
+            ),
+            visualTransformation = if (isPassword) PasswordVisualTransformation() else VisualTransformation.None,
+            cursorBrush = SolidColor(effectiveTextColor),
+            decorationBox = { innerTextField ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(shape)
+                        .background(bgColor ?: Color.Transparent, shape)
+                        .border(1.dp, borderColor ?: MaterialTheme.colorScheme.outline, shape)
+                        .padding(
+                            horizontal = (contentPaddingH ?: 16).dp,
+                            vertical = (contentPaddingV ?: 16).dp
+                        ),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (leadingIcon != null) {
+                        Icon(
+                            resolveIcon(leadingIcon),
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp),
+                            tint = placeholderColor ?: MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(Modifier.width(8.dp))
+                    }
+                    Box(Modifier.weight(1f)) {
+                        if (textState.isEmpty() && placeholder.isNotEmpty()) {
+                            Text(
+                                placeholder,
+                                color = placeholderColor ?: MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        }
+                        innerTextField()
+                    }
+                    if (trailingIcon != null) {
+                        Spacer(Modifier.width(8.dp))
+                        Icon(
+                            resolveIcon(trailingIcon),
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp),
+                            tint = placeholderColor ?: MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        )
+        return
     }
 
     val fieldColors = OutlinedTextFieldDefaults.colors(

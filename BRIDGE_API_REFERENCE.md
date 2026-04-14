@@ -165,6 +165,8 @@ Complete reference of all views, props, events, and functions available in the J
 | `borderColor` | Color | — | Border color |
 | `focusedBorderColor` | Color | — | Border color when focused |
 | `cornerRadius` | Int | 0 | Corner radius (dp) |
+| `contentPaddingVertical` | Int | — | Inner vertical content padding (dp). When set, uses compact BasicTextField instead of OutlinedTextField |
+| `contentPaddingHorizontal` | Int | — | Inner horizontal content padding (dp). When set, uses compact BasicTextField instead of OutlinedTextField |
 | `onChanged` | String | — | Event handler name (triggers `onTextChanged`) |
 | `onSubmit` | String | — | Event handler name (triggers `onSubmit`) |
 
