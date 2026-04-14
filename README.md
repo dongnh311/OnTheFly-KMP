@@ -40,6 +40,9 @@ A full-featured stock trading demo app built entirely with OnTheFly JS scripts �
 - **Cross-screen state** — Shared store for watchlist, user preferences, dark mode
 - **i18n** — English & Vietnamese language support
 - **Dark/Light theme** — Toggle via shared state, all screens react instantly
+- **Settings persistence** — Dark mode and language preferences survive app restarts
+- **Splash screen** — Native Compose splash with version check, script extraction, OTA update progress
+- **OTA updates** — Production release server simulation for testing zip-based script updates
 
 ## Architecture
 
@@ -53,10 +56,10 @@ The project is split into two modules:
 ```
 onthefly-engine (library)          composeApp (sample app)
 ├── core/     QuickJSEngine        ├── App.kt (NavHost + OnTheFlyScreen)
-├── model/    UIComponent, Events  ├── MainActivity.kt (Android)
-├── renderer/ 40+ Compose widgets  ├── Main.kt (Desktop)
-├── viewmodel/ScriptViewModel      └── MainViewController.kt (iOS)
-├── data/     Storage, Network, WS
+├── model/    UIComponent, Events  ├── SplashScreen.kt (version check + progress)
+├── renderer/ 40+ Compose widgets  ├── MainActivity.kt (Android)
+├── viewmodel/ScriptViewModel      ├── Main.kt (Desktop)
+├── data/     Storage, Network, WS └── MainViewController.kt (iOS)
 ├── platform/ PlatformActions (interface)
 ├── ui/       OnTheFlyScreen (public API)
 └── style/    Theme, Dark mode
@@ -94,9 +97,24 @@ commonMain.dependencies {
 ```kotlin
 // Android Activity
 val storage = AndroidScriptStorage(this)
-storage.ensureInitialized()
 
 setContent {
+    App(
+        localStorage = storage,
+        platformActions = AndroidPlatformActions(this),
+        productionServerUrl = null,        // set URL to enable OTA updates
+        startScreen = "stock-login",
+        appVersion = "1.0.0"
+    )
+}
+```
+
+The `App` composable shows a `SplashScreen` first (version check, script extraction, OTA update), then navigates to the start screen.
+
+```kotlin
+// Or use OnTheFlyScreen directly (without splash)
+setContent {
+    storage.ensureInitialized()
     OnTheFlyScreen(
         bundleName = "my-screen",
         localStorage = storage,
@@ -223,6 +241,11 @@ OnTheFly.computed("total", function() { return getState("price") * getState("qty
 // Global store (cross-screen) + persistent storage
 OnTheFly.store.set("user", { name: "Dong" });
 OnTheFly.sendToNative("setStorage", { key: "token", value: "abc" });
+
+// Settings persistence (survives app restarts)
+// Dark mode and language are auto-restored on startup via restorePersistedPreferences()
+AppState.setDarkMode(true);        // persists to native storage
+StockI18n.setLang("vi");           // persists to native storage
 ```
 
 ### WebSocket / Realtime
@@ -362,7 +385,7 @@ OnTheFly-KMP/
 ├── composeApp/                         SAMPLE APP
 │   ├── build.gradle.kts                depends on :onthefly-engine
 │   └── src/
-│       ├── commonMain/                 App.kt (NavHost + OnTheFlyScreen)
+│       ├── commonMain/                 App.kt (NavHost), SplashScreen.kt (init + progress)
 │       ├── androidMain/                MainActivity.kt
 │       ├── iosMain/                    MainViewController.kt
 │       └── desktopMain/                Main.kt
@@ -408,7 +431,7 @@ OnTheFly-KMP/
 
 | Interface | Built-in Implementations | Purpose |
 |---|---|---|
-| `ScriptStorage` | `AndroidScriptStorage`, `IosScriptStorage`, `DesktopScriptStorage` | Script file I/O + key-value storage |
+| `ScriptStorage` | `AndroidScriptStorage`, `IosScriptStorage`, `DesktopScriptStorage` | Script file I/O + key-value storage + zip extraction + OTA updates |
 | `PlatformActions` | `AndroidPlatformActions`, `IosPlatformActions`, `DesktopPlatformActions` | Platform-specific actions (URL, clipboard, vibration, etc.) |
 
 ## Build & Run
@@ -464,7 +487,7 @@ cd native/rust && ./build_android.sh  # builds .so for arm64-v8a, armeabi-v7a, x
 cd devserver
 pip install watchdog websockets  # optional
 python server.py
-# HTTP on port 8080, WebSocket push on port 8081
+# HTTP on port 8080, WebSocket push on port 8081, Release server on port 8082
 # Edit JS → save → auto-validate → push to devices
 ```
 
@@ -477,6 +500,23 @@ python server.py
 | `r` / `reload` | Force reload all devices |
 | `ra` / `run android` | Launch Android emulator build |
 | `rd` / `run desktop` | Launch desktop app |
+| `br` / `build-release` | Build release zip + version.json to `releases/` |
+| `rs` / `release-server` | Start release server only (port 8082) |
+
+### Release Server (OTA Simulation)
+
+The dev server auto-starts a release server on port 8082 for testing production OTA updates:
+
+```bash
+python server.py build-release   # Build releases/scripts.zip + releases/version.json
+```
+
+| Endpoint | Description |
+|---|---|
+| `GET /api/version` | Returns `{ "version": "x.y.z" }` (max version from all bundles) |
+| `GET /api/download` | Downloads `scripts.zip` binary |
+
+Set `productionServerUrl = "http://10.0.2.2:8082"` in `MainActivity.kt` to test OTA on Android emulator.
 
 ## Migrated From
 

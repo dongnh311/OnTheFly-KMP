@@ -95,6 +95,105 @@ class DesktopScriptStorage : ScriptStorage {
         prefs.put("version_$bundleName", version)
     }
 
+    override fun getLocalVersion(): String? {
+        val versionFile = File(scriptsDir, "version.json")
+        if (!versionFile.exists()) return null
+        return try {
+            val json = JsonParser.parseObject(versionFile.readText())
+            json["globalVersion"] as? String
+        } catch (_: Exception) { null }
+    }
+
+    override fun getScriptsDirectory(): String = scriptsDir.absolutePath
+
+    override fun checkAndDownloadRemoteUpdate(serverUrl: String, onProgress: (Float) -> Unit): Boolean {
+        return try {
+            val versionConn = java.net.URI.create("$serverUrl/api/version").toURL().openConnection() as java.net.HttpURLConnection
+            versionConn.connectTimeout = 5000
+            versionConn.readTimeout = 5000
+            val versionBody = versionConn.inputStream.bufferedReader().readText()
+            versionConn.disconnect()
+
+            val remoteVersion = JsonParser.parseObject(versionBody)["version"] as? String ?: return false
+            val localVersion = getLocalVersion()
+
+            if (localVersion != null && localVersion >= remoteVersion) {
+                onProgress(1f)
+                return false
+            }
+
+            val downloadConn = java.net.URI.create("$serverUrl/api/download").toURL().openConnection() as java.net.HttpURLConnection
+            downloadConn.connectTimeout = 10000
+            downloadConn.readTimeout = 60000
+            val totalBytes = downloadConn.contentLength.toLong()
+
+            val tempZip = File(scriptsDir.parentFile, "scripts_remote.zip")
+            downloadConn.inputStream.use { input ->
+                tempZip.outputStream().use { output ->
+                    val buffer = ByteArray(8192)
+                    var bytesRead = 0L
+                    var len: Int
+                    while (input.read(buffer).also { len = it } != -1) {
+                        output.write(buffer, 0, len)
+                        bytesRead += len
+                        if (totalBytes > 0) onProgress(bytesRead.toFloat() / totalBytes * 0.5f)
+                    }
+                }
+            }
+            downloadConn.disconnect()
+
+            installFromZip(tempZip.absolutePath) { p -> onProgress(0.5f + p * 0.5f) }
+            tempZip.delete()
+            true
+        } catch (e: Exception) {
+            println("DesktopScriptStorage: Remote update failed: ${e.message}")
+            false
+        }
+    }
+
+    override fun installFromZip(zipFilePath: String, onProgress: (Float) -> Unit) {
+        val zipFile = File(zipFilePath)
+        if (!zipFile.exists()) return
+
+        val tempDir = File(scriptsDir.parentFile, "scripts_tmp")
+        try {
+            tempDir.deleteRecursively()
+            tempDir.mkdirs()
+
+            java.util.zip.ZipFile(zipFile).use { zip ->
+                val entries = zip.entries().toList()
+                val total = entries.size.coerceAtLeast(1)
+                entries.forEachIndexed { index, entry ->
+                    val file = File(tempDir, entry.name)
+                    if (entry.isDirectory) {
+                        file.mkdirs()
+                    } else {
+                        file.parentFile?.mkdirs()
+                        zip.getInputStream(entry).use { input ->
+                            file.outputStream().use { output -> input.copyTo(output) }
+                        }
+                    }
+                    onProgress((index + 1).toFloat() / total)
+                }
+            }
+
+            scriptsDir.deleteRecursively()
+            tempDir.renameTo(scriptsDir)
+
+            // Update bundle versions
+            scriptsDir.listFiles()?.filter { it.isDirectory }?.forEach { bundleDir ->
+                try {
+                    val manifest = JsonParser.parseObject(readFile(bundleDir.name, "manifest.json"))
+                    val version = manifest["version"] as? String ?: ""
+                    if (version.isNotEmpty()) setVersion(bundleDir.name, version)
+                } catch (_: Exception) { }
+            }
+        } catch (e: Exception) {
+            tempDir.deleteRecursively()
+            println("DesktopScriptStorage: installFromZip failed: ${e.message}")
+        }
+    }
+
     override fun reset() {
         scriptsDir.deleteRecursively()
         prefs.clear()

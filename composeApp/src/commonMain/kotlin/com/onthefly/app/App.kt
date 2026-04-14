@@ -16,12 +16,33 @@ import com.onthefly.engine.platform.PlatformActions
 import com.onthefly.engine.ui.OnTheFlyScreen
 
 @Composable
-fun App(localStorage: ScriptStorage, platformActions: PlatformActions? = null) {
+fun App(
+    localStorage: ScriptStorage,
+    platformActions: PlatformActions? = null,
+    productionServerUrl: String? = null,
+    startScreen: String = "stock-login",
+    appVersion: String = "1.0.0"
+) {
     val navController = rememberNavController()
 
     MaterialTheme {
         Surface(modifier = Modifier.fillMaxSize(), color = Color.Transparent) {
-            NavHost(navController = navController, startDestination = "script/stock-login") {
+            NavHost(navController = navController, startDestination = "splash") {
+                // Splash screen: version check + script extraction + download
+                composable("splash") {
+                    SplashScreen(
+                        localStorage = localStorage,
+                        productionServerUrl = productionServerUrl,
+                        appVersion = appVersion,
+                        onReady = {
+                            navController.navigate("script/$startScreen") {
+                                popUpTo("splash") { inclusive = true }
+                            }
+                        }
+                    )
+                }
+
+                // Dynamic script screens
                 composable(
                     route = "script/{bundleName}",
                     arguments = listOf(navArgument("bundleName") { type = NavType.StringType; defaultValue = "home" })

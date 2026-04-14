@@ -6,6 +6,8 @@ Usage:
     python server.py                     Start dev server (with file watcher)
     python server.py validate [bundle]   Validate JS syntax
     python server.py deploy [bundle]     Copy scripts → Android assets
+    python server.py build-release       Build release zip (validate + zip → releases/)
+    python server.py release             Start release server standalone (port 8082)
 """
 
 import http.server
@@ -778,6 +780,8 @@ def interactive_loop(scripts_dir):
     c, clients             List connected devices
     v, validate [bundle]   Validate JS syntax
     d, deploy [bundle]     Copy scripts → Android assets
+    br, build-release      Build release zip (validate + zip → releases/)
+    rs, release-server     Start/stop release server (port 8082)
     l, list                List bundles
     r, reload              Bump version (force app reload)
     clear                  Clear screen
@@ -853,6 +857,13 @@ def interactive_loop(scripts_dir):
                 pkill -f "qemu-system" 2>/dev/null
             ''')
             print('  ✓ Done!')
+
+        elif cmd in ('br', 'build-release'):
+            cmd_build_release(scripts_dir)
+
+        elif cmd in ('rs', 'release-server'):
+            start_release_server()
+            print(f'  \033[90mRelease server running. Use Ctrl+C to stop all.\033[0m')
 
         elif cmd in ('v', 'validate'):
             cmd_validate(scripts_dir, arg)
@@ -945,14 +956,202 @@ def cmd_clients():
 
 
 # ═══════════════════════════════════════════════════════════
+#  Build Release (zip scripts for production)
+# ═══════════════════════════════════════════════════════════
+
+RELEASE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'releases')
+RELEASE_PORT = 8082
+
+
+def cmd_build_release(scripts_dir):
+    """Validate all bundles, zip scripts, create release package."""
+    import zipfile
+
+    # Step 1: Validate
+    bundles = list_all_bundles(scripts_dir)
+    print('')
+    print('  \033[1mBuilding Release\033[0m')
+    print('  ───────────────────────────────────────')
+    print(f'  Validating {len(bundles)} bundle(s)...')
+
+    for b in bundles:
+        ok, results = validate_bundle(scripts_dir, b)
+        if not ok:
+            print(f'  \033[31m✗\033[0m {b}/ failed validation')
+            for fn, fok, errs in results:
+                if not fok:
+                    for e in errs:
+                        print(f'    {e}')
+            print(f'\n  \033[31mBuild FAILED — fix errors first\033[0m\n')
+            return False
+
+    print(f'  \033[32m✓\033[0m All {len(bundles)} bundle(s) valid')
+
+    # Step 2: Read version
+    version_file = os.path.join(scripts_dir, 'version.json')
+    if os.path.isfile(version_file):
+        with open(version_file, 'r') as f:
+            version_data = json.load(f)
+        global_version = version_data.get('globalVersion', 'unknown')
+    else:
+        global_version = time.strftime('%Y.%m.%d.1')
+        version_data = {'schemaVersion': 1, 'globalVersion': global_version, 'bundles': {}}
+
+    # Step 3: Create release directory
+    os.makedirs(RELEASE_DIR, exist_ok=True)
+
+    # Step 4: Create zip
+    zip_path = os.path.join(RELEASE_DIR, 'scripts.zip')
+    entry_count = 0
+
+    with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zf:
+        # version.json
+        if os.path.isfile(version_file):
+            zf.write(version_file, 'version.json')
+            entry_count += 1
+
+        # Special dirs: _base, _libs, languages
+        for dir_name in ['_base', '_libs', 'languages']:
+            src_dir = os.path.join(scripts_dir, dir_name)
+            if os.path.isdir(src_dir):
+                for root, dirs, files in os.walk(src_dir):
+                    for f in files:
+                        fp = os.path.join(root, f)
+                        arcname = os.path.join(dir_name, os.path.relpath(fp, src_dir))
+                        zf.write(fp, arcname)
+                        entry_count += 1
+
+        # Screen bundles (flattened)
+        screens_dir = os.path.join(scripts_dir, 'screens')
+        if os.path.isdir(screens_dir):
+            for bundle_name in sorted(os.listdir(screens_dir)):
+                bundle_path = os.path.join(screens_dir, bundle_name)
+                if not os.path.isdir(bundle_path):
+                    continue
+                for root, dirs, files in os.walk(bundle_path):
+                    for f in files:
+                        fp = os.path.join(root, f)
+                        arcname = os.path.join(bundle_name, os.path.relpath(fp, bundle_path))
+                        zf.write(fp, arcname)
+                        entry_count += 1
+
+    zip_size = os.path.getsize(zip_path)
+
+    # Step 5: Write release version.json
+    release_version_path = os.path.join(RELEASE_DIR, 'version.json')
+    release_version = {
+        'version': global_version,
+        'zipFile': 'scripts.zip',
+        'zipSize': zip_size,
+        'entries': entry_count,
+        'buildTime': time.strftime('%Y-%m-%d %H:%M:%S')
+    }
+    with open(release_version_path, 'w') as f:
+        json.dump(release_version, f, indent=2)
+
+    print(f'  \033[32m✓\033[0m Created scripts.zip ({zip_size // 1024}KB, {entry_count} entries)')
+    print(f'  \033[32m✓\033[0m Version: {global_version}')
+    print(f'  \033[32m✓\033[0m Output:  {RELEASE_DIR}/')
+    print('  ───────────────────────────────────────')
+    print(f'  \033[32mRelease build complete!\033[0m')
+    print(f'  Start release server: \033[1mpython server.py release\033[0m')
+    print('')
+    return True
+
+
+# ═══════════════════════════════════════════════════════════
+#  Release Server (simulates production CDN)
+# ═══════════════════════════════════════════════════════════
+
+class ReleaseHandler(http.server.BaseHTTPRequestHandler):
+    """Serves release artifacts for production update simulation."""
+
+    def do_GET(self):
+        if self.path == '/api/version':
+            version_path = os.path.join(RELEASE_DIR, 'version.json')
+            if os.path.isfile(version_path):
+                with open(version_path, 'r') as f:
+                    data = json.load(f)
+                self._json(data)
+            else:
+                self._json({'error': 'No release found. Run: build-release'}, 404)
+            return
+
+        if self.path == '/api/download':
+            zip_path = os.path.join(RELEASE_DIR, 'scripts.zip')
+            if os.path.isfile(zip_path):
+                self._file(zip_path)
+            else:
+                self._err(404)
+            return
+
+        if self.path == '/':
+            version_path = os.path.join(RELEASE_DIR, 'version.json')
+            version_info = {}
+            if os.path.isfile(version_path):
+                with open(version_path, 'r') as f:
+                    version_info = json.load(f)
+            self._json({
+                'server': 'OnTheFly Release Server',
+                'release': version_info,
+                'endpoints': {
+                    '/api/version': 'GET release version info',
+                    '/api/download': 'GET download scripts.zip'
+                }
+            })
+            return
+
+        self._err(404)
+
+    def _json(self, data, code=200):
+        b = json.dumps(data, indent=2).encode()
+        self.send_response(code)
+        self.send_header('Content-Type', 'application/json')
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.end_headers()
+        self.wfile.write(b)
+
+    def _file(self, path):
+        with open(path, 'rb') as f:
+            content = f.read()
+        self.send_response(200)
+        self.send_header('Content-Type', 'application/zip')
+        self.send_header('Content-Length', str(len(content)))
+        self.send_header('Content-Disposition', 'attachment; filename="scripts.zip"')
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.end_headers()
+        self.wfile.write(content)
+
+    def _err(self, code):
+        self.send_response(code)
+        self.end_headers()
+
+    def log_message(self, format, *args):
+        p = args[0] if args else ''
+        print(f'  \033[90m[release] {p}\033[0m')
+
+
+def start_release_server():
+    """Start release server on RELEASE_PORT."""
+    os.makedirs(RELEASE_DIR, exist_ok=True)
+    server = http.server.HTTPServer(('0.0.0.0', RELEASE_PORT), ReleaseHandler)
+    server_thread = threading.Thread(target=server.serve_forever, daemon=True)
+    server_thread.start()
+    print(f'  \033[32m✓\033[0m Release server on port {RELEASE_PORT}')
+    print(f'    Version:  http://localhost:{RELEASE_PORT}/api/version')
+    print(f'    Download: http://localhost:{RELEASE_PORT}/api/download')
+    print(f'    Emulator: http://10.0.2.2:{RELEASE_PORT}')
+
+
+# ═══════════════════════════════════════════════════════════
 #  Main
 # ═══════════════════════════════════════════════════════════
 
 def main():
     parser = argparse.ArgumentParser(description='OnTheFly Dev Server')
     parser.add_argument('command', nargs='?', default='serve',
-                        choices=['serve', 'validate', 'deploy'],
-                        help='serve (default), validate, deploy')
+                        choices=['serve', 'validate', 'deploy', 'build-release', 'release'],
+                        help='serve (default), validate, deploy, build-release, release')
     parser.add_argument('bundle', nargs='?', default=None)
     parser.add_argument('--port', type=int, default=DEFAULT_PORT)
     parser.add_argument('--dir', type=str, default=SCRIPT_DIR)
@@ -968,6 +1167,25 @@ def main():
         sys.exit(0 if ok else 1)
     elif args.command == 'deploy':
         cmd_deploy(scripts_dir, args.bundle)
+        sys.exit(0)
+    elif args.command == 'build-release':
+        ok = cmd_build_release(scripts_dir)
+        sys.exit(0 if ok else 1)
+    elif args.command == 'release':
+        # Start release server standalone
+        print('')
+        print('  \033[1mOnTheFly Release Server\033[0m')
+        print('  ═══════════════════════════════════════')
+        start_release_server()
+        print('  ═══════════════════════════════════════')
+        print(f'  \033[90mServing releases from {RELEASE_DIR}/\033[0m')
+        print(f'  \033[90mPress Ctrl+C to stop\033[0m')
+        print('')
+        try:
+            while True:
+                time.sleep(1)
+        except KeyboardInterrupt:
+            print('\n  Server stopped.')
         sys.exit(0)
 
     # ─── Serve mode ──────────────────────────────────────
@@ -994,6 +1212,9 @@ def main():
 
     # Start WebSocket push server
     start_ws_server()
+
+    # Start release server (simulates production CDN for OTA updates)
+    start_release_server()
 
     # Start HTTP server in background
     server = http.server.HTTPServer(('0.0.0.0', args.port), DevHandler)

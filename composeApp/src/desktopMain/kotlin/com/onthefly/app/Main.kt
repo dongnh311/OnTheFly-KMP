@@ -11,7 +11,6 @@ import com.onthefly.engine.platform.DesktopPlatformActions
 
 fun main() = application {
     val localStorage = DesktopScriptStorage()
-    localStorage.ensureInitialized()
     val platformActions = DesktopPlatformActions()
 
     Window(
@@ -22,6 +21,10 @@ fun main() = application {
             size = DpSize(420.dp, 800.dp)
         )
     ) {
-        App(localStorage, platformActions)
+        App(
+            localStorage = localStorage,
+            platformActions = platformActions,
+            appVersion = "1.0.0"
+        )
     }
 }

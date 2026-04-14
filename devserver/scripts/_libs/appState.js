@@ -56,6 +56,8 @@ var AppState = (function() {
 
     function setDarkMode(enabled) {
         set("dark_mode", enabled);
+        // Persist to native storage so it survives app restart
+        OnTheFly.sendToNative("setStorage", { key: "dark_mode", value: String(enabled) });
     }
 
     // ─── Public API ────────────────────────────────────

@@ -152,6 +152,25 @@ class ScriptViewModel(
         }
     }
 
+    /**
+     * Restore user preferences (dark_mode, stock_lang) from persistent storage
+     * into the in-memory SharedDataStore so JS libs can read them on startup.
+     */
+    private fun restorePersistedPreferences() {
+        val prefKeys = listOf("dark_mode", "stock_lang")
+        for (key in prefKeys) {
+            val value = localStorage.getKV(key)
+            if (value != null) {
+                val parsed: Any = when {
+                    value == "true" -> true
+                    value == "false" -> false
+                    else -> value
+                }
+                SharedDataStore.set(key, parsed)
+            }
+        }
+    }
+
     private fun loadFromLocal(bundleName: String) {
         // 0. Verify script signature if enabled
         val verification = ScriptVerifier.verify(bundleName, localStorage)
@@ -161,6 +180,9 @@ class ScriptViewModel(
             println("ScriptViewModel: $errMsg")
             return
         }
+
+        // 0b. Restore persisted user preferences into SharedDataStore
+        restorePersistedPreferences()
 
         // 1. Inject OnTheFly.shared API (Kotlin-backed shared store)
         engine.injectSharedAPI(SharedDataStore.toJson())

@@ -1,6 +1,8 @@
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import java.util.zip.ZipOutputStream
+import java.util.zip.ZipEntry
 
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
@@ -84,32 +86,70 @@ android {
     sourceSets["main"].assets.srcDirs("src/androidMain/assets")
 }
 
-// Copy scripts from devserver to Android assets (flatten screens/ into root)
-// Note: Android AAPT ignores dirs starting with '_', so rename _base→base, _libs→libs
-val copyScriptsToAssets by tasks.registering {
+// Zip scripts from devserver into a single scripts.zip in Android assets.
+// At runtime, the app extracts this zip to local storage on first launch or version update.
+val zipScriptsToAssets by tasks.registering {
     doLast {
-        val assetsDir = layout.projectDirectory.dir("src/androidMain/assets/scripts").asFile
+        val assetsDir = layout.projectDirectory.dir("src/androidMain/assets").asFile
+        assetsDir.mkdirs()
+        val zipFile = File(assetsDir, "scripts.zip")
         val scriptsDir = rootProject.file("devserver/scripts")
 
-        // Rename _base/_libs to base/libs to avoid AAPT exclusion
-        mapOf("_base" to "base", "_libs" to "libs", "languages" to "languages").forEach { (src, dst) ->
-            val srcDir = File(scriptsDir, src)
-            if (srcDir.exists()) srcDir.copyRecursively(File(assetsDir, dst), overwrite = true)
-        }
-        val versionJson = File(scriptsDir, "version.json")
-        if (versionJson.exists()) versionJson.copyTo(File(assetsDir, "version.json"), overwrite = true)
+        // Clean old individual-file assets if they exist (migration from old copy approach)
+        val oldScriptsDir = File(assetsDir, "scripts")
+        if (oldScriptsDir.exists()) oldScriptsDir.deleteRecursively()
 
-        val screensDir = File(scriptsDir, "screens")
-        if (screensDir.exists()) {
-            screensDir.listFiles()?.filter { it.isDirectory }?.forEach { bundle ->
-                bundle.copyRecursively(File(assetsDir, bundle.name), overwrite = true)
+        fun addFileToZip(zos: ZipOutputStream, file: File, entryName: String) {
+            zos.putNextEntry(ZipEntry(entryName))
+            file.inputStream().use { it.copyTo(zos) }
+            zos.closeEntry()
+        }
+
+        fun addDirToZip(zos: ZipOutputStream, dir: File, prefix: String) {
+            dir.walkTopDown().filter { it.isFile }.forEach { file ->
+                val entryName = "$prefix/${file.relativeTo(dir).path}"
+                addFileToZip(zos, file, entryName)
             }
         }
+
+        var entryCount = 0
+        ZipOutputStream(zipFile.outputStream().buffered()).use { zos ->
+            // version.json at root
+            val versionJson = File(scriptsDir, "version.json")
+            if (versionJson.exists()) {
+                addFileToZip(zos, versionJson, "version.json")
+                entryCount++
+            }
+
+            // Special dirs: _base, _libs, languages (kept with original names, no AAPT issue in zip)
+            listOf("_base", "_libs", "languages").forEach { dir ->
+                val srcDir = File(scriptsDir, dir)
+                if (srcDir.exists() && srcDir.isDirectory) {
+                    val before = entryCount
+                    srcDir.walkTopDown().filter { it.isFile }.forEach { file ->
+                        val entryName = "$dir/${file.relativeTo(srcDir).path}"
+                        addFileToZip(zos, file, entryName)
+                        entryCount++
+                    }
+                }
+            }
+
+            // Screen bundles (flattened: screens/stock-login → stock-login)
+            val screensDir = File(scriptsDir, "screens")
+            if (screensDir.exists()) {
+                screensDir.listFiles()?.filter { it.isDirectory }?.forEach { bundle ->
+                    addDirToZip(zos, bundle, bundle.name)
+                    entryCount += bundle.walkTopDown().filter { it.isFile }.count()
+                }
+            }
+        }
+
+        println("Created scripts.zip (${zipFile.length() / 1024}KB, $entryCount entries)")
     }
 }
 
 tasks.named("preBuild") {
-    dependsOn(copyScriptsToAssets)
+    dependsOn(zipScriptsToAssets)
 }
 
 compose.desktop {

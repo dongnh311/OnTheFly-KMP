@@ -3,6 +3,8 @@ package com.onthefly.engine.data
 import android.content.Context
 import com.onthefly.engine.util.JsonParser
 import java.io.File
+import java.util.zip.ZipFile
+import java.util.zip.ZipInputStream
 
 class AndroidScriptStorage(private val context: Context) : ScriptStorage {
 
@@ -10,53 +12,173 @@ class AndroidScriptStorage(private val context: Context) : ScriptStorage {
     private val prefs by lazy { context.getSharedPreferences("onthefly_scripts", Context.MODE_PRIVATE) }
 
     override fun ensureInitialized() {
-        // Always re-copy from assets to ensure latest bundled scripts are used.
-        // Dev server updates (if running) will override these in loadAndRun().
-        copyAssetsToLocal()
+        // If local scripts already exist with a valid version, skip extraction.
+        // The SplashScreen handles version-aware extraction before this is called.
+        if (scriptsDir.exists() && File(scriptsDir, "version.json").exists()) return
+        // Fallback: extract from bundled zip
+        extractBundledScripts()
     }
 
-    private fun copyAssetsToLocal() {
-        val assetManager = context.assets
-        try {
-            val entries = assetManager.list("scripts") ?: return
-            for (entry in entries) {
-                if (entry == "screens") {
-                    val screens = assetManager.list("scripts/screens") ?: continue
-                    for (screen in screens) {
-                        copyAssetBundle(assetManager, "scripts/screens/$screen", screen)
+    // ── Zip-based update flow ─────────────────────────────────
+
+    override fun getLocalVersion(): String? {
+        val versionFile = File(scriptsDir, "version.json")
+        if (!versionFile.exists()) return null
+        return try {
+            val json = JsonParser.parseObject(versionFile.readText())
+            json["globalVersion"] as? String
+        } catch (_: Exception) { null }
+    }
+
+    override fun getBundledVersion(): String? {
+        return try {
+            context.assets.open("scripts.zip").use { inputStream ->
+                ZipInputStream(inputStream).use { zip ->
+                    var entry = zip.nextEntry
+                    while (entry != null) {
+                        if (entry.name == "version.json") {
+                            val content = zip.bufferedReader().readText()
+                            val json = JsonParser.parseObject(content)
+                            return json["globalVersion"] as? String
+                        }
+                        zip.closeEntry()
+                        entry = zip.nextEntry
                     }
-                } else {
-                    // Android AAPT strips dirs starting with '_', so assets use
-                    // 'base'/'libs' but engine expects '_base'/'_libs'
-                    val targetName = when (entry) {
-                        "base" -> "_base"
-                        "libs" -> "_libs"
-                        else -> entry
-                    }
-                    copyAssetBundle(assetManager, "scripts/$entry", targetName)
                 }
             }
-        } catch (_: Exception) { }
+            null
+        } catch (_: Exception) { null }
     }
 
-    private fun copyAssetBundle(assetManager: android.content.res.AssetManager, assetPath: String, bundleName: String) {
-        val bundleDir = File(scriptsDir, bundleName)
-        bundleDir.mkdirs()
-        val files = assetManager.list(assetPath) ?: return
-        for (fileName in files) {
-            val subItems = assetManager.list("$assetPath/$fileName")
-            if (subItems != null && subItems.isNotEmpty()) continue
-            try {
-                assetManager.open("$assetPath/$fileName").use { input ->
-                    File(bundleDir, fileName).outputStream().use { output -> input.copyTo(output) }
+    override fun extractBundledScripts(onProgress: (Float) -> Unit) {
+        val tempZip = File(context.cacheDir, "scripts_bundle.zip")
+        val tempDir = File(context.filesDir, "scripts_tmp")
+
+        try {
+            // Copy zip from assets to temp file (needed for random-access ZipFile)
+            context.assets.open("scripts.zip").use { input ->
+                tempZip.outputStream().use { output -> input.copyTo(output) }
+            }
+
+            // Extract with progress
+            extractZipToDir(tempZip, tempDir, onProgress)
+
+            // Atomic swap: delete old → rename temp to scripts
+            scriptsDir.deleteRecursively()
+            tempDir.renameTo(scriptsDir)
+
+            // Update bundle versions from manifests
+            updateVersionsFromManifests()
+
+        } catch (e: Exception) {
+            // Extraction failed — clean up temp, keep old scripts if they exist
+            tempDir.deleteRecursively()
+            println("AndroidScriptStorage: extractBundledScripts failed: ${e.message}")
+        } finally {
+            tempZip.delete()
+        }
+    }
+
+    override fun installFromZip(zipFilePath: String, onProgress: (Float) -> Unit) {
+        val zipFile = File(zipFilePath)
+        if (!zipFile.exists()) return
+
+        val tempDir = File(context.filesDir, "scripts_tmp")
+
+        try {
+            extractZipToDir(zipFile, tempDir, onProgress)
+
+            // Atomic swap
+            scriptsDir.deleteRecursively()
+            tempDir.renameTo(scriptsDir)
+
+            updateVersionsFromManifests()
+        } catch (e: Exception) {
+            tempDir.deleteRecursively()
+            println("AndroidScriptStorage: installFromZip failed: ${e.message}")
+        }
+    }
+
+    override fun getScriptsDirectory(): String = scriptsDir.absolutePath
+
+    override fun checkAndDownloadRemoteUpdate(serverUrl: String, onProgress: (Float) -> Unit): Boolean {
+        return try {
+            // Step 1: Check remote version
+            val versionConn = java.net.URL("$serverUrl/api/version").openConnection() as java.net.HttpURLConnection
+            versionConn.connectTimeout = 5000
+            versionConn.readTimeout = 5000
+            val versionBody = versionConn.inputStream.bufferedReader().readText()
+            versionConn.disconnect()
+
+            val remoteVersion = JsonParser.parseObject(versionBody)["version"] as? String ?: return false
+            val localVersion = getLocalVersion()
+
+            if (localVersion != null && localVersion >= remoteVersion) {
+                onProgress(1f)
+                return false // Already up to date
+            }
+
+            // Step 2: Download zip
+            val downloadConn = java.net.URL("$serverUrl/api/download").openConnection() as java.net.HttpURLConnection
+            downloadConn.connectTimeout = 10000
+            downloadConn.readTimeout = 60000
+            val totalBytes = downloadConn.contentLength.toLong()
+
+            val tempZip = File(context.cacheDir, "scripts_remote.zip")
+            downloadConn.inputStream.use { input ->
+                tempZip.outputStream().use { output ->
+                    val buffer = ByteArray(8192)
+                    var bytesRead = 0L
+                    var len: Int
+                    while (input.read(buffer).also { len = it } != -1) {
+                        output.write(buffer, 0, len)
+                        bytesRead += len
+                        if (totalBytes > 0) onProgress(bytesRead.toFloat() / totalBytes * 0.5f)
+                    }
                 }
+            }
+            downloadConn.disconnect()
+
+            // Step 3: Extract and install
+            installFromZip(tempZip.absolutePath) { p -> onProgress(0.5f + p * 0.5f) }
+            tempZip.delete()
+            true
+        } catch (e: Exception) {
+            println("AndroidScriptStorage: Remote update failed: ${e.message}")
+            false
+        }
+    }
+
+    private fun extractZipToDir(zipFile: File, targetDir: File, onProgress: (Float) -> Unit) {
+        targetDir.deleteRecursively()
+        targetDir.mkdirs()
+
+        ZipFile(zipFile).use { zip ->
+            val entries = zip.entries().toList()
+            val total = entries.size.coerceAtLeast(1)
+            entries.forEachIndexed { index, entry ->
+                val file = File(targetDir, entry.name)
+                if (entry.isDirectory) {
+                    file.mkdirs()
+                } else {
+                    file.parentFile?.mkdirs()
+                    zip.getInputStream(entry).use { input ->
+                        file.outputStream().use { output -> input.copyTo(output) }
+                    }
+                }
+                onProgress((index + 1).toFloat() / total)
+            }
+        }
+    }
+
+    private fun updateVersionsFromManifests() {
+        scriptsDir.listFiles()?.filter { it.isDirectory }?.forEach { bundleDir ->
+            try {
+                val manifest = JsonParser.parseObject(readFile(bundleDir.name, "manifest.json"))
+                val version = manifest["version"] as? String ?: ""
+                if (version.isNotEmpty()) setVersion(bundleDir.name, version)
             } catch (_: Exception) { }
         }
-        try {
-            val manifest = JsonParser.parseObject(readFile(bundleName, "manifest.json"))
-            val version = manifest["version"] as? String ?: ""
-            if (version.isNotEmpty()) setVersion(bundleName, version)
-        } catch (_: Exception) { }
     }
 
     override fun readFile(bundleName: String, fileName: String): String {

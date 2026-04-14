@@ -24,6 +24,9 @@ Complete reference of all views, props, events, and functions available in the J
 - [7. Available Icons](#7-available-icons)
 - [8. Animation Config](#8-animation-config)
 - [9. Style System](#9-style-system)
+- [10. ScriptStorage Interface](#10-scriptstorage-interface)
+- [11. SplashScreen API](#11-splashscreen-api)
+- [12. Settings Persistence](#12-settings-persistence)
 
 ---
 
@@ -901,3 +904,102 @@ OnTheFly.registerStyles(JSON.stringify({
 | `opacity` | Float | Opacity (0.0–1.0) |
 
 Props on components **override** style values. Style values **override** defaults.
+
+---
+
+## 10. ScriptStorage Interface
+
+The `ScriptStorage` interface provides script file I/O, key-value persistence, zip-based bundling, and OTA update support.
+
+### Core Methods
+
+| Method | Return | Description |
+|--------|--------|-------------|
+| `readFile(bundleName, fileName)` | `String?` | Read a script file from a bundle |
+| `listBundles()` | `List<String>` | List all available script bundles |
+| `getManifest(bundleName)` | `String?` | Read bundle manifest.json |
+| `ensureInitialized()` | `Unit` | Ensure scripts directory exists and is populated |
+
+### Key-Value Storage (Persistent)
+
+| Method | Return | Description |
+|--------|--------|-------------|
+| `setKV(key, value)` | `Unit` | Save string value to persistent storage |
+| `getKV(key)` | `String?` | Read string value from persistent storage |
+| `removeKV(key)` | `Unit` | Remove key from persistent storage |
+
+### Zip Bundling & OTA Updates
+
+| Method | Return | Description |
+|--------|--------|-------------|
+| `getLocalVersion()` | `String?` | Get version of locally installed scripts |
+| `getBundledVersion()` | `String?` | Get version from bundled zip in app assets |
+| `extractBundledScripts(onProgress?)` | `Unit` | Extract bundled scripts.zip to local storage (atomic swap) |
+| `installFromZip(zipFilePath, onProgress?)` | `Unit` | Install scripts from a downloaded zip file (atomic swap) |
+| `getScriptsDirectory()` | `String` | Get absolute path to local scripts directory |
+| `checkAndDownloadRemoteUpdate(serverUrl, onProgress?)` | `Boolean` | Check remote server for updates, download and install if newer. Returns true if updated. |
+
+**Atomic swap pattern:** Extract to `scripts_tmp/` → delete old `scripts/` → rename `scripts_tmp/` to `scripts/`. On failure, `scripts_tmp/` is cleaned up and old scripts remain intact.
+
+### Platform Implementations
+
+| Platform | Class | Storage Backend |
+|----------|-------|-----------------|
+| Android | `AndroidScriptStorage` | `SharedPreferences` for KV, app internal files for scripts |
+| iOS | `IosScriptStorage` | `NSUserDefaults` for KV, documents directory for scripts |
+| Desktop | `DesktopScriptStorage` | `java.util.prefs.Preferences` for KV, file system for scripts |
+
+---
+
+## 11. SplashScreen API
+
+Native Compose splash screen that handles app initialization with visual progress feedback.
+
+```kotlin
+@Composable
+fun SplashScreen(
+    localStorage: ScriptStorage,
+    productionServerUrl: String? = null,  // set to enable OTA update check
+    appVersion: String = "1.0.0",
+    onReady: () -> Unit                   // called when initialization completes
+)
+```
+
+### Behavior
+
+1. Reads persisted `dark_mode` and `stock_lang` from `localStorage.getKV()` to theme itself
+2. Runs initialization in background: version check → extract bundled scripts → check OTA updates
+3. Displays smooth progress animation over minimum 2 seconds
+4. Supports dark/light theme and EN/VI localization
+5. Calls `onReady()` when initialization completes
+
+### Initialization Flow
+
+| Phase | Progress | Duration | Action |
+|-------|----------|----------|--------|
+| Checking | 0% → 30% | 400ms | Compare local vs bundled version |
+| Extracting | 30% → 75% | 800ms | Extract bundled scripts if newer |
+| Downloading | 75% → 95% | 500ms | Check & download OTA update (if server URL set) |
+| Ready | 95% → 100% | 200ms | Finalize |
+
+---
+
+## 12. Settings Persistence
+
+Dark mode and language preferences are persisted across app restarts.
+
+### JS → Native Storage (on user change)
+
+```javascript
+// In appState.js
+AppState.setDarkMode(enabled);
+// → OnTheFly.sendToNative("setStorage", { key: "dark_mode", value: String(enabled) })
+
+// In stockI18n.js
+StockI18n.setLang("vi");
+// → OnTheFly.sendToNative("setStorage", { key: "stock_lang", value: lang })
+```
+
+### Native → SharedDataStore (on app startup)
+
+`ScriptViewModel.restorePersistedPreferences()` reads `dark_mode` and `stock_lang` from `localStorage.getKV()` and sets them into `SharedDataStore` before scripts load. This ensures JS code sees the correct values immediately via `AppState.isDarkMode()` and `StockI18n.getLang()`.

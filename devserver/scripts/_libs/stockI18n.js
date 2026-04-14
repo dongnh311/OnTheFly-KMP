@@ -186,6 +186,8 @@ var StockI18n = (function() {
 
     function setLang(lang) {
         AppState.set("stock_lang", lang);
+        // Persist to native storage so it survives app restart
+        OnTheFly.sendToNative("setStorage", { key: "stock_lang", value: lang });
     }
 
     function t(key) {

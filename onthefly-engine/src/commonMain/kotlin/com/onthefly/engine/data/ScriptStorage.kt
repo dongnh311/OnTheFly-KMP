@@ -12,4 +12,18 @@ interface ScriptStorage {
     fun getKV(key: String): String?
     fun setKV(key: String, value: String)
     fun removeKV(key: String)
+
+    // Zip-based update flow
+    /** Read globalVersion from local scripts/version.json */
+    fun getLocalVersion(): String? = null
+    /** Read globalVersion from bundled zip (assets/scripts.zip) */
+    fun getBundledVersion(): String? = null
+    /** Extract bundled zip to local scripts directory with progress callback */
+    fun extractBundledScripts(onProgress: (Float) -> Unit = {}) { ensureInitialized() }
+    /** Install scripts from a downloaded zip file path */
+    fun installFromZip(zipFilePath: String, onProgress: (Float) -> Unit = {}) {}
+    /** Get the local scripts directory path */
+    fun getScriptsDirectory(): String = ""
+    /** Check remote server for updates, download and install if newer. Returns true if updated. */
+    fun checkAndDownloadRemoteUpdate(serverUrl: String, onProgress: (Float) -> Unit = {}): Boolean = false
 }

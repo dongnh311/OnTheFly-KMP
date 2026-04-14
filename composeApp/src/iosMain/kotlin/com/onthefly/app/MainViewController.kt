@@ -6,7 +6,10 @@ import com.onthefly.engine.platform.IosPlatformActions
 
 fun MainViewController() = ComposeUIViewController {
     val localStorage = IosScriptStorage()
-    localStorage.ensureInitialized()
     val platformActions = IosPlatformActions()
-    App(localStorage, platformActions)
+    App(
+        localStorage = localStorage,
+        platformActions = platformActions,
+        appVersion = "1.0.0"
+    )
 }

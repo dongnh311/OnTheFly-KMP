@@ -85,7 +85,35 @@ Python-based hot reload server. Watches `devserver/scripts/` for changes and pus
 
 Script bundles live in `devserver/scripts/screens/` — each bundle has `manifest.json`, `main.js`, and optional `theme.js`. Shared code in `_base/` and `_libs/`, i18n in `languages/`.
 
-The `copyScriptsToAssets` Gradle task (in `composeApp/build.gradle.kts`) copies scripts into Android assets on every build.
+The `zipScriptsToAssets` Gradle task (in `composeApp/build.gradle.kts`) creates `scripts.zip` in Android assets on every build. The app extracts this zip on first launch or when a newer bundled version is detected.
+
+### Release Server (Production OTA Simulation)
+
+The dev server includes a built-in release server on port 8082 for testing OTA updates:
+
+```bash
+cd devserver && python server.py build-release   # Build release zip + version.json
+cd devserver && python server.py release-server   # Start release server only
+# Or just run `python server.py` — release server auto-starts alongside dev server
+```
+
+Endpoints: `GET /api/version` (version check), `GET /api/download` (download zip).
+
+### Script Delivery Modes
+
+| Mode | Description |
+|---|---|
+| **Build APK** | `zipScriptsToAssets` bundles `scripts.zip` into assets. App extracts on first launch via `SplashScreen`. |
+| **Production OTA** | App checks release server for newer version, downloads zip, extracts with atomic swap. |
+| **Dev Hot Reload** | WebSocket push from dev server (unchanged). |
+
+### Splash Screen
+
+Native Compose `SplashScreen` handles initialization: version check → extract bundled scripts → check/download OTA updates. Displays for minimum 2 seconds with smooth progress animation. Reads persisted dark mode and language preferences to theme itself.
+
+### Settings Persistence
+
+Dark mode and language preferences are persisted to native storage (`SharedPreferences` on Android, `NSUserDefaults` on iOS, `java.util.prefs.Preferences` on Desktop) via `OnTheFly.sendToNative("setStorage", ...)` from JS. On app restart, `ScriptViewModel.restorePersistedPreferences()` restores them into `SharedDataStore` before scripts load.
 
 ## UI/View Change Rule — Props-First in Kotlin
 

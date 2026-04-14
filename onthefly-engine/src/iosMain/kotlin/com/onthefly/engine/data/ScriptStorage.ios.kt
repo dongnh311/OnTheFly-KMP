@@ -88,6 +88,18 @@ class IosScriptStorage : ScriptStorage {
         defaults.setObject(version, "version_$bundleName")
     }
 
+    override fun getLocalVersion(): String? {
+        val versionPath = "$scriptsDir/version.json"
+        if (!fileManager.fileExistsAtPath(versionPath)) return null
+        return try {
+            val content = NSString.stringWithContentsOfFile(versionPath, NSUTF8StringEncoding, null) ?: return null
+            val json = JsonParser.parseObject(content)
+            json["globalVersion"] as? String
+        } catch (_: Exception) { null }
+    }
+
+    override fun getScriptsDirectory(): String = scriptsDir
+
     override fun reset() {
         fileManager.removeItemAtPath(scriptsDir, null)
         defaults.removeObjectForKey("scripts_initialized")
