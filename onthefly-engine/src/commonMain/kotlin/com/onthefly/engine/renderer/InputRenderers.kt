@@ -378,7 +378,7 @@ fun RenderRadioGroup(c: UIComponent, onComponentEvent: (ComponentEvent) -> Unit,
         val value = option["value"] as? String ?: ""
         val optionLabel = option["label"] as? String ?: value
         Row(
-            modifier = Modifier.clickable {
+            modifier = Modifier.clickableNoIndication {
                 onComponentEvent(
                     ComponentEvent(EngineEvent.ON_RADIO_CHANGED, componentId, "{\"value\": \"$value\"}")
                 )

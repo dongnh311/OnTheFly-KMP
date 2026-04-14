@@ -1,6 +1,7 @@
 package com.onthefly.engine.renderer
 
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -206,6 +207,20 @@ fun Modifier.applyAccessibility(c: UIComponent): Modifier {
             }
         }
     }
+}
+
+/**
+ * Clickable without hover/ripple indication — used for all JS onClick handlers.
+ */
+@androidx.compose.runtime.Composable
+fun Modifier.clickableNoIndication(onClick: () -> Unit): Modifier {
+    return this.then(
+        Modifier.clickable(
+            indication = null,
+            interactionSource = androidx.compose.runtime.remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+            onClick = onClick
+        )
+    )
 }
 
 /**

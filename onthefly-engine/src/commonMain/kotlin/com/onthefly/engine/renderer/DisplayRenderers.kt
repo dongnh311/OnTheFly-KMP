@@ -81,7 +81,7 @@ fun RenderText(c: UIComponent, onEvent: (String) -> Unit, onComponentEvent: (Com
         .applyPadding(c, style)
         .applyOpacity(c.props["opacity"])
     if (onClick != null || componentId != null) {
-        mod = mod.clickable {
+        mod = mod.clickableNoIndication {
             if (componentId != null) onComponentEvent(ComponentEvent(EngineEvent.ON_CLICK, componentId))
             onClick?.let { onEvent(it) }
         }
@@ -208,7 +208,7 @@ fun RenderImage(c: UIComponent, onEvent: (String) -> Unit, onComponentEvent: (Co
 
     if (borderRadius > 0) mod = mod.clip(RoundedCornerShape(borderRadius.dp))
     if (onClick != null || componentId != null) {
-        mod = mod.clickable {
+        mod = mod.clickableNoIndication {
             if (componentId != null) onComponentEvent(ComponentEvent(EngineEvent.ON_CLICK, componentId))
             onClick?.let { onEvent(it) }
         }
@@ -250,7 +250,7 @@ fun RenderIcon(c: UIComponent, onEvent: (String) -> Unit, onComponentEvent: (Com
 
     var mod = modifier.size(size.dp)
     if (onClick != null || componentId != null) {
-        mod = mod.clickable {
+        mod = mod.clickableNoIndication {
             if (componentId != null) onComponentEvent(ComponentEvent(EngineEvent.ON_CLICK, componentId))
             onClick?.let { onEvent(it) }
         }

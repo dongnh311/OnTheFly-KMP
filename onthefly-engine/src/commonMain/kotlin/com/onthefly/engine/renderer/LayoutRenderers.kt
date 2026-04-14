@@ -101,7 +101,7 @@ fun RenderColumn(
 
     if (scrollable) mod = mod.verticalScroll(rememberScrollState())
     if (onClick != null || componentId != null) {
-        mod = mod.clickable {
+        mod = mod.clickableNoIndication {
             if (componentId != null) onComponentEvent(ComponentEvent(EngineEvent.ON_CLICK, componentId))
             onClick?.let { onEvent(it) }
         }
@@ -171,7 +171,7 @@ fun RenderRow(
 
     if (scrollable) mod = mod.horizontalScroll(rememberScrollState())
     if (onClick != null || componentId != null) {
-        mod = mod.clickable {
+        mod = mod.clickableNoIndication {
             if (componentId != null) onComponentEvent(ComponentEvent(EngineEvent.ON_CLICK, componentId))
             onClick?.let { onEvent(it) }
         }
@@ -251,7 +251,7 @@ fun RenderBox(
     mod = mod.applyPadding(c, style)
 
     if (onClick != null || componentId != null) {
-        mod = mod.clickable {
+        mod = mod.clickableNoIndication {
             if (componentId != null) onComponentEvent(ComponentEvent(EngineEvent.ON_CLICK, componentId))
             onClick?.let { onEvent(it) }
         }

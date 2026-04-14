@@ -297,7 +297,7 @@ fun RenderAvatar(
         mod = mod.border(borderWidth.dp, borderColor, CircleShape)
     }
     if (onClick != null || componentId != null) {
-        mod = mod.clickable {
+        mod = mod.clickableNoIndication {
             if (componentId != null) onComponentEvent(ComponentEvent(EngineEvent.ON_CLICK, componentId))
             onClick?.let { onEvent(it) }
         }
@@ -395,7 +395,7 @@ fun RenderChip(
     Row(
         modifier = modifier
             .background(currentBg, RoundedCornerShape(borderRadius.dp))
-            .clickable {
+            .clickableNoIndication {
                 onComponentEvent(ComponentEvent(EngineEvent.ON_CLICK, componentId))
                 onClick?.let { onEvent(it) }
             }

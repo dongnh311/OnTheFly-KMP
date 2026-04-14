@@ -322,7 +322,7 @@ fun RenderDrawer(
         Box(
             modifier = Modifier.fillMaxSize()
                 .background(Color.Black.copy(alpha = 0.4f))
-                .clickable {
+                .clickableNoIndication {
                     onDismiss?.let { onEvent(it) }
                 }
         )
@@ -357,7 +357,7 @@ fun RenderDrawer(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable {
+                            .clickableNoIndication {
                                 onComponentEvent(
                                     ComponentEvent(
                                         EngineEvent.ON_CLICK,

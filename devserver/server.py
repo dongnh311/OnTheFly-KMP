@@ -812,10 +812,13 @@ class DevHandler(http.server.BaseHTTPRequestHandler):
         p = args[0] if args else ''
         if '/version' in str(p): return
         if '/status' in str(p): return
-        req = str(p)
-        filename = req.rsplit('/', 1)[-1].split(' ')[0] if '/' in req else ''
+        # Extract filename from request path
+        path = self.path if hasattr(self, 'path') else ''
+        filename = path.rsplit('/', 1)[-1] if '/' in path else ''
         if filename:
-            super().log_message(format + " file:  %s", *args, filename)
+            msg = (format % args) + f' file: {filename}'
+            import sys
+            sys.stderr.write(f'{self.address_string()} - - [{self.log_date_time_string()}] {msg}\n')
         else:
             super().log_message(format, *args)
 
