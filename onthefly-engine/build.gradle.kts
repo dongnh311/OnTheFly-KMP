@@ -1,3 +1,4 @@
+import com.vanniktech.maven.publish.SonatypeHost
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
@@ -6,11 +7,17 @@ plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.compose.multiplatform)
     alias(libs.plugins.kotlin.compose)
-    `maven-publish`
+    id("com.vanniktech.maven.publish") version "0.30.0"
 }
 
-group = "com.onthefly"
-version = "1.0.0"
+group = "io.github.dongnh311"
+version = project.findProperty("VERSION_NAME") as String? ?: "1.0.0"
+
+// The Maven Central publish workflow runs on ubuntu-latest and skips the iOS
+// targets because the QuickJS cinterop expects Rust-built static libraries
+// under native/rust/ios_libs/ which are not committed. Pass -PskipIos for the
+// publish to succeed; local dev leaves iOS enabled.
+val skipIos = project.hasProperty("skipIos")
 
 kotlin {
     androidTarget {
@@ -19,27 +26,28 @@ kotlin {
         publishLibraryVariants("release")
     }
 
-    listOf(iosX64(), iosArm64(), iosSimulatorArm64()).forEach { iosTarget ->
-        iosTarget.binaries.framework {
-            baseName = "OnTheFlyEngine"
-            isStatic = true
-        }
-        iosTarget.compilations.getByName("main") {
-            cinterops {
-                val quickjs by creating {
-                    defFile(project.file("src/nativeInterop/cinterop/quickjs.def"))
-                    val targetName = iosTarget.name
-                    compilerOpts(
-                        "-I${rootProject.projectDir}/native/ios",
-                    )
-                    // Rust-built static library
-                    extraOpts("-libraryPath", "${rootProject.projectDir}/native/rust/ios_libs/$targetName")
+    if (!skipIos) {
+        listOf(iosX64(), iosArm64(), iosSimulatorArm64()).forEach { iosTarget ->
+            iosTarget.binaries.framework {
+                baseName = "OnTheFlyEngine"
+                isStatic = true
+            }
+            iosTarget.compilations.getByName("main") {
+                cinterops {
+                    val quickjs by creating {
+                        defFile(project.file("src/nativeInterop/cinterop/quickjs.def"))
+                        val targetName = iosTarget.name
+                        compilerOpts(
+                            "-I${rootProject.projectDir}/native/ios",
+                        )
+                        extraOpts("-libraryPath", "${rootProject.projectDir}/native/rust/ios_libs/$targetName")
+                    }
                 }
             }
-        }
-        iosTarget.binaries.all {
-            val targetName = iosTarget.name
-            linkerOpts("-L${rootProject.projectDir}/native/rust/ios_libs/$targetName", "-lonthefly_engine")
+            iosTarget.binaries.all {
+                val targetName = iosTarget.name
+                linkerOpts("-L${rootProject.projectDir}/native/rust/ios_libs/$targetName", "-lonthefly_engine")
+            }
         }
     }
 
@@ -72,8 +80,10 @@ kotlin {
             implementation(libs.ktor.client.okhttp)
         }
 
-        iosMain.dependencies {
-            implementation(libs.ktor.client.darwin)
+        if (!skipIos) {
+            iosMain.dependencies {
+                implementation(libs.ktor.client.darwin)
+            }
         }
 
         desktopMain.dependencies {
@@ -96,21 +106,43 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    // Native library built by Rust (see native/rust/build_android.sh)
-    // Pre-built .so files go in src/androidMain/jniLibs/{abi}/
     sourceSets["main"].jniLibs.srcDirs("src/androidMain/jniLibs")
 }
 
-publishing {
-    repositories {
-        maven {
-            name = "GitHubPackages"
-            url = uri("https://maven.pkg.github.com/dongnh311/OnTheFly-KMP")
-            credentials {
-                username = project.findProperty("gpr.user") as String? ?: System.getenv("GITHUB_ACTOR")
-                password = project.findProperty("gpr.key") as String? ?: System.getenv("GITHUB_TOKEN")
+mavenPublishing {
+    publishToMavenCentral(SonatypeHost.CENTRAL_PORTAL, automaticRelease = true)
+    signAllPublications()
+
+    coordinates(
+        groupId = project.group.toString(),
+        artifactId = "onthefly-engine",
+        version = project.version.toString(),
+    )
+
+    pom {
+        name.set("OnTheFly Engine")
+        description.set("Dynamic UI engine for Kotlin Multiplatform — renders native Compose widgets from JavaScript via QuickJS")
+        inceptionYear.set("2026")
+        url.set("https://github.com/dongnh311/OnTheFly-KMP")
+        licenses {
+            license {
+                name.set("Apache-2.0")
+                url.set("https://www.apache.org/licenses/LICENSE-2.0.txt")
+                distribution.set("repo")
             }
         }
-        mavenLocal()
+        developers {
+            developer {
+                id.set("dongnh311")
+                name.set("DongNH")
+                email.set("hoaidongit5@gmail.com")
+                url.set("https://github.com/dongnh311")
+            }
+        }
+        scm {
+            url.set("https://github.com/dongnh311/OnTheFly-KMP")
+            connection.set("scm:git:git://github.com/dongnh311/OnTheFly-KMP.git")
+            developerConnection.set("scm:git:ssh://git@github.com/dongnh311/OnTheFly-KMP.git")
+        }
     }
 }
