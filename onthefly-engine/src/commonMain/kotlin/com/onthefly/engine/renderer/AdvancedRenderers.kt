@@ -41,6 +41,7 @@ import com.onthefly.engine.model.UIComponent
 import com.onthefly.engine.style.parseFontWeight
 import com.onthefly.engine.style.parseTextAlign
 import com.onthefly.engine.style.toComposeColor
+import kotlin.math.roundToInt
 
 // ═══════════════════════════════════════════════════════════
 //  RichText
@@ -145,8 +146,12 @@ fun RenderSlider(
                     Text(label, style = MaterialTheme.typography.bodyMedium)
                 }
                 if (showValue) {
+                    // String.format is JVM-only. Round to 1 decimal via
+                    // integer arithmetic and lean on Double.toString which
+                    // already renders 1.0 / 1.2 with a single fractional
+                    // digit on every KMP target.
                     Text(
-                        text = String.format("%.1f", value),
+                        text = ((value * 10).roundToInt() / 10.0).toString(),
                         style = MaterialTheme.typography.bodySmall,
                         color = Color.Gray
                     )
