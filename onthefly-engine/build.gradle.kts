@@ -113,12 +113,6 @@ mavenPublishing {
     publishToMavenCentral(SonatypeHost.CENTRAL_PORTAL, automaticRelease = true)
     signAllPublications()
 
-    coordinates(
-        groupId = project.group.toString(),
-        artifactId = "onthefly-engine",
-        version = project.version.toString(),
-    )
-
     pom {
         name.set("OnTheFly Engine")
         description.set("Dynamic UI engine for Kotlin Multiplatform — renders native Compose widgets from JavaScript via QuickJS")
